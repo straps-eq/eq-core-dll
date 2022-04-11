@@ -30,3 +30,10 @@
 *.exe
 *.out
 *.app
+
+.vs/
+build/
+enc_temp_folder/
+bin/
+Debug/
+Release/

@@ -1,0 +1,223 @@
+# Microsoft Developer Studio Generated Dependency File, included by MQ2Main.mak
+
+.\EQClasses.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2ChatHook.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2CleanUI.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2CommandAPI.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2Commands.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2DetourAPI.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2DInput.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2Globals.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\combines.h"\
+	".\dikeys.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\grounds.h"\
+	".\itemtypes.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	".\skills.h"\
+	".\weapons.h"\
+	
+
+.\MQ2MacroCommands.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2Main.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2Mouse.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2Parms.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2ParseAPI.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2PluginHandler.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2Pulse.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2UserVars.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
+
+.\MQ2Utilities.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+
+
+.\MQ2Spawns.cpp : \
+	"..\dependencies\detours\inc\detours.h"\
+	".\EQClasses.h"\
+	".\EQData.h"\
+	".\eqgame.h"\
+	".\EQUIStructs.h"\
+	".\MQ2Globals.h"\
+	".\MQ2Internal.h"\
+	".\MQ2Main.h"\
+	".\MQ2Prototypes.h"\
+	
