@@ -16,10 +16,15 @@ bool isBazaarWindowDisabled = false;
 bool areCustomNPCsEnabled = false;
 
 static NPCEntry NPCs[] = {
+    // raceID, modelName, genderID, dbStrID
     NPCEntry(728, "GBM", 2, 1),
 };
 
 // areCustomZonesEnabled if set to true will allow custom zones defined in Zones[] to be injected in game
 bool areCustomZonesEnabled = false;
 
+static ZoneEntry Zones[] = {
+    // zoneType, zoneID, zoneShortName, zoneLongName, eqStrID, zoneFlags2, x, y, z
+    ZoneEntry(0, 787, "hollows", "Darkened Hollows", 35154, 4, 0, 0, 0),
+};
 #endif
