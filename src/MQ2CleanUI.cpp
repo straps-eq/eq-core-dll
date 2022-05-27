@@ -21,7 +21,7 @@ GNU General Public License for more details.
 //#define DEBUG_TRY 1
 #include "MQ2Main.h"
 
-char *OurCaption = "Edge is loading...";
+char *OurCaption = "Core is loading...";
 
 class CDisplayHook 
 { 

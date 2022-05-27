@@ -884,19 +884,21 @@ void InitHooks()
 	//rename("highpasshold.eqg", "highpasshold.eqg.bak");
 	//rename("nektulos.eqg", "nektulos.eqg.bak");
 	//rename("lavastorm.eqg", "lavastorm.eqg.bak");
-
 	InitOffsets();
 	GetEQPath(gszEQPath);
 	InitializeCriticalSection(&gDetourCS);
-	InitializeDisplayHook();
-	InitializeChatHook();
-	InitializeMQ2Commands();
-	InitializeMQ2Windows();
-	InitializeMQ2Pulse();
-	InitializeMQ2Spawns();
-	InitializeMapPlugin();
-	InitializeMQ2ItemDisplay();
-	InitializeMQ2Labels();
+	
+	if (isMQInjectsEnabled) {
+		InitializeDisplayHook();
+		InitializeChatHook();
+		InitializeMQ2Commands();
+		InitializeMQ2Windows();
+		InitializeMQ2Pulse();
+		InitializeMQ2Spawns();
+		InitializeMapPlugin();
+		InitializeMQ2ItemDisplay();
+		InitializeMQ2Labels();
+	}
 
 	if (!baseAddress) return;
 	InitOptions();
@@ -1137,14 +1139,16 @@ bool __cdecl MQ2Initialize()
    InitializeParser();
 #endif
    InitializeMQ2Detours();
-   InitializeDisplayHook();
-   InitializeChatHook();
-   InitializeMQ2Spawns();
-   InitializeMQ2Pulse();
-   InitializeMQ2Commands();
-   InitializeMQ2Windows();
-   InitializeMapPlugin();
-  // InitializeMQ2KeyBinds();
+   if (isMQInjectsEnabled) {
+	InitializeDisplayHook();
+	InitializeChatHook();
+	InitializeMQ2Spawns();
+	InitializeMQ2Pulse();
+	InitializeMQ2Commands();
+	InitializeMQ2Windows();
+	InitializeMapPlugin();
+	// InitializeMQ2KeyBinds();
+   }
    return true;
 }
 

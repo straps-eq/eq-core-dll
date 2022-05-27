@@ -14,10 +14,10 @@ GNU General Public License for more details.
 ******************************************************************************/
 
 #define VersionString "September 23, 2004"
-#define DebugHeader "[Edge]"
-#define LoadedString "Edge Extensions Loaded."
-#define ToUnloadString "Edge Unloading..."
-#define UnloadedString "Edge Unloaded."
+#define DebugHeader "[Core]"
+#define LoadedString "Core Extensions Loaded."
+#define ToUnloadString "Core Unloading..."
+#define UnloadedString "Core Unloaded."
 
 #define WIN32_LEAN_AND_MEAN
 #define _WIN32_WINNT 0x510

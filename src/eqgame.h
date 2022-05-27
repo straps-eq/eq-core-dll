@@ -23,7 +23,7 @@
 
 #define __ClientOverride                                           0
 #define __MacroQuestWinClassName                                  "__MacroQuestTray"
-#define __MacroQuestWinName                                       "Edge"
+#define __MacroQuestWinName                                       "Core"
 
 // Memory Protection
 #define __MemChecker0_x                                            0x5643F0

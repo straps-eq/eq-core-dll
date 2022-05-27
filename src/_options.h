@@ -2,6 +2,10 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
+// isMQInjectsEnabled will cause some edge-inspired features to work:
+// MQ2Spawns, MQ2Maps, MQ2Commands, MQ2Windows, MQ2Pulse, MQ2Spawns, MapPlugin, MQ2ItemDisplay, MQ2Labels
+bool isMQInjectsEnabled = false;
+
 // isMapWindowDisabled if set to true will disable the map in game
 // If disabled, you need to remove MQ2Map.cpp/h references too else it'll populate NPC data on a map that doesn't exist
 bool isMapWindowDisabled = false;

@@ -3439,8 +3439,8 @@ case '.':
     Arg[j][k] = Buffer[i];
     k++;
     break;
-case ' ':
-case '²':
+case 'ï¿½':
+case 'ï¿½':
     //              GracefullyEndBadMacro(((PCHARINFO)pCharData)->pSpawn,gMacroBlock, "Calculate encountered a unparsed variable '%s'",&(Buffer[i]));
     return false;
 default:
@@ -4439,7 +4439,7 @@ PCHAR FormatSearchSpawn(PCHAR Buffer, PSEARCHSPAWN pSearchSpawn)
         strcat(Buffer,szTemp);
     }
     if (pSearchSpawn->ZRadius<10000.0f) {
-        sprintf(szTemp," Z:±%1.2f",pSearchSpawn->ZRadius);
+        sprintf(szTemp," Z:ï¿½%1.2f",pSearchSpawn->ZRadius);
         strcat(Buffer,szTemp);
     }
     if (pSearchSpawn->Radius>0.0f) {
@@ -5525,7 +5525,7 @@ VOID SuperWhoDisplay(PSPAWNINFO pChar, PSEARCHSPAWN pSearchSpawn, DWORD Color)
 #ifndef ISXEQ_LEGACY
 DWORD WINAPI thrMsgBox(LPVOID lpParameter)
 {
-    MessageBox(NULL,(PCHAR)lpParameter,"Edge",MB_OK);
+    MessageBox(NULL,(PCHAR)lpParameter,"Core",MB_OK);
     free(lpParameter);
     return 0;
 }

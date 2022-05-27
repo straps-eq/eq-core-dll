@@ -308,14 +308,16 @@ bool __cdecl MQ2Initialize()
     InitializeParser();
 #endif
     InitializeMQ2Detours();
-    InitializeDisplayHook();
-    InitializeChatHook();
-    InitializeMQ2Spawns();
-    InitializeMQ2Pulse();
-    InitializeMQ2Commands();
-    InitializeMQ2Windows();
-    Sleep(100);
-    InitializeMQ2KeyBinds();
+    if (isMQInjectsEnabled) {
+        InitializeDisplayHook();
+        InitializeChatHook();
+        InitializeMQ2Spawns();
+        InitializeMQ2Pulse();
+        InitializeMQ2Commands();
+        InitializeMQ2Windows();
+        Sleep(100);
+        InitializeMQ2KeyBinds();
+    }
 #ifndef ISXEQ
     InitializeMQ2Plugins();
 #endif

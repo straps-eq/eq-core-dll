@@ -602,8 +602,8 @@ VOID Help(PSPAWNINFO pChar, PCHAR szLine)
         cmdHelp(pChar,szArg);
         return;
     }
-    DebugSpew("Help - Displaying Edge help");
-    sprintf(szCmd,"Edge - %s",gszVersion);
+    DebugSpew("Help - Displaying Core help");
+    sprintf(szCmd,"Core - %s",gszVersion);
     WriteChatColor(" ",USERCOLOR_DEFAULT);
     WriteChatColor(szCmd,USERCOLOR_DEFAULT);
     WriteChatColor("List of commands",USERCOLOR_DEFAULT);
