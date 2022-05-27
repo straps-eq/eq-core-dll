@@ -15,9 +15,15 @@ bool isBazaarWindowDisabled = false;
 // areCustomNPCsEnabled if set to true will allow the NPCs defined in NPCs[] to be injected in game
 bool areCustomNPCsEnabled = false;
 
+// NPC Entry:
+// raceID is the index. If it's a new NPC, start at 733. You'll need to update the rule NPC:MaxRaceID
+// GenderID ranges from 0 to 2 usually
+// modelName is the race's shortname tag
+// raceMask is a range of flags, typically using 8 is safe for most NPCs, but e.g. 1 = drivable boat, 2 = ridable boat, etc
+// dbStrID if left to 1 reverts to raceID as it's ID, otherwise you can custom set one, and it'll look up dbStr for info
 static NPCEntry NPCs[] = {
-    // raceID, modelName, genderID, dbStrID
-    NPCEntry(728, "GBM", 2, 1),
+    // raceID, genderID, modelName, raceMask, dbStrID
+    NPCEntry(733, 2, "SHI", 3, 1),
 };
 
 // areCustomZonesEnabled if set to true will allow custom zones defined in Zones[] to be injected in game
