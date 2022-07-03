@@ -182,37 +182,6 @@ char __fastcall SetCCreateCameraHook(DWORD thisptr)
 	return return_SetCCreateCameraDet(thisptr);;
 }
 
-int __fastcall SelectCharacterHook(DWORD* thisptr, int a2, int a3, int a4)
-{
-	int retVal = return_SelectCharacterDet(thisptr, a2, a3, a4);
-
-	if (pLocalPlayer && pDisplay && GetGameState() == GAMESTATE_CHARSELECT)
-	{
-		//bool evil = IsEvil(pLocalPlayer->Data.Race, pLocalPlayer->Data.Class, pLocalPlayer->Data.Deity);
-		//if (evil)
-		//{
-		//	pLocalPlayer->Data.Z = 12.75f;
-		//	pLocalPlayer->Data.Y = 5.0f;
-		//	pLocalPlayer->Data.X = -316.0f;
-		//}
-		//else
-		//{
-		//	pLocalPlayer->Data.X = 0.0f;
-		//	pLocalPlayer->Data.Y = 0.0f;
-		//	pLocalPlayer->Data.Z = 10.0f;
-		//}	{
-		pLocalPlayer->Data.X = -254.48f;
-		pLocalPlayer->Data.Y = 494.71f;
-		pLocalPlayer->Data.Z = -271.0f;
-		double result = 0.0f;
-		result = ((DWORD(__thiscall*) (LPVOID, int, int)) 0x0049D620) ((LPVOID)pDisplay, 12, 0); //position on ground
-		result = ((DWORD(__thiscall*) (LPVOID)) 0x00496AF0) ((LPVOID)pDisplay); // update player
-		((int(__thiscall*) (LPVOID)) 0x59ECF0) ((LPVOID)pLocalPlayer); // move player
-	}
-
-	return retVal;
-}
-
 int fsize(FILE *fp) {
 
 	int sz = 0;
@@ -302,11 +271,11 @@ int __fastcall CXWndActivateHook(CXWnd* thisptr)
 	//	return 0;
 	//}
 
-	if ((DWORD*)thisptr->pvfTable == (DWORD*)0x009ECDA8) //Leadership
+	/*if ((DWORD*)thisptr->pvfTable == (DWORD*)0x009ECDA8) //Leadership
 	{
 		((int(__thiscall*) (LPVOID, bool, bool, bool)) 0x00865290) (thisptr, 0, 1, 1);
 		return 0;
-	}
+	}*/
 
 	//if ((DWORD*)thisptr->pvfTable == (DWORD*)0x009EE940) //Leadership
 	//{
@@ -850,7 +819,6 @@ void SkipSplash()
 
 }
 
-
 void PatchSaveBypass()
 {
 
@@ -887,7 +855,7 @@ void InitHooks()
 	InitOffsets();
 	GetEQPath(gszEQPath);
 	InitializeCriticalSection(&gDetourCS);
-	
+
 	if (isMQInjectsEnabled) {
 		InitializeDisplayHook();
 		InitializeChatHook();
@@ -902,36 +870,45 @@ void InitHooks()
 
 	if (!baseAddress) return;
 	InitOptions();
-	
 
 	DWORD var = (((DWORD)0x008C4CE0 - 0x400000) + baseAddress);
+
+
+	if (isHeroicDisabled) {
+		var = (((DWORD)0x0044410C - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "\x90\x90\xEB", 3); // Remove heroic Stamina
+
+		var = (((DWORD)0x00442B36 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "\x90\x90\xEB", 3); // Remove heroic int
+		var = (((DWORD)0x00442BB6 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "\x90\x90\xEB", 3); // Remove heroic wis
+	}
+
 	EzDetour((DWORD)var, SendMessage_Detour, SendMessage_Trampoline);
 
 	var = (((DWORD)0x004C3250 - 0x400000) + baseAddress);
 	EzDetour((DWORD)var, HandleWorldMessage_Detour, HandleWorldMessage_Trampoline);
-	   
-	//basedata as spell CRC begin
-	var = (((DWORD)0x00AA6980 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "spells_us.txt", 13);
 
-	DWORD varToPatch = (((DWORD)0x00AA6980 - 0x400000) + baseAddress);
-	var = (((DWORD)0x004EEAAB - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, (void*)&varToPatch, 4);
-	//basedata as spell CRC end
+	if (isSpellDataCRCEnabled) {
+		//basedata as spell CRC begin
+		var = (((DWORD)0x00AA6980 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "spells_us.txt", 13);
 
-	var = (((DWORD)0x0044410C - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "\x90\x90\xEB", 3); // Remove heroic Stamina
+		DWORD varToPatch = (((DWORD)0x00AA6980 - 0x400000) + baseAddress);
+		var = (((DWORD)0x004EEAAB - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (void*)&varToPatch, 4);
+		//basedata as spell CRC end
+	}
 
-	var = (((DWORD)0x00442B36 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "\x90\x90\xEB", 3); // Remove heroic int
-	var = (((DWORD)0x00442BB6 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "\x90\x90\xEB", 3); // Remove heroic wis
 
 	//#pragma comment(lib, "Iphlpapi.lib")
 
+	/*
 	var = (((DWORD)0x004538AE - 0x400000) + baseAddress);
 	PatchA((DWORD*)var, "\x90\x90\xEB",
 		3); // Fix Max HP setting
+
+	*/
 	//0065CC71
 	//var = (((DWORD)0x0065CC09 - 0x400000) + baseAddress);
 	//PatchA((DWORD*)var, "\x90\x90\x90\x90",
@@ -956,12 +933,13 @@ void InitHooks()
 	//var = (((DWORD)0x00A1ACE0 - 0x400000) + baseAddress);
 	//PatchA((DWORD*)var, "\x4F", 1); // Link stuff
 
+	/* // Make Saylinks 8 bytes instead of 6
 	var = (((DWORD)0x004ED062 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "\x08", 1); // Fix current HP cap
+	PatchA((DWORD*)var, "\x08", 1); // Saylinks
 
 	var = (((DWORD)0x004ED083 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "\x08", 1); // Fix current HP cap
-
+	PatchA((DWORD*)var, "\x08", 1); // Saylinks
+	*/
 	//var = (((DWORD)0x0063C36F - 0x400000) + baseAddress);
 	//PatchA((DWORD*)var, "\x90\x90\x90\x90", 4); // Bazaar trader anywhere
 
@@ -978,40 +956,52 @@ void InitHooks()
 	//PatchA((DWORD*)var, "\x90\x90", 2); // nop trader check
 	var = ((0x00507b30 - 0x400000) + baseAddress);
 	return_SetCCreateCameraDet = (SetCCreateCamera_t)DetourFunction((PBYTE)var, (PBYTE)SetCCreateCameraHook);
-	   
-	var = (((DWORD)0x005FE751 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "\xEB\x1C\x90\x90\x90", 5); // patchme req bypass
+
+	if (isPatchmeDisabled) {
+		var = (((DWORD)0x005FE751 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "\xEB\x1C\x90\x90\x90", 5); // patchme req bypass
+	}
+
+	if (isFoodDrinkSpamDisabled) {
+		var = (((DWORD)0x0045AE9F - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "\x90\x90\xE9\x76\x03\x00\x00\x90",
+			8); // Fix food/drink spam
+	}
+
+	if (isMQ2PreventionEnabled) {
+		auto charToBreak = rand();
+
+		var = (((DWORD)0x009DD250 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+		charToBreak = rand();
+		var = (((DWORD)0x009DD254 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+		charToBreak = rand();
+		var = (((DWORD)0x009DD258 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+		charToBreak = rand();
+		var = (((DWORD)0x009DD25C - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+		charToBreak = rand();
+		var = (((DWORD)0x009DD260 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+	}
 
 
-	var = (((DWORD)0x0045AE9F - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "\x90\x90\xE9\x76\x03\x00\x00\x90",
-		8); // Fix food/drink spam
-	auto charToBreak = rand();
+	if (isGammaRestoreOnCrashEnabled) {
+		HMODULE hkernel32Mod = GetModuleHandle("kernel32.dll");
+		DWORD gmfadress = (DWORD)GetProcAddress(hkernel32Mod, "GetModuleFileNameA");
+		EzDetour(gmfadress, GetModuleFileNameA_detour, GetModuleFileNameA_tramp);
 
-	var = (((DWORD)0x009DD250 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
-
-	charToBreak = rand();
-	var = (((DWORD)0x009DD254 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
-
-	charToBreak = rand();
-	var = (((DWORD)0x009DD258 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
-
-	charToBreak = rand();
-	var = (((DWORD)0x009DD25C - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
-
-	charToBreak = rand();
-	var = (((DWORD)0x009DD260 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
-	HMODULE hkernel32Mod = GetModuleHandle("kernel32.dll");
-	DWORD gmfadress = (DWORD)GetProcAddress(hkernel32Mod, "GetModuleFileNameA");
-	EzDetour(gmfadress, GetModuleFileNameA_detour, GetModuleFileNameA_tramp);
-	HMODULE gdi32mod = GetModuleHandle("gdi32.dll");
-	DWORD jmpToDeviceGamma = (DWORD)GetProcAddress(gdi32mod, "SetDeviceGammaRamp");
-	EzDetour(jmpToDeviceGamma, SetDeviceGammaRamp_Hook, SetDeviceGammaRamp_Trampoline);
+		HMODULE gdi32mod = GetModuleHandle("gdi32.dll");
+		DWORD jmpToDeviceGamma = (DWORD)GetProcAddress(gdi32mod, "SetDeviceGammaRamp");
+		EzDetour(jmpToDeviceGamma, SetDeviceGammaRamp_Hook, SetDeviceGammaRamp_Trampoline);
+	}
+	
 }
 
 void ExitHooks()
