@@ -9,36 +9,38 @@ bool isGammaRestoreOnCrashEnabled = false;
 // MQ2Spawns, MQ2Maps, MQ2Commands, MQ2Windows, MQ2Pulse, MQ2Spawns, MapPlugin, MQ2ItemDisplay, MQ2Labels
 bool isMQInjectsEnabled = false;
 
-// isMapWindowDisabled if set to true will disable the map in game
-// If disabled, you need to remove MQ2Map.cpp/h references too else it'll populate NPC data on a map that doesn't exist
+// isMapWindowDisabled if set to true will do a soft patch to disable the map in game. If disabled, I suggest isMQInjectsEnabled being false as well, else npc data is still populated
 bool isMapWindowDisabled = false;
 
 // areLuclinModelsDisabled if set to true disables the ability for luclin models to load, forcing classic models
 bool areLuclinModelsDisabled = false;
 
-// isBazaarWindowDisabled if set to true will disable the bazaar window in game
+// isBazaarWindowDisabled if set to true will disable the bazaar window in game by doing a soft patch.
 bool isBazaarWindowDisabled = false;
 
 // isHeroicDisabled if set to true will make heroic stats not display
 bool isHeroicDisabled = false;
 
-// isSpellDataCRCEnabled if set to true will send spell data to the server as a CRC check, needs a server side modification
-bool isSpellDataCRCEnabled = false;
-
-// isMaxHPFixEnabled if set to true allows hp beyond 10 million
+// isMaxHPFixEnabled if set to true allows hp beyond 10 million, this is a rare situation for custom servers
 bool isMaxHPFixEnabled = false;
 
-// areCustomNPCsEnabled if set to true will allow the NPCs defined in NPCs[] to be injected in game
-bool areCustomNPCsEnabled = false;
-
-// isPatchmeDisabled if set to true will no longer require players to use the patchme shortcut on eqgame.exe, it'll always start proper
+// isPatchmeDisabled if set to true will let you double click eqgame.exe and not get the "Please run EverQuest" message, will start properly
 bool isPatchmeDisabled = false;
 
-// isFoodDrinkSpamDisabled if set to true will stop you are hungry/thirsty messages to display on client
+// isFoodDrinkSpamDisabled if set to true will stop you are hungry/thirsty messages to display on client. If server side isn't disabled, you can still get negative effects.
 bool isFoodDrinkSpamDisabled = false;
 
 // isMQ2PreventionEnabled if set to true will do basic prevention of mq2 by randomizing the version string, primitive anticheat
 bool isMQ2PreventionEnabled = false;
+
+// isSpellDataCRCEnabled if set to true will send spell data to the server as a CRC check, needs a server side modification not yet supported by eqemu master
+bool isSpellDataCRCEnabled = false;
+
+
+// ***** NPC *******
+
+// areCustomNPCsEnabled if set to true will allow the NPCs defined in NPCs[] to be injected in game
+bool areCustomNPCsEnabled = false;
 
 // NPC Entry:
 // raceID is the index. If it's a new NPC, start at 733. You'll need to update the rule NPC:MaxRaceID
@@ -50,6 +52,10 @@ static NPCEntry NPCs[] = {
     // raceID, genderID, modelName, raceMask, dbStrID
     NPCEntry(733, 2, "SHI", 3, 1),
 };
+
+
+
+// ***** ZONE *******
 
 // areCustomZonesEnabled if set to true will allow custom zones defined in Zones[] to be injected in game
 bool areCustomZonesEnabled = false;
