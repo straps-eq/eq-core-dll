@@ -188,6 +188,7 @@ typedef struct EdgeDPSEntry
 #define DETOUR_TRAMPOLINE_EMPTY(blah)
 #else
 #define EzDetour(offset,detour,trampoline) AddDetourf((DWORD)offset,detour,trampoline)
+#define EzDetourwName(offset,detour,trampoline,name) AddDetourf((DWORD)offset,detour,trampoline,name)
 #endif
 #endif
 

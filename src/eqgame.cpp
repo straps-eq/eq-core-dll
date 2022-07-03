@@ -18,6 +18,8 @@
 #include <iphlpapi.h>
 #include <IPTypes.h>
 #include "spaghetti.h"
+#include <limits.h>
+#include <intrin.h>
 
 #include "core_init.h"
 
@@ -124,6 +126,48 @@ bool SetTime = false;
 std::map<std::string, LONGLONG> simpleFileList;
 
 DWORD timeGetTimeVal = 0;
+
+// CPUSpeed
+const uint32_t CalcCpuTicks_x = 0x809820;  // GetCpuTicks1?
+const uint32_t frequency_x = 0x15D3618; // g_i64CPUTicksPerMillisecond, used by GetCpuTicks2 (0x8097E0)
+uint32_t  CalcCpuTicks = 0;
+uint64_t* freq = nullptr;
+uint64_t  orig = 0;
+class CPUID {
+	uint32_t regs[4];
+
+public:
+	explicit CPUID(unsigned i) {
+		__cpuid((int*)regs, (int)i);
+	}
+
+	const uint32_t& EAX() const { return regs[0]; }
+	const uint32_t& EBX() const { return regs[1]; }
+	const uint32_t& ECX() const { return regs[2]; }
+	const uint32_t& EDX() const { return regs[3]; }
+};
+
+void adjustFreq()
+{
+	LARGE_INTEGER li;
+	if (freq && *freq && ::QueryPerformanceFrequency(&li))
+	{
+		DebugSpew("MQ2CpuSpeedFix adjusting CPU ticks per ms from %llu to %llu", *freq, li.QuadPart);
+		orig = *freq;
+		*freq = li.QuadPart;
+	}
+}
+
+void __cdecl CalcCpuTicks_Trampoline(uint32_t, uint32_t);
+void __cdecl CalcCpuTicks_Detour(uint32_t cpuSpeed2, uint32_t cpuSpeed3)
+{
+	CalcCpuTicks_Trampoline(cpuSpeed2, cpuSpeed3);
+	adjustFreq();
+}
+
+DETOUR_TRAMPOLINE_EMPTY(void __cdecl CalcCpuTicks_Trampoline(uint32_t, uint32_t));
+
+
 
 int __fastcall ValueSellMerchantHook(DWORD* thisptr, float a2, float a3)
 {
@@ -857,6 +901,7 @@ void InitHooks()
 	InitializeCriticalSection(&gDetourCS);
 
 	if (isMQInjectsEnabled) {
+		DebugSpew("applying mq2 injects");
 		InitializeDisplayHook();
 		InitializeChatHook();
 		InitializeMQ2Commands();
@@ -873,8 +918,34 @@ void InitHooks()
 
 	DWORD var = (((DWORD)0x008C4CE0 - 0x400000) + baseAddress);
 
+	// TODO: (do not enable yet, just testing) isCpuSpeedFixEnabled is recommended to be true. Some CPUs have a symptom where the game runs too fast, future EQ clients have this enabled
+	bool isCpuSpeedFixEnabled = false;
 
+	if (isCpuSpeedFixEnabled) {
+
+		CPUID cpuID(0); // Get CPU vendor
+
+		bool isCandidate = false;
+		if (cpuID.EDX() && 4) {
+			DebugSpew("cpu has TSC enabled"); //https://en.wikipedia.org/wiki/CPUID tsc bitflag 4 on edx
+			isCandidate = true;
+		}
+
+		if (isCandidate && CalcCpuTicks_x && frequency_x) {
+			DebugSpew("applying cpu speed fix");
+			CalcCpuTicks = FixOffset(CalcCpuTicks_x);
+			freq = reinterpret_cast<uint64_t*>(FixOffset(frequency_x)); // offset to low part of 64 bit var
+
+			// race here, hook CalcCpuTicks if we're early
+			// don't allow this to change in game because it will cause a freeze
+			EzDetourwName(CalcCpuTicks, &CalcCpuTicks_Detour, &CalcCpuTicks_Trampoline, "MQ2CpuSpeedFix_CalcCpuTicks");
+			if (gGameState != GAMESTATE_CHARSELECT && gGameState != GAMESTATE_INGAME) {
+				adjustFreq();
+			}
+		}
+	}
 	if (isHeroicDisabled) {
+		DebugSpew("disabling heroic stats");
 		var = (((DWORD)0x0044410C - 0x400000) + baseAddress);
 		PatchA((DWORD*)var, "\x90\x90\xEB", 3); // Remove heroic Stamina
 
@@ -890,6 +961,7 @@ void InitHooks()
 	EzDetour((DWORD)var, HandleWorldMessage_Detour, HandleWorldMessage_Trampoline);
 
 	if (isSpellDataCRCEnabled) {
+		DebugSpew("enabling spell data crc");
 		//basedata as spell CRC begin
 		var = (((DWORD)0x00AA6980 - 0x400000) + baseAddress);
 		PatchA((DWORD*)var, "spells_us.txt", 13);
@@ -958,17 +1030,20 @@ void InitHooks()
 	return_SetCCreateCameraDet = (SetCCreateCamera_t)DetourFunction((PBYTE)var, (PBYTE)SetCCreateCameraHook);
 
 	if (isPatchmeDisabled) {
+		DebugSpew("disabling patchme");
 		var = (((DWORD)0x005FE751 - 0x400000) + baseAddress);
 		PatchA((DWORD*)var, "\xEB\x1C\x90\x90\x90", 5); // patchme req bypass
 	}
 
 	if (isFoodDrinkSpamDisabled) {
+		DebugSpew("disabling food drink spam");
 		var = (((DWORD)0x0045AE9F - 0x400000) + baseAddress);
 		PatchA((DWORD*)var, "\x90\x90\xE9\x76\x03\x00\x00\x90",
 			8); // Fix food/drink spam
 	}
 
 	if (isMQ2PreventionEnabled) {
+		DebugSpew("mq2 prevention enabled");
 		auto charToBreak = rand();
 
 		var = (((DWORD)0x009DD250 - 0x400000) + baseAddress);
@@ -993,6 +1068,7 @@ void InitHooks()
 
 
 	if (isGammaRestoreOnCrashEnabled) {
+		DebugSpew("applying gamma restore on crash fix");
 		HMODULE hkernel32Mod = GetModuleHandle("kernel32.dll");
 		DWORD gmfadress = (DWORD)GetProcAddress(hkernel32Mod, "GetModuleFileNameA");
 		EzDetour(gmfadress, GetModuleFileNameA_detour, GetModuleFileNameA_tramp);
@@ -1130,6 +1206,7 @@ bool __cdecl MQ2Initialize()
 #endif
    InitializeMQ2Detours();
    if (isMQInjectsEnabled) {
+	DebugSpew("initializing mq2 hooks");
 	InitializeDisplayHook();
 	InitializeChatHook();
 	InitializeMQ2Spawns();
