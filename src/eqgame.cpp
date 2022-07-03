@@ -918,21 +918,19 @@ void InitHooks()
 
 	DWORD var = (((DWORD)0x008C4CE0 - 0x400000) + baseAddress);
 
-	// TODO: (do not enable yet, just testing) isCpuSpeedFixEnabled is recommended to be true. Some CPUs have a symptom where the game runs too fast, future EQ clients have this enabled
-	bool isCpuSpeedFixEnabled = false;
-
 	if (isCpuSpeedFixEnabled) {
 
-		CPUID cpuID(0); // Get CPU vendor
+		
+		CPUID cpuID(0x80000007); // Get CPU vendor
 
 		bool isCandidate = false;
-		if (cpuID.EDX() && 4) {
-			DebugSpew("cpu has TSC enabled"); //https://en.wikipedia.org/wiki/CPUID tsc bitflag 4 on edx
+		if ((cpuID.EDX() & (1 << 8)) != 0) {
+			DebugSpew("cpu has CMPXCHG8 enabled"); //https://en.wikipedia.org/wiki/CPUID CMPXCHG8 bitflag 8 on edx
 			isCandidate = true;
 		}
 
 		if (isCandidate && CalcCpuTicks_x && frequency_x) {
-			DebugSpew("applying cpu speed fix");
+			DebugSpew("cpu speed fix needed, applying trampoline");
 			CalcCpuTicks = FixOffset(CalcCpuTicks_x);
 			freq = reinterpret_cast<uint64_t*>(FixOffset(frequency_x)); // offset to low part of 64 bit var
 
@@ -942,6 +940,9 @@ void InitHooks()
 			if (gGameState != GAMESTATE_CHARSELECT && gGameState != GAMESTATE_INGAME) {
 				adjustFreq();
 			}
+		}
+		else {
+			DebugSpew("cpu is not candidate for speed fix");
 		}
 	}
 	if (isHeroicDisabled) {

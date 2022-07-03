@@ -5,6 +5,11 @@
 // isGammaRestoreOnCrashEnabled is recommended to be true. When eqgame crashes, this restores your gamma. future EQ clients have this enabled.
 bool isGammaRestoreOnCrashEnabled = false;
 
+// isCpuSpeedFixEnabled is recommended to be true. Some CPUs have a symptom where the game runs too fast, future EQ clients have this enabled
+// if a person reports the game running too fast, try enabling and giving this DLL.
+// if this is enabled and your animations are going sluggish, it may be an incorrect cpu check. Let Xackery know in discord
+bool isCpuSpeedFixEnabled = false;
+
 // isMQInjectsEnabled if set to true will cause some edge-inspired features to work:
 // MQ2Spawns, MQ2Maps, MQ2Commands, MQ2Windows, MQ2Pulse, MQ2Spawns, MapPlugin, MQ2ItemDisplay, MQ2Labels
 bool isMQInjectsEnabled = false;
