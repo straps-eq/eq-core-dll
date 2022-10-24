@@ -1,15 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommand>C:\games\eq\rof2-vanilla\eqgame.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommand>$(OutDir)\eqgame.exe</LocalDebuggerCommand>
     <LocalDebuggerCommandArguments>patchme</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\games\eq\rof2-vanilla</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommand>C:\eq\rof\eqgame.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommand>$(OutDir)\eqgame.exe</LocalDebuggerCommand>
     <LocalDebuggerCommandArguments>patchme</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\eq\rof\</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>
