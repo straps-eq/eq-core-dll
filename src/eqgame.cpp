@@ -868,7 +868,14 @@ void InitHooks()
 
 		var = (((DWORD)0x00444198 - 0x400000) + baseAddress); // Fix current endurance
 		PatchA((DWORD*)var, "\x90\x90\xEB\x64", 4); 
+
+		var = (((DWORD)0x004ED062 - 0x400000) + baseAddress); // Fix current HP cap
+		PatchA((DWORD*)var, "\x08", 1); 
+		 
+		var = (((DWORD)0x004ED083 - 0x400000) + baseAddress); // Fix current HP cap
+		PatchA((DWORD*)var, "\x08", 1); 
 	}
+
 	//0065CC71
 	//var = (((DWORD)0x0065CC09 - 0x400000) + baseAddress);
 	//PatchA((DWORD*)var, "\x90\x90\x90\x90",
@@ -893,13 +900,6 @@ void InitHooks()
 	//var = (((DWORD)0x00A1ACE0 - 0x400000) + baseAddress);
 	//PatchA((DWORD*)var, "\x4F", 1); // Link stuff
 
-	/* // Make Saylinks 8 bytes instead of 6
-	var = (((DWORD)0x004ED062 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "\x08", 1); // Saylinks
-
-	var = (((DWORD)0x004ED083 - 0x400000) + baseAddress);
-	PatchA((DWORD*)var, "\x08", 1); // Saylinks
-	*/
 	//var = (((DWORD)0x0063C36F - 0x400000) + baseAddress);
 	//PatchA((DWORD*)var, "\x90\x90\x90\x90", 4); // Bazaar trader anywhere
 
