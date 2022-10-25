@@ -862,6 +862,12 @@ void InitHooks()
 
 		var = (((DWORD)0x00449F64 - 0x400000) + baseAddress); // Fix current HP cap
 		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90", 13); 
+
+		var = (((DWORD)0x00444308 - 0x400000) + baseAddress); // Fix current mana amounts
+		PatchA((DWORD*)var, "\x90\x90\xEB\x64", 4); 
+
+		var = (((DWORD)0x00444198 - 0x400000) + baseAddress); // Fix current endurance
+		PatchA((DWORD*)var, "\x90\x90\xEB\x64", 4); 
 	}
 	//0065CC71
 	//var = (((DWORD)0x0065CC09 - 0x400000) + baseAddress);
@@ -960,13 +966,15 @@ void InitHooks()
 		EzDetour(jmpToDeviceGamma, SetDeviceGammaRamp_Hook, SetDeviceGammaRamp_Trampoline);
 	}
 
+	/*
+	* // Disable for the time being, causes crashes, offsets appear to be off
 	if (isNativeGammaEnabled) {
 		var = (((DWORD)0x004972AC - 0x400000) + baseAddress); // Nop the gamma slider
 		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90",35);
 
 		var = (((DWORD)0x00709AC1 - 0x400000) + baseAddress); // Nop the gamma slider
 		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\xE9\xD0\x00\x90", 10); 
-	}
+	}*/
 	
 }
 
