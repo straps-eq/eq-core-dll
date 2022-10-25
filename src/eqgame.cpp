@@ -869,11 +869,8 @@ void InitHooks()
 		var = (((DWORD)0x00444198 - 0x400000) + baseAddress); // Fix current endurance
 		PatchA((DWORD*)var, "\x90\x90\xEB\x64", 4); 
 
-		var = (((DWORD)0x004ED062 - 0x400000) + baseAddress); // Fix current HP cap
-		PatchA((DWORD*)var, "\x08", 1); 
-		 
-		var = (((DWORD)0x004ED083 - 0x400000) + baseAddress); // Fix current HP cap
-		PatchA((DWORD*)var, "\x08", 1); 
+		var = (((DWORD)0x0045F26E - 0x400000) + baseAddress); // Disable regen ticks // maybe hp
+		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\xE9\xB3\x01\x00\x00\x90", 11);
 	}
 
 	//0065CC71
@@ -882,6 +879,11 @@ void InitHooks()
 		// 4); // Fix tradeskill containers
 
 	//DWORD varArray = (((DWORD)0x009BFF6D - 0x400000) + baseAddress);
+	//var = (((DWORD)0x004ED062 - 0x400000) + baseAddress);
+	//PatchA((DWORD*)var, "\x08", 1); // Link stuff
+
+	//var = (((DWORD)0x004ED083 - 0x400000) + baseAddress);
+	//PatchA((DWORD*)var, "\x08", 1); // Link stuff
 
 	//var = (((DWORD)0x004ED03B - 0x400000) + baseAddress);
 	//PatchA((DWORD*)var, "\x4C", 1); // Link stuff
