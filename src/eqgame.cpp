@@ -535,6 +535,42 @@ unsigned char __fastcall HandleWorldMessage_Detour(DWORD *con, DWORD edx, unsign
 
 DETOUR_TRAMPOLINE_EMPTY(unsigned char __fastcall HandleWorldMessage_Trampoline(DWORD *con, DWORD edx, unsigned __int32 unk, unsigned __int16 opcode, char* buf, size_t size));
 
+unsigned char __fastcall SendMessage_Trampoline(DWORD*, unsigned __int32, unsigned __int32, char* buf, size_t, DWORD, DWORD);
+unsigned char __fastcall SendMessage_Detour(DWORD* con, unsigned __int32 unk, unsigned __int32 channel, char* buf, size_t size, DWORD a6, DWORD a7)
+{
+	DWORD retval = 0;
+	bExeChecksumrequested = 1;
+	int16_t opcode = 0;
+	memcpy(&opcode, buf, 2);
+
+	if (isMQ2PreventionEnabled) {
+		DWORD var = 0;
+		auto charToBreak = rand();
+		var = (((DWORD)0x009DD250 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+		charToBreak = rand();
+		var = (((DWORD)0x009DD254 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+		charToBreak = rand();
+		var = (((DWORD)0x009DD258 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+		charToBreak = rand();
+		var = (((DWORD)0x009DD25C - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+		charToBreak = rand();
+		var = (((DWORD)0x009DD260 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+	}
+	retval = SendMessage_Trampoline(con, unk, channel, buf, size, a6, a7);
+	return retval;
+}
+
+DETOUR_TRAMPOLINE_EMPTY(unsigned char __fastcall SendMessage_Trampoline(DWORD*, unsigned __int32, unsigned __int32, char* buf, size_t, DWORD, DWORD));
+
 DETOUR_TRAMPOLINE_EMPTY(unsigned char __fastcall SetDeviceGammaRamp_Trampoline(HDC hdc, LPVOID lpRamp));
 
 signed int ProcessGameEvents_Hook()
@@ -758,6 +794,11 @@ void InitHooks()
 		var = (((DWORD)0x004EEAAB - 0x400000) + baseAddress);
 		PatchA((DWORD*)var, (void*)&varToPatch, 4);
 		//basedata as spell CRC end
+	}
+
+	if (isCombatDamageDoubleAppliedFixEnabled) {
+		var = (((DWORD)0x0045385D - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90", 30); //hp damage in combat abilities fix
 	}
 
 

@@ -41,6 +41,10 @@ bool isMQ2PreventionEnabled = false;
 // isSpellDataCRCEnabled if set to true will send spell data to the server as a CRC check, needs a server side modification not yet supported by eqemu master
 bool isSpellDataCRCEnabled = false;
 
+// isCombatDamageDoubleAppliedFixEnabled fixes a bug in rof2 where combat damage applied to client state is applied twice.
+// it is the main cause of players falling unconsious while the server still thinks they're alive
+// also can help with bouncing healthbar issues
+bool isCombatDamageDoubleAppliedFixEnabled = false;
 
 // ***** NPC *******
 
