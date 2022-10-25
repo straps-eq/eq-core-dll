@@ -854,11 +854,8 @@ void InitHooks()
 		var = (((DWORD)0x00449F64 - 0x400000) + baseAddress); // Fix current HP cap
 		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90", 13);
 
-		var = (((DWORD)0x00449E3B - 0x400000) + baseAddress); // HP fix - the real deal
-		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\xE9\x1B\x01\x00\x00\x90", 13);
-
-		var = (((DWORD)0x00449F62 - 0x400000) + baseAddress); // HP fix - the real deal
-		PatchA((DWORD*)var, "\x90\x90", 2);
+		var = (((DWORD)0x004538AE - 0x400000) + baseAddress); // Fix Max HP setting
+		PatchA((DWORD*)var, "\x90\x90\xEB", 3);
 	}
 
 	//0065CC71
