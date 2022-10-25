@@ -6,10 +6,6 @@
 // This also may fix eq trying to modify your gamma settings
 bool isGammaRestoreOnCrashEnabled = false;
 
-// isNativeGammaEnabled is recommended to be true, this disables the gamma slider in game from doing anything, and never lets EQ adjust gamma
-// if this is enabled, isGammaRestoreOnCrashEnabled is ignored since it isn't needed
-bool isNativeGammaEnabled = false;
-
 // isCpuSpeedFixEnabled is recommended to be true. Some CPUs have a symptom where the game runs too fast, future EQ clients have this enabled
 // if a person reports the game running too fast, try enabling and giving this DLL.
 // if this is enabled and your animations are going sluggish, it may be an incorrect cpu check. Let Xackery know in discord
@@ -32,6 +28,7 @@ bool isBazaarWindowDisabled = false;
 bool isHeroicDisabled = false;
 
 // isMaxHPFixEnabled if set to true allows hp beyond 10 million, this is a rare situation for custom servers
+// It also applies fixes where hp/mana/endurance state is more believed from server than client, this can cause strange status bar reports if client is out of sync
 bool isMaxHPFixEnabled = false;
 
 // isPatchmeDisabled if set to true will let you double click eqgame.exe and not get the "Please run EverQuest" message, will start properly
