@@ -848,29 +848,11 @@ void InitHooks()
 	//#pragma comment(lib, "Iphlpapi.lib")
 
 	if (isMaxHPFixEnabled) {
-		var = (((DWORD)0x004538AE - 0x400000) + baseAddress); // Fix Max HP setting
-		PatchA((DWORD*)var, "\x90\x90\xEB", 3); 
-
 		var = (((DWORD)0x00444158 - 0x400000) + baseAddress); // Fix max HP cap
 		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90", 12);
 
-		var = (((DWORD)0x00449E3B - 0x400000) + baseAddress); // HP fix - the real deal
-		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\xE9\x1B\x01\x00\x00\x90", 13); 
-
-		var = (((DWORD)0x00449F62 - 0x400000) + baseAddress); // HP fix - the real deal
-		PatchA((DWORD*)var, "\x90\x90", 2);
-
 		var = (((DWORD)0x00449F64 - 0x400000) + baseAddress); // Fix current HP cap
-		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90", 13); 
-
-		var = (((DWORD)0x00444308 - 0x400000) + baseAddress); // Fix current mana amounts
-		PatchA((DWORD*)var, "\x90\x90\xEB\x64", 4); 
-
-		var = (((DWORD)0x00444198 - 0x400000) + baseAddress); // Fix current endurance
-		PatchA((DWORD*)var, "\x90\x90\xEB\x64", 4); 
-
-		var = (((DWORD)0x0045F26E - 0x400000) + baseAddress); // Disable regen ticks // maybe hp
-		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\xE9\xB3\x01\x00\x00\x90", 11);
+		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90", 13);
 	}
 
 	//0065CC71
