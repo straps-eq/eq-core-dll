@@ -542,28 +542,71 @@ unsigned char __fastcall SendMessage_Detour(DWORD* con, unsigned __int32 unk, un
 	bExeChecksumrequested = 1;
 	int16_t opcode = 0;
 	memcpy(&opcode, buf, 2);
+	if (opcode == 0xf13 || opcode == 0x578f)
+	{
+		if (isReportHardwareAddressEnabled) {
+			IP_ADAPTER_INFO AdapterInfo[16];
+			BYTE macAddress[8];
+			memset(macAddress, 0, sizeof(macAddress));
+			DWORD dwBufLen = sizeof(AdapterInfo);
+			DWORD dwStatus = GetAdaptersInfo(AdapterInfo, &dwBufLen);
+			if (dwStatus == ERROR_SUCCESS)
+			{
 
-	if (isMQ2PreventionEnabled) {
-		DWORD var = 0;
-		auto charToBreak = rand();
-		var = (((DWORD)0x009DD250 - 0x400000) + baseAddress);
-		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+				IP_ADAPTER_INFO AdapterInfo[16];
+				DWORD dwBufLen = sizeof(AdapterInfo);
+				DWORD dwStatus = GetAdaptersInfo(AdapterInfo, &dwBufLen);
 
-		charToBreak = rand();
-		var = (((DWORD)0x009DD254 - 0x400000) + baseAddress);
-		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+				MacEntry_Struct* me = new MacEntry_Struct;
+				memset(me, 0, sizeof(MacEntry_Struct));
+				me->opcode = 0xf13;
+				memcpy(&me->address, AdapterInfo[0].Address, 8);
 
-		charToBreak = rand();
-		var = (((DWORD)0x009DD258 - 0x400000) + baseAddress);
-		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+				SendMessage_Trampoline(con, unk, channel, (char*)me,
+					sizeof(MacEntry_Struct), a6, a7);
 
-		charToBreak = rand();
-		var = (((DWORD)0x009DD25C - 0x400000) + baseAddress);
-		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+				delete me;
+			}
+		}
 
-		charToBreak = rand();
-		var = (((DWORD)0x009DD260 - 0x400000) + baseAddress);
-		PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+		if (isMQ2PreventionEnabled) {
+			DWORD var = 0;
+			auto charToBreak = rand();
+			var = (((DWORD)0x009DD250 - 0x400000) + baseAddress);
+			PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+			charToBreak = rand();
+			var = (((DWORD)0x009DD254 - 0x400000) + baseAddress);
+			PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+			charToBreak = rand();
+			var = (((DWORD)0x009DD258 - 0x400000) + baseAddress);
+			PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+			charToBreak = rand();
+			var = (((DWORD)0x009DD25C - 0x400000) + baseAddress);
+			PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+
+			charToBreak = rand();
+			var = (((DWORD)0x009DD260 - 0x400000) + baseAddress);
+			PatchA((DWORD*)var, (DWORD*)&charToBreak, 4);
+		}
+
+		if (isChecksumFixEnabled && opcode == 0xf13)
+		{
+			Checksum_Struct* cs = (Checksum_Struct*)buf;
+			SimpleChecksum_Struct* scs = new SimpleChecksum_Struct;
+			memset(scs, 0, sizeof(SimpleChecksum_Struct));
+			scs->opcode = 0xf13;
+			scs->checksum = cs->checksum;
+
+			retval = SendMessage_Trampoline(con, unk, channel, (char*)scs,
+				sizeof(Checksum_Struct), a6, a7);
+
+			delete scs;
+
+			return retval;
+		}
 	}
 	retval = SendMessage_Trampoline(con, unk, channel, buf, size, a6, a7);
 	return retval;

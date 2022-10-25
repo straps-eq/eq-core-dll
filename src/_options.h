@@ -41,10 +41,17 @@ bool isMQ2PreventionEnabled = false;
 // isSpellDataCRCEnabled if set to true will send spell data to the server as a CRC check, needs a server side modification not yet supported by eqemu master
 bool isSpellDataCRCEnabled = false;
 
-// isCombatDamageDoubleAppliedFixEnabled fixes a bug in rof2 where combat damage applied to client state is applied twice.
+// isCombatDamageDoubleAppliedFixEnabled if set to true fixes a bug in rof2 where combat damage applied to client state is applied twice.
 // it is the main cause of players falling unconsious while the server still thinks they're alive
 // also can help with bouncing healthbar issues
 bool isCombatDamageDoubleAppliedFixEnabled = false;
+
+// isChecksumFixEnabled if set to true will override the normal checksum logic, if your server is not supporting checksums, can be left false
+bool isChecksumFixEnabled = false;
+
+// isReportHardwareAddressEnabled if set to true will inspect mac addresses and send a more informative context of where EQ is running. 
+// This requires custom server side code that is not in eqemu master branch, and in majority of cases can be left false
+bool isReportHardwareAddressEnabled = false;
 
 // ***** NPC *******
 
