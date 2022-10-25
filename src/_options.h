@@ -3,7 +3,12 @@
 #define OPTIONS_H
 
 // isGammaRestoreOnCrashEnabled is recommended to be true. When eqgame crashes, this restores your gamma. future EQ clients have this enabled.
+// This also may fix eq trying to modify your gamma settings
 bool isGammaRestoreOnCrashEnabled = false;
+
+// isNativeGammaEnabled is recommended to be true, this disables the gamma slider in game from doing anything, and never lets EQ adjust gamma
+// if this is enabled, isGammaRestoreOnCrashEnabled is ignored since it isn't needed
+bool isNativeGammaEnabled = false;
 
 // isCpuSpeedFixEnabled is recommended to be true. Some CPUs have a symptom where the game runs too fast, future EQ clients have this enabled
 // if a person reports the game running too fast, try enabling and giving this DLL.

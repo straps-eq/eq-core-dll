@@ -959,6 +959,14 @@ void InitHooks()
 		DWORD jmpToDeviceGamma = (DWORD)GetProcAddress(gdi32mod, "SetDeviceGammaRamp");
 		EzDetour(jmpToDeviceGamma, SetDeviceGammaRamp_Hook, SetDeviceGammaRamp_Trampoline);
 	}
+
+	if (isNativeGammaEnabled) {
+		var = (((DWORD)0x004972AC - 0x400000) + baseAddress); // Nop the gamma slider
+		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90",35);
+
+		var = (((DWORD)0x00709AC1 - 0x400000) + baseAddress); // Nop the gamma slider
+		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90\xE9\xD0\x00\x90", 10); 
+	}
 	
 }
 
