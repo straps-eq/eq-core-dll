@@ -51,6 +51,10 @@ bool isCombatDamageDoubleAppliedFixEnabled = false;
 // isChecksumFixEnabled if set to true will override the normal checksum logic, if your server is not supporting checksums, can be left false
 bool isChecksumFixEnabled = false;
 
+// isOldModelHorseSupportEnabled if set to true enables horses while using old models
+// quality of life for those that don't enjoy Luclin models but want their benefits
+bool isOldModelHorseSupportEnabled = false;
+
 // isReportHardwareAddressEnabled if set to true will inspect mac addresses and send a more informative context of where EQ is running. 
 // This requires custom server side code that is not in eqemu master branch, and in majority of cases can be left false
 bool isReportHardwareAddressEnabled = false;
