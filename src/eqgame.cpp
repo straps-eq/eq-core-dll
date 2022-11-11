@@ -824,6 +824,12 @@ void InitHooks()
 		PatchA((DWORD*)var, "\x90\x90\xEB", 3); // Remove heroic wis
 	}
 
+	if (isOldModelHorseSupportEnabled) {
+		DebugSpew("enabling old model mount support");
+		var = (((DWORD)0x0058DE28 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "\x32\xC0", 2); // No mount models
+	}
+
 	var = (((DWORD)0x004C3250 - 0x400000) + baseAddress);
 	EzDetour((DWORD)var, HandleWorldMessage_Detour, HandleWorldMessage_Trampoline);
 
