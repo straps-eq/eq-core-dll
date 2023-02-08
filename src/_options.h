@@ -2,7 +2,7 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
-// isGammaRestoreOnCrashEnabled is recommended to be true. When eqgame crashes, this restores your gamma. future EQ clients have this enabled.
+// isGammaRestoreOnCrashEnabled. When eqgame crashes, this restores your gamma. future EQ clients have this enabled.
 // This also may fix eq trying to modify your gamma settings
 bool isGammaRestoreOnCrashEnabled = false;
 
