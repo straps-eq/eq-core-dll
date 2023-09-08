@@ -2472,50 +2472,6 @@ VOID BankList(PSPAWNINFO pChar, PCHAR szLine)
 }
 
 // ***************************************************************************
-// Function:      WindowState
-// Description:      Our /windowstate command. Toggles windows open/closed.
-// ***************************************************************************
-VOID WindowState(PSPAWNINFO pChar, PCHAR szLine)
-{
-    CHAR Arg1[MAX_STRING] = {0};
-    CHAR Arg2[MAX_STRING] = {0};
-    GetArg(Arg1,szLine,1);
-    GetArg(Arg2,szLine,2);
-    if (PCSIDLWND pWnd=(PCSIDLWND)FindMQ2Window(Arg1)) 
-    {
-        DWORD ShowWindow = (DWORD)pWnd->pvfTable->ShowWindow;
-        CHAR szBuffer[MAX_STRING] = {0};
-        BYTE State=99;
-        if (!stricmp(Arg2,"open")) State=1;
-        if (!stricmp(Arg2,"close")) State=0;
-        if (pWnd->dShow==State) State=99;
-        switch (State) {
-                case 0:
-                    ((CXWnd*)pWnd)->Show(0,1);
-                    sprintf(szBuffer,"Window '%s' is now closed.",pWnd->WindowText->Text);
-                    ((CSidlScreenWnd*)pWnd)->StoreIniVis();
-                    break;
-                case 1:
-                    __asm {
-                        push ecx;
-                        mov ecx, [pWnd];
-                        call dword ptr [ShowWindow];
-                        pop ecx;
-                    }
-                    sprintf(szBuffer,"Window '%s' is now open.",pWnd->WindowText->Text);
-                    ((CSidlScreenWnd*)pWnd)->StoreIniVis();
-                    break;
-                case 99:
-                    sprintf(szBuffer,"Window '%s' is currently %s",pWnd->WindowText->Text,(pWnd->dShow==0)?"closed":"open");
-                    break;
-        }
-        WriteChatColor(szBuffer,USERCOLOR_DEFAULT);
-        return;
-    }
-    SyntaxError("Usage: /windowstate <window> [open|close]");
-}
-
-// ***************************************************************************
 // Function:      DisplayLoginName
 // Description:   Our /loginname command.
 // ***************************************************************************
@@ -2810,27 +2766,6 @@ VOID ClearErrorsCmd(PSPAWNINFO pChar, PCHAR szLine)
     gszLastNormalError[0]=0;
     gszLastSyntaxError[0]=0;
     gszLastMQ2DataError[0]=0;
-}
-
-VOID CombineCmd(PSPAWNINFO pChar, PCHAR szLine)
-{
-    if (!szLine[0])
-    {
-        SyntaxError("Usage: /combine <pack>");
-        return;
-    }
-    CXWnd *pWnd=FindMQ2Window(szLine);
-    if (!pWnd)
-    {
-        MacroError("Window '%s' not open",szLine);
-        return;
-    }
-    if ((DWORD)pWnd->pvfTable!=CContainerWnd__vftable)
-    {
-        MacroError("Window '%s' not container window",szLine);
-        return;
-    }
-    ((CContainerWnd*)pWnd)->HandleCombine();
 }
 
 VOID DropCmd(PSPAWNINFO pChar, PCHAR szLine)

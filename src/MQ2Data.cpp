@@ -195,14 +195,6 @@ TLO(dataCorpse)
 
 TLO(dataWindow)
 {
-    if (ISINDEX())
-    {
-        if (Ret.Ptr=FindMQ2Window(GETFIRST()))
-        {
-            Ret.Type=pWindowType;
-            return true;
-        }
-    }
     return false;
 }
 

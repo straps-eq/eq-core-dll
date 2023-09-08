@@ -161,7 +161,6 @@
     <ClCompile Include="MQ2Pulse.cpp" />
     <ClCompile Include="MQ2Spawns.cpp" />
     <ClCompile Include="MQ2Utilities.cpp" />
-    <ClCompile Include="MQ2Windows.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="_options.h" />
@@ -172,8 +171,7 @@
     <ClInclude Include="core_bazaar.h" />
     <ClInclude Include="core_models.h" />
     <ClInclude Include="core_init.h" />
-
-    <ClInclude Include="common.h" />  
+    <ClInclude Include="common.h" />
     <ClInclude Include="EQClasses.h" />
     <ClInclude Include="EQData.h" />
     <ClInclude Include="EQDetours.h" />

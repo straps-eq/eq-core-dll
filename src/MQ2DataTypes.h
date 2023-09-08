@@ -2035,8 +2035,6 @@ public:
     }
     bool FromString(MQ2VARPTR &VarPtr, PCHAR Source)
     {
-        if (VarPtr.Ptr=FindMQ2Window(Source))
-            return true;
         return false;
     }
 };

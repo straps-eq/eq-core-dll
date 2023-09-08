@@ -773,7 +773,6 @@ void InitHooks()
 		InitializeDisplayHook();
 		InitializeChatHook();
 		InitializeMQ2Commands();
-		InitializeMQ2Windows();
 		InitializeMQ2Pulse();
 		InitializeMQ2Spawns();
 		InitializeMapPlugin();
@@ -1100,7 +1099,6 @@ bool __cdecl MQ2Initialize()
 	InitializeMQ2Spawns();
 	InitializeMQ2Pulse();
 	InitializeMQ2Commands();
-	InitializeMQ2Windows();
 	InitializeMapPlugin();
 	// InitializeMQ2KeyBinds();
    }

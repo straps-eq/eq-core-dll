@@ -237,15 +237,12 @@ EQLIB_API BOOL SetNameSpriteState(PSPAWNINFO pSpawn, bool Show);
 EQLIB_API BOOL IsTargetable(PSPAWNINFO pSpawn);
 
 /* WINDOWS */
-EQLIB_API VOID InitializeMQ2Windows();
-EQLIB_API VOID ShutdownMQ2Windows();
 EQLIB_API void RemoveXMLFile(const char *filename);
 EQLIB_API void AddXMLFile(const char *filename);
 EQLIB_API bool SendWndClick(PCHAR WindowName, PCHAR ScreenID, PCHAR ClickNotification);
 EQLIB_API bool SendWndNotification(PCHAR WindowName, PCHAR ScreenID, DWORD Notification, VOID *Data=0);
 EQLIB_API void AddWindow(char *WindowName, CXWnd **ppWindow);
 EQLIB_API void RemoveWindow(char *WindowName);
-EQLIB_API CXWnd *FindMQ2Window(PCHAR Name);
 EQLIB_API CXWnd *GetParentWnd(class CXWnd const * pWnd);
 
 EQLIB_API bool SendListSelect(PCHAR WindowName, PCHAR ScreenID, DWORD Value);
