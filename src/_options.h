@@ -75,7 +75,14 @@ static NPCEntry NPCs[] = {
     NPCEntry(733, 2, "SHI", 3, 1),
 };
 
-
+// areCustomAnimationsEnabled if set to true will allow custom animations defined in Animations[] to be injected in game
+// NOTE: Must be exactly 2 or 3 characters long, e.g. "BET" or "OK", if only 2 characters, it will replace the first 2 characters of the animation
+bool areCustomOldAnimationsEnabled = true;
+static AnimationEntry CustomAnimations[] = {
+    // originalName, replacementName
+    AnimationEntry("DA", "DW"),
+    AnimationEntry("OK", "EL"),
+};
 
 // ***** ZONE *******
 

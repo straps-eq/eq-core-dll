@@ -11,5 +11,6 @@ void InitOptions() {
 	if (isMapWindowDisabled) DisableCMapViewWnd();
 	if (areCustomZonesEnabled) InjectCustomZones();
 	if (areCustomNPCsEnabled) InjectCustomNPCs();
+	if (areCustomOldAnimationsEnabled) InjectCustomOldAnimations();
 	if (isBazaarWindowDisabled) DisableCBazaarSearchWnd();
 }
