@@ -23,3 +23,9 @@ struct ZoneEntry {
     int y;
     int z;
 };
+
+struct AnimationEntry {
+    explicit AnimationEntry(char* originalName, char* replacementName) : originalName(originalName), replacementName(replacementName) {};
+    char* originalName;
+    char* replacementName;
+};
