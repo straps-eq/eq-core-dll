@@ -13,6 +13,7 @@ bool isCpuSpeedFixEnabled = false;
 
 // isMQInjectsEnabled if set to true will cause some edge-inspired features to work:
 // MQ2Spawns, MQ2Maps, MQ2Commands, MQ2Windows, MQ2Pulse, MQ2Spawns, MapPlugin, MQ2ItemDisplay, MQ2Labels
+// NOT RECOMMENDED. Known to cause memory leaks due to mq2maps strings
 bool isMQInjectsEnabled = false;
 
 // isMapWindowDisabled if set to true will do a soft patch to disable the map in game. If disabled, I suggest isMQInjectsEnabled being false as well, else npc data is still populated
