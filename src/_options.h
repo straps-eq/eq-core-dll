@@ -81,7 +81,7 @@ static NPCEntry NPCs[] = {
 bool areCustomOldAnimationsEnabled = false;
 static AnimationEntry CustomAnimations[] = {
     // originalName, replacementName
-    //AnimationEntry("DA", "DW"),
+    AnimationEntry("DA", "DW"),
     //AnimationEntry("OK", "EL"),
 };
 
