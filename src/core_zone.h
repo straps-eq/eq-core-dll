@@ -32,7 +32,7 @@ DETOUR_TRAMPOLINE_EMPTY(char* __fastcall InjectCustomZones_Trampoline(char* pThi
 // Hooks to EQWorldData::AddZone
 void InjectCustomZones() { 
 	for (auto&& zone : Zones) {
-		if (zone.zoneID < 787 ) {
+		if (zone.zoneID >= 787 ) {
 			continue;
 		}
 		isCustomZonesReplacingExisting = true;
