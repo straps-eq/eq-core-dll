@@ -20,6 +20,9 @@ char* __fastcall InjectCustomZones_Detour(char* pThis, char* pPtr, unsigned __in
 	}
 	if (!strcmp(zoneShortName, "interiorwalltest")) {
 		for (auto&& zone : Zones) {
+			if (zone.zoneID < 787) {
+				continue;
+			}
 			DebugSpew("injecting zone %s id %d", zone.zoneShortName, zone.zoneID);			
 			InjectCustomZones_Trampoline(pThis, pPtr, zone.zoneType, zone.zoneID, zone.zoneShortName, zone.zoneLongName, zone.eqStrID, zone.zoneFlags2, zone.x, zone.y, zone.z);
 		}
