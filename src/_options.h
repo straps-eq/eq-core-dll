@@ -87,8 +87,12 @@ static AnimationEntry CustomAnimations[] = {
 
 // ***** ZONE *******
 
-// areCustomZonesEnabled if set to true will allow custom zones defined in Zones[] to be injected in game
-bool areCustomZonesEnabled = false;
+// custom zones can replace existing zones, or add new zones
+// Note that due to a limitation on the way the zones get replaced, zones with a normal zoneidnumber below 200 (except arena and tutorial) cannot be replaced.
+// If you want to replace a zone with a zoneidnumber below 200, you will need to copy it to a new higher zone id instead at this time.
+
+// areCustomZonesEnabled if set to true will allow custom zones defined in Zones[] to be injected in game (or replaced)
+bool areCustomZonesEnabled = true;
 
 static ZoneEntry Zones[] = {
     // zoneType, zoneID, zoneShortName, zoneLongName, eqStrID, zoneFlags2, x, y, z
