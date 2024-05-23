@@ -92,7 +92,7 @@ static AnimationEntry CustomAnimations[] = {
 // If you want to replace a zone with a zoneidnumber below 200, you will need to copy it to a new higher zone id instead at this time. You can read more about here: this https://docs.eqemu.io/client/guides/custom-zone-editing/
 
 // areCustomZonesEnabled if set to true will allow custom zones defined in Zones[] to be injected in game (or replaced)
-bool areCustomZonesEnabled = true;
+bool areCustomZonesEnabled = false;
 
 static ZoneEntry Zones[] = {
     // zoneType, zoneID, zoneShortName, zoneLongName, eqStrID, zoneFlags2, x, y, z

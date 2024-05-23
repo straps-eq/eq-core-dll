@@ -41,6 +41,6 @@ void InjectCustomZones() {
 		isCustomZonesReplacingExisting = true;
 		break;
 	}
-	EzDetour((((DWORD)0x007DC430 - 0x400000) + baseAddress), InjectCustomZones_Detour, InjectCustomZones_Trampoline); 
+	EzDetour((((DWORD)0X007DC290 - 0x400000) + baseAddress), InjectCustomZones_Detour, InjectCustomZones_Trampoline); 
 };
 //bool __thiscall sub_7DC430(_DWORD *this, int a2, int a3, char *a4, char *a5, int a6, int a7, int a8, int a9, int a10)
