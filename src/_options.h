@@ -87,10 +87,6 @@ static AnimationEntry CustomAnimations[] = {
 
 // ***** ZONE *******
 
-// custom zones can replace existing zones, or add new zones
-// Note that due to a limitation on the way the zones get replaced, zones with a normal zoneidnumber below 200 (except arena and tutorial) cannot be replaced.
-// If you want to replace a zone with a zoneidnumber below 200, you will need to copy it to a new higher zone id instead at this time. You can read more about here: this https://docs.eqemu.io/client/guides/custom-zone-editing/
-
 // areCustomZonesEnabled if set to true will allow custom zones defined in Zones[] to be injected in game (or replaced)
 bool areCustomZonesEnabled = false;
 
