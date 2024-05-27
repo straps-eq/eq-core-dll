@@ -161,7 +161,6 @@
     <ClCompile Include="MQ2Pulse.cpp" />
     <ClCompile Include="MQ2Spawns.cpp" />
     <ClCompile Include="MQ2Utilities.cpp" />
-    <ClCompile Include="MQ2Windows.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="_options.h" />

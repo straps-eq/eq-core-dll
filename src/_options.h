@@ -12,7 +12,7 @@ bool isGammaRestoreOnCrashEnabled = false;
 bool isCpuSpeedFixEnabled = false;
 
 // isMQInjectsEnabled if set to true will cause some edge-inspired features to work:
-// MQ2Spawns, MQ2Maps, MQ2Commands, MQ2Windows, MQ2Pulse, MQ2Spawns, MapPlugin, MQ2ItemDisplay, MQ2Labels
+// MQ2Spawns, MQ2Maps, MQ2Commands, MQ2Pulse, MQ2Spawns, MapPlugin, MQ2ItemDisplay, MQ2Labels
 // NOT RECOMMENDED. Known to cause memory leaks due to mq2maps strings
 bool isMQInjectsEnabled = false;
 

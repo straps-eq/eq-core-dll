@@ -152,11 +152,6 @@ SOURCE=.\MQ2Utilities.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\MQ2Windows.cpp
-# End Source File
-# End Group
-# Begin Group "Header Files"
-
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
