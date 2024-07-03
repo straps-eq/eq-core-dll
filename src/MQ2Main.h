@@ -14,7 +14,7 @@ GNU General Public License for more details.
 ******************************************************************************/
 
 #define VersionString "September 23, 2004"
-#define DebugHeader "[Core]"
+#define DebugHeader "[Core] "
 #define LoadedString "Core Extensions Loaded."
 #define ToUnloadString "Core Unloading..."
 #define UnloadedString "Core Unloaded."
