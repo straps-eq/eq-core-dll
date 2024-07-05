@@ -4,14 +4,13 @@
 #include "core_models.h"
 #include "_options.h"
 
-static bool isCustomZonesReplacingExisting = false;
 static vector<int> zonesToInject;
 static bool isEndOfZones = false;
  
 char* __fastcall InjectCustomZones_Trampoline(char* pThis, char* pPtr, unsigned __int32 zoneType, unsigned __int32 zoneID, char* zoneShortName, char* zoneLongName, unsigned __int32 eqStrID, __int32 zoneFlags2, __int32 x, __int32 y, __int32 z);
 char* __fastcall InjectCustomZones_Detour(char* pThis, char* pPtr, unsigned __int32 zoneType, unsigned __int32 zoneID, char* zoneShortName, char* zoneLongName, unsigned __int32 eqStrID, __int32 zoneFlags2, __int32 x, __int32 y, __int32 z)
 { 
-	if (!isEndOfZones && isCustomZonesReplacingExisting) {
+	if (!isEndOfZones) {
 		for (auto&& zone : Zones) {
 			if (zoneID != zone.zoneID) {
 				continue;
@@ -20,8 +19,6 @@ char* __fastcall InjectCustomZones_Detour(char* pThis, char* pPtr, unsigned __in
 			DebugSpew("replacing zone %s id %d", zone.zoneShortName, zone.zoneID);
 			return InjectCustomZones_Trampoline(pThis, pPtr, zone.zoneType, zone.zoneID, zone.zoneShortName, zone.zoneLongName, zone.eqStrID, zone.zoneFlags2, zone.x, zone.y, zone.z);
 		}
-	}
-	if (!isEndOfZones) {
 		DebugSpew("original zone %s id %d", zoneShortName, zoneID);
 	}
 	return InjectCustomZones_Trampoline(pThis, pPtr, zoneType, zoneID, zoneShortName, zoneLongName, eqStrID, zoneFlags2, x, y, z);
@@ -34,6 +31,7 @@ char* __fastcall InjectCustomZonesAdd_Trampoline(char* pThis, char* pPtr, unsign
 char* __fastcall InjectCustomZonesAdd_Detour(char* pThis, char* pPtr, unsigned __int32 zoneType, unsigned __int32 zoneID, char* zoneShortName, char* zoneLongName, unsigned __int32 eqStrID, __int32 zoneFlags2, __int32 x, __int32 y, __int32 z)
 {
 	if (!strcmp(zoneShortName, "interiorwalltest")) {
+		DebugSpew("original zone %s id %d", zoneShortName, zoneID); // this is just to echo interiorwalltest
 		DebugSpew("reached end of zone loading, now adding any custom zones");
 		isEndOfZones = true;
 		for (auto&& zoneID : zonesToInject) {
@@ -55,10 +53,6 @@ DETOUR_TRAMPOLINE_EMPTY(char* __fastcall InjectCustomZonesAdd_Trampoline(char* p
 void InjectCustomZones() {
 	for (auto&& zone : Zones) {
 		zonesToInject.push_back(zone.zoneID);
-		if (zone.zoneID >= 787 ) {
-			continue;
-		}
-		isCustomZonesReplacingExisting = true;
 	}
 	isEndOfZones = false;
 	EzDetour((((DWORD)0x007DC430 - 0x400000) + baseAddress), InjectCustomZonesAdd_Detour, InjectCustomZonesAdd_Trampoline);
