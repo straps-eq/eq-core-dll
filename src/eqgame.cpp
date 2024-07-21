@@ -829,6 +829,11 @@ void InitHooks()
 		PatchA((DWORD*)var, "\x32\xC0", 2); // No mount models
 	}
 
+	if (isAllowIllegalAugmentsEnabled) {
+		var = (((DWORD)0x006a8448 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90", 6);
+	}
+
 	var = (((DWORD)0x004C3250 - 0x400000) + baseAddress);
 	EzDetour((DWORD)var, HandleWorldMessage_Detour, HandleWorldMessage_Trampoline);
 
