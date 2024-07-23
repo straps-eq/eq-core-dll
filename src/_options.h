@@ -60,6 +60,9 @@ bool isOldModelHorseSupportEnabled = false;
 // This requires custom server side code that is not in eqemu master branch, and in majority of cases can be left false
 bool isReportHardwareAddressEnabled = false;
 
+// isAllowIllegalAugmentsEnabled if set to true will allow inserting augments which create combinations that the player cannot use.
+bool isAllowIllegalAugmentsEnabled = false;
+
 // ***** NPC *******
 
 // areCustomNPCsEnabled if set to true will allow the NPCs defined in NPCs[] to be injected in game
