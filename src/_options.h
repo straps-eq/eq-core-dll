@@ -6,9 +6,7 @@
 // This also may fix eq trying to modify your gamma settings
 bool isGammaRestoreOnCrashEnabled = false;
 
-// isCpuSpeedFixEnabled is recommended to be true. Some CPUs have a symptom where the game runs too fast, future EQ clients have this enabled
-// if a person reports the game running too fast, try enabling and giving this DLL.
-// if this is enabled and your animations are going sluggish, it may be an incorrect cpu check. Let Xackery know in discord
+// isCpuSpeedFixEnabled is recommended to be false. Some CPUs have a symptom where the game runs too fast, future EQ clients have this enabled. There's a discussion on eqemu about a ryzen fix that's preferred over this.
 bool isCpuSpeedFixEnabled = false;
 
 // isMQInjectsEnabled if set to true will cause some edge-inspired features to work:
