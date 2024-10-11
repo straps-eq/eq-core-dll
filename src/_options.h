@@ -6,8 +6,7 @@
 // This also may fix eq trying to modify your gamma settings
 bool isGammaRestoreOnCrashEnabled = false;
 
-// isCpuSpeedFixEnabled is recommended to be false. Some CPUs have a symptom where the game runs too fast, future EQ clients have this enabled. There's a discussion on eqemu about a ryzen fix that's preferred over this.
-bool isCpuSpeedFixEnabled = false;
+// isCpuSpeedFixEnabled was removed because of side effects. Instead check out https://github.com/xackery/eq-core-dll/releases/tag/v0.0.1 and distribute EQGraphicsDX9.dll
 
 // isMQInjectsEnabled if set to true will cause some edge-inspired features to work:
 // MQ2Spawns, MQ2Maps, MQ2Commands, MQ2Pulse, MQ2Spawns, MapPlugin, MQ2ItemDisplay, MQ2Labels

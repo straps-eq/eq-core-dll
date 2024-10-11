@@ -784,7 +784,7 @@ void InitHooks()
 	InitOptions();
 
 	DWORD var = (((DWORD)0x008C4CE0 - 0x400000) + baseAddress);
-
+/* 
 	if (isCpuSpeedFixEnabled) {
 
 		
@@ -811,7 +811,7 @@ void InitHooks()
 		else {
 			DebugSpew("cpu is not candidate for speed fix");
 		}
-	}
+	} */
 	if (isHeroicDisabled) {
 		DebugSpew("disabling heroic stats");
 		var = (((DWORD)0x0044410C - 0x400000) + baseAddress);
