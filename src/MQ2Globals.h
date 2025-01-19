@@ -17,6 +17,8 @@ namespace MQ2Globals
 bool InitOffsets();
 
 EQLIB_VAR DWORD baseAddress;
+EQLIB_VAR DWORD eqGraphicsAddress;
+EQLIB_VAR DWORD eqMainAddress;
 
 /* BENCHMARK HANDLES */
 

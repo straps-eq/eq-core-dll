@@ -6,6 +6,9 @@
 // This also may fix eq trying to modify your gamma settings
 bool isGammaRestoreOnCrashEnabled = false;
 
+// isEQGOverrideEnabled if set to true will look for two new options files, eqg.ini and dirs.ini in eq path. This allows eqg route overriding, used by rof2plus
+bool isEQGOverrideEnabled = false;
+
 // isCpuSpeedFixEnabled was removed because of side effects. Instead check out https://github.com/xackery/eq-core-dll/releases/tag/v0.0.1 and distribute EQGraphicsDX9.dll
 
 // isMQInjectsEnabled if set to true will cause some edge-inspired features to work:

@@ -769,7 +769,7 @@ void InitHooks()
 	InitializeCriticalSection(&gDetourCS);
 
 	if (isMQInjectsEnabled) {
-		DebugSpew("applying mq2 injects");
+		DebugSpew("Applying mq2 injects");
 		InitializeDisplayHook();
 		InitializeChatHook();
 		InitializeMQ2Commands();
@@ -950,7 +950,7 @@ void InitHooks()
 
 
 	if (isGammaRestoreOnCrashEnabled) {
-		DebugSpew("applying gamma restore on crash fix");
+		DebugSpew("Applying gamma restore on crash fix");
 		HMODULE hkernel32Mod = GetModuleHandle("kernel32.dll");
 		DWORD gmfadress = (DWORD)GetProcAddress(hkernel32Mod, "GetModuleFileNameA");
 		EzDetour(gmfadress, GetModuleFileNameA_detour, GetModuleFileNameA_tramp);

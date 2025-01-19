@@ -28,9 +28,22 @@ namespace MQ2Globals
 {
 
 DWORD baseAddress = (DWORD)GetModuleHandle(NULL);
+DWORD eqGraphicsAddress = 0;
+DWORD eqMainAddress = 0;
 
 bool InitOffsets()
 {
+
+    if (!eqGraphicsAddress) {
+        // no EQGraphicsDx9.dll loaded yet
+        HMODULE hLibrary = LoadLibrary("EQGraphicsDX9.dll");
+        eqGraphicsAddress = (uintptr_t)hLibrary;
+    }
+    if (!eqMainAddress) {
+		// no eqgame.exe loaded yet
+		HMODULE hLibrary = LoadLibrary("eqmain.dll");
+        eqMainAddress = (uintptr_t)hLibrary;
+    }
     if(!baseAddress)
         return false;
 
