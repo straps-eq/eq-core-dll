@@ -4,21 +4,29 @@
 #include "core_models.h"
 #include "_options.h"
 
-signed int __stdcall InjectIsShield_Trampoline(signed int itemID);
-signed int __stdcall InjectIsShield_Detour(signed int itemID) {
-	for (auto&& shieldID : Shields) {
-		if (itemID != shieldID) {
-			continue;
-		}
-		return 1;
-	}
+// For thiscall convention functions, we need to use this typedef approach
+typedef signed int (__fastcall *tIsShield)(void* pThis, void* edx, signed int itemID);
+tIsShield InjectIsShield_Trampoline = nullptr;
 
-	if (areDefaultShieldsIgnored) {
-		return 0;
-	}
-	return InjectIsShield_Trampoline(itemID);
+// Define the detour function - use __fastcall and ignore the edx parameter to match thiscall
+signed int __fastcall InjectIsShield_Detour(void* pThis, void* edx, signed int itemID) {
+    for (auto&& shieldID : Shields) {
+        if (itemID != shieldID) {
+            continue;
+        }
+        return 1;
+    }
+
+    if (areDefaultShieldsIgnored) {
+        return 0;
+    }
+    return InjectIsShield_Trampoline(pThis, nullptr, itemID);
 }
 
-DETOUR_TRAMPOLINE_EMPTY(signed int __stdcall InjectIsShield_Trampoline(signed int itemID));
-void InjectCustomShields() { EzDetour((((DWORD)0x00489D70 - 0x400000) + baseAddress), InjectIsShield_Detour, InjectIsShield_Trampoline); };
-// signed int __thiscall sub_489D70(_DWORD *this, signed int a2)
+// Modify your injection function
+void InjectCustomShields() {
+    DWORD targetAddress = baseAddress + (0x00489D70 - 0x400000);
+    
+    // Store the original function pointer and set up the detour
+    *(PBYTE*)&InjectIsShield_Trampoline = DetourFunction((PBYTE)targetAddress, (PBYTE)InjectIsShield_Detour);
+}
