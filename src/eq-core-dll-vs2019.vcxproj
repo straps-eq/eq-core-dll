@@ -167,6 +167,7 @@
     <ClInclude Include="core_map.h" />
     <ClInclude Include="core_zone.h" />
     <ClInclude Include="core_npc.h" />
+    <ClInclude Include="core_item.h" />
     <ClInclude Include="core_luclin_models.h" />
     <ClInclude Include="core_bazaar.h" />
     <ClInclude Include="core_models.h" />

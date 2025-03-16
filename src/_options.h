@@ -64,6 +64,19 @@ bool isReportHardwareAddressEnabled = false;
 // This allows you to bypass an error of "The result of this combine would be both NO TRADE and unusable by you.". If you don't get this error, unlikely needed.
 bool isAllowIllegalAugmentsEnabled = false;
 
+
+// **** ITEM *******
+
+// areDefaultShieldsIgnored if set to true will ignore default shields and only honor custom shields listed
+bool areDefaultShieldsIgnored = false;
+
+// areCustomShieldsEnabled if set to true will allow the shields defined in Shields[] to be injected in game
+bool areCustomShieldsEnabled = false;
+static int Shields[] = {
+    123,
+};
+
+
 // ***** NPC *******
 
 // areCustomNPCsEnabled if set to true will allow the NPCs defined in NPCs[] to be injected in game
