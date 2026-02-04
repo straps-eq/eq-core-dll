@@ -64,6 +64,11 @@ bool isReportHardwareAddressEnabled = false;
 // This allows you to bypass an error of "The result of this combine would be both NO TRADE and unusable by you.". If you don't get this error, unlikely needed.
 bool isAllowIllegalAugmentsEnabled = false;
 
+// isAAEnabledPre51 if set to true will enable Alternate Advancement (AA) at level 1
+// This bypasses the client's restriction that normally requires level 51 to use AAs
+// RoF2 offsets: 0x60A22B, 0x60A1D0 (AAWnd) - Inventory window patches commented out (causing crashes)
+bool isAAEnabledPre51 = true;
+
 
 // **** ITEM *******
 

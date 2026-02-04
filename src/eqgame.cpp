@@ -764,10 +764,12 @@ void InitHooks()
 	//rename("highpasshold.eqg", "highpasshold.eqg.bak");
 	//rename("nektulos.eqg", "nektulos.eqg.bak");
 	//rename("lavastorm.eqg", "lavastorm.eqg.bak");
+	// TESTING: Re-enabling InitOffsets now that eqmain.dll loading is removed
 	InitOffsets();
 	GetEQPath(gszEQPath);
 	InitializeCriticalSection(&gDetourCS);
 
+	// TESTING: MQ2 injections - likely to conflict but worth testing
 	if (isMQInjectsEnabled) {
 		DebugSpew("Applying mq2 injects");
 		InitializeDisplayHook();
@@ -781,6 +783,7 @@ void InitHooks()
 	}
 
 	if (!baseAddress) return;
+	// TESTING: Re-enabling InitOptions now that InitOffsets is working
 	InitOptions();
 
 	DWORD var = (((DWORD)0x008C4CE0 - 0x400000) + baseAddress);
@@ -834,6 +837,37 @@ void InitHooks()
 		PatchA((DWORD*)var, "\x90\x90\x90\x90\x90\x90", 6);
 	}
 
+	if (isAAEnabledPre51) {
+		DebugSpew("enabling AA at level 1 - RoF2");
+		
+		// AA Window checks - change comparison from 51/50 to 1 (works at level 2+)
+		// Patch 1: AAWnd check at 0x60A22B (cmp byte ptr [esp+17],33) - instruction is 80 7C 24 17 33
+		var = (((DWORD)0x0060A22B - 0x400000) + baseAddress);
+		PatchA((DWORD*)(var + 4), "\x01", 1); // Change the 33 to 01 (byte offset +4)
+		
+		// Patch 2: AAWnd check at 0x60A1D0 (cmp byte ptr [esp+17],33) - instruction is 80 7C 24 17 33
+		var = (((DWORD)0x0060A1D0 - 0x400000) + baseAddress);
+		PatchA((DWORD*)(var + 4), "\x01", 1); // Change the 33 to 01 (byte offset +4)
+		
+		// Patch 3: AAWnd check at 0x60A12E (cmp byte ptr [esp+17],32) - instruction is 80 7C 24 17 32
+		var = (((DWORD)0x0060A12E - 0x400000) + baseAddress);
+		PatchA((DWORD*)(var + 4), "\x01", 1); // Change the 32 (50) to 01 (byte offset +4)
+		
+		// COMMENTED OUT: Inventory Window checks causing crashes - need to verify offsets
+		/*// Patch 3: CInventoryWnd check at 0x692DC4 (cmp eax,51)
+		var = (((DWORD)0x00692DC4 - 0x400000) + baseAddress);
+		PatchA((DWORD*)(var + 1), "\x01", 1); // Change the 33 to 01 (byte offset +1)
+		
+		// Patch 4: CInventoryWnd check at 0x692D81 (cmp eax,51)
+		var = (((DWORD)0x00692D81 - 0x400000) + baseAddress);
+		PatchA((DWORD*)(var + 1), "\x01", 1); // Change the 33 to 01 (byte offset +1)
+		
+		// Patch 5: CInventoryWnd check at 0x692E07 (cmp eax,51)
+		var = (((DWORD)0x00692E07 - 0x400000) + baseAddress);
+		PatchA((DWORD*)(var + 1), "\x01", 1); // Change the 33 to 01 (byte offset +1)*/
+	}
+
+	// TESTING: HandleWorldMessage detour
 	var = (((DWORD)0x004C3250 - 0x400000) + baseAddress);
 	EzDetour((DWORD)var, HandleWorldMessage_Detour, HandleWorldMessage_Trampoline);
 
@@ -908,6 +942,7 @@ void InitHooks()
 
 	//var = (((DWORD)0x00632DE6 - 0x400000) + baseAddress);
 	//PatchA((DWORD*)var, "\x90\x90", 2); // nop trader check
+	// TESTING: Re-testing SetCCreateCamera detour now that eqmain.dll is removed
 	var = ((0x00507b30 - 0x400000) + baseAddress);
 	return_SetCCreateCameraDet = (SetCCreateCamera_t)DetourFunction((PBYTE)var, (PBYTE)SetCCreateCameraHook);
 
@@ -924,6 +959,7 @@ void InitHooks()
 			8); // Fix food/drink spam
 	}
 
+	// TESTING: MQ2 prevention patches
 	if (isMQ2PreventionEnabled) {
 		DebugSpew("mq2 prevention enabled");
 		auto charToBreak = rand();
@@ -949,6 +985,7 @@ void InitHooks()
 	}
 
 
+	// TESTING: Gamma restore hooks alone
 	if (isGammaRestoreOnCrashEnabled) {
 		DebugSpew("Applying gamma restore on crash fix");
 		HMODULE hkernel32Mod = GetModuleHandle("kernel32.dll");
@@ -1164,7 +1201,7 @@ bool WINAPI DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 	   szProcessName = strrchr(szFilename, '.');
 	   szProcessName[0] = '\0';
 	   szProcessName = strrchr(szFilename, '\\') + 1;
-	  InitHooks();
+	   InitHooks();
 	   // remove full information about my command line
 	 // memset(&pbi.PebBaseAddress->ProcessParameters->ImagePathName.Buffer, 0, pbi.PebBaseAddress->ProcessParameters->ImagePathName.Length);
 

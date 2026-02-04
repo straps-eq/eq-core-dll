@@ -308,7 +308,8 @@ bool __cdecl MQ2Initialize()
     InitializeParser();
 #endif
     InitializeMQ2Detours();
-    if (isMQInjectsEnabled) {
+    // COMMENTED OUT: MQ2 injections - likely to conflict with MacroQuest
+    /*if (isMQInjectsEnabled) {
         InitializeDisplayHook();
         InitializeChatHook();
         InitializeMQ2Spawns();
@@ -316,9 +317,10 @@ bool __cdecl MQ2Initialize()
         InitializeMQ2Commands();
         Sleep(100);
         InitializeMQ2KeyBinds();
-    }
+    }*/
 #ifndef ISXEQ
-    InitializeMQ2Plugins();
+    // COMMENTED OUT: MQ2 plugins - likely to conflict with MacroQuest
+    //InitializeMQ2Plugins();
 #endif
     return true;
 }

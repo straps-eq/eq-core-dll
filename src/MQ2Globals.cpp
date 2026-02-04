@@ -39,11 +39,13 @@ bool InitOffsets()
         HMODULE hLibrary = LoadLibrary("EQGraphicsDX9.dll");
         eqGraphicsAddress = (uintptr_t)hLibrary;
     }
-    if (!eqMainAddress) {
+    // COMMENTED OUT: Loading eqmain.dll prevents MacroQuest from working properly
+    // MQ needs to unload eqmain to trigger state changes and re-assign sidl pointers
+    /*if (!eqMainAddress) {
 		// no eqgame.exe loaded yet
 		HMODULE hLibrary = LoadLibrary("eqmain.dll");
         eqMainAddress = (uintptr_t)hLibrary;
-    }
+    }*/
     if(!baseAddress)
         return false;
 
