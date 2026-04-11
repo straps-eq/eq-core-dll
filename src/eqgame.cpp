@@ -764,12 +764,12 @@ void InitHooks()
 	//rename("highpasshold.eqg", "highpasshold.eqg.bak");
 	//rename("nektulos.eqg", "nektulos.eqg.bak");
 	//rename("lavastorm.eqg", "lavastorm.eqg.bak");
-	// TESTING: Re-enabling InitOffsets now that eqmain.dll loading is removed
+	// Re-enabled: MQ2 needs some pointers initialized, but bazaar-specific ones are disabled in MQ2Globals.cpp
 	InitOffsets();
 	GetEQPath(gszEQPath);
 	InitializeCriticalSection(&gDetourCS);
 
-	// TESTING: MQ2 injections - likely to conflict but worth testing
+	// COMMENTED OUT: MQ2 injections disabled in options
 	if (isMQInjectsEnabled) {
 		DebugSpew("Applying mq2 injects");
 		InitializeDisplayHook();
@@ -783,7 +783,6 @@ void InitHooks()
 	}
 
 	if (!baseAddress) return;
-	// TESTING: Re-enabling InitOptions now that InitOffsets is working
 	InitOptions();
 
 	DWORD var = (((DWORD)0x008C4CE0 - 0x400000) + baseAddress);
@@ -867,7 +866,16 @@ void InitHooks()
 		PatchA((DWORD*)(var + 1), "\x01", 1); // Change the 33 to 01 (byte offset +1)*/
 	}
 
-	// TESTING: HandleWorldMessage detour
+	if (isSoloAdventureEnabled) {
+		DebugSpew("enabling solo adventures - bypassing group requirement");
+		// Bypass group check in CAdventureRequestWnd (FUN_004209f0)
+		// Original: JZ LAB_00420a57 (74 0c) - jumps to "must be in group" error if pGroupInfo is NULL
+		// Patched:  JMP LAB_00420a76 (EB 2B) - always jumps to success path, skipping group/member count check
+		var = (((DWORD)0x00420a49 - 0x400000) + baseAddress);
+		PatchA((DWORD*)var, "\xEB\x2B", 2);
+	}
+
+	// HandleWorldMessage detour
 	var = (((DWORD)0x004C3250 - 0x400000) + baseAddress);
 	EzDetour((DWORD)var, HandleWorldMessage_Detour, HandleWorldMessage_Trampoline);
 
@@ -942,7 +950,7 @@ void InitHooks()
 
 	//var = (((DWORD)0x00632DE6 - 0x400000) + baseAddress);
 	//PatchA((DWORD*)var, "\x90\x90", 2); // nop trader check
-	// TESTING: Re-testing SetCCreateCamera detour now that eqmain.dll is removed
+	// SetCCreateCamera detour
 	var = ((0x00507b30 - 0x400000) + baseAddress);
 	return_SetCCreateCameraDet = (SetCCreateCamera_t)DetourFunction((PBYTE)var, (PBYTE)SetCCreateCameraHook);
 

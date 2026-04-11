@@ -33,7 +33,7 @@ bool isHeroicDisabled = false;
 bool isMaxHPFixEnabled = false;
 
 // isPatchmeDisabled if set to true will let you double click eqgame.exe and not get the "Please run EverQuest" message, will start properly
-bool isPatchmeDisabled = false;
+bool isPatchmeDisabled = true;
 
 // isFoodDrinkSpamDisabled if set to true will stop you are hungry/thirsty messages to display on client. If server side isn't disabled, you can still get negative effects.
 bool isFoodDrinkSpamDisabled = false;
@@ -54,7 +54,7 @@ bool isChecksumFixEnabled = false;
 
 // isOldModelHorseSupportEnabled if set to true enables horses while using old models
 // quality of life for those that don't enjoy Luclin models but want their benefits
-bool isOldModelHorseSupportEnabled = false;
+bool isOldModelHorseSupportEnabled = true;
 
 // isReportHardwareAddressEnabled if set to true will inspect mac addresses and send a more informative context of where EQ is running. 
 // This requires custom server side code that is not in eqemu master branch, and in majority of cases can be left false
@@ -68,6 +68,11 @@ bool isAllowIllegalAugmentsEnabled = false;
 // This bypasses the client's restriction that normally requires level 51 to use AAs
 // RoF2 offsets: 0x60A22B, 0x60A1D0 (AAWnd) - Inventory window patches commented out (causing crashes)
 bool isAAEnabledPre51 = true;
+
+// isSoloAdventureEnabled if set to true will bypass the group requirement for LDoN Adventures
+// This patches the client-side check that requires 2+ group members to request an adventure
+// The server must also allow solo adventures for this to work
+bool isSoloAdventureEnabled = true;
 
 
 // **** ITEM *******
