@@ -10,6 +10,16 @@ static const PatchSite kSoloLDoN[] = {
 	  1, 10, "74 0C", "EB 13" },
 };
 
+// Damage applied twice: the server sends the reduced HP first, then OP_Damage, and the client
+// subtracts the hit again (OP_Damage handler FUN_140216190). The client then runs one hit behind
+// the server: a bouncing HP bar, and players knocked out locally at about half health while the
+// server has them alive. Skip the client-side subtraction; OP_HPUpdate stays authoritative.
+// (ToB twin of the old RoF2 isCombatDamageDoubleAppliedFixEnabled.)
+static const PatchSite kNoDoubleDamage[] = {
+	{ "48 F7 DA 48 81 C1 B8 27 00 00 C7 44 24 28 00 00 00 00 C7 44 24 20 00 00 00 00 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 44 0F B6 C6",
+	  1, 26, "E8 F6 54 EE FF", "0F 1F 44 00 00" },
+};
+
 // Max HP above 10,000,000: remove the three client-side clamps.
 static const PatchSite kMaxHP[] = {
 	// Max HP calc FUN_1400fb4c0: CMOVG R8,RAX (RAX = 10,000,000) -> NOP
@@ -62,6 +72,7 @@ static const PatchSite kPatchme[] = {
 
 static const Feature kFeatures[] = {
 	{ "SoloLDoN",         false, "Solo LDoN adventures (no group needed)",          kSoloLDoN,         COUNT(kSoloLDoN) },
+	{ "NoDoubleDamage",   false, "Don't apply melee damage to own HP twice",        kNoDoubleDamage,   COUNT(kNoDoubleDamage) },
 	{ "MaxHPAbove10M",    false, "Remove the 10,000,000 HP caps",                   kMaxHP,            COUNT(kMaxHP) },
 	{ "AAPre51",          false, "AA window usable below level 51",                 kAAPre51,          COUNT(kAAPre51) },
 	{ "AAPre51Inventory", false, "Show AA exp on the inventory window below 51",    kAAPre51Inventory, COUNT(kAAPre51Inventory) },

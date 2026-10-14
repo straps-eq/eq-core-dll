@@ -12,6 +12,7 @@ so a different build is never patched blindly.
 | `dinput8.ini` key | What it does |
 |---|---|
 | `SoloLDoN` | LDoN adventure requests without a group (server must allow solo) |
+| `NoDoubleDamage` | Stops the client applying melee hits to your own HP twice (bouncing HP bar, knocked out at about half health) |
 | `MaxHPAbove10M` | Removes the client's three 10,000,000 HP caps |
 | `AAPre51` | AA window usable below level 51 |
 | `AAPre51Inventory` | Shows AA exp on the inventory window below 51 |
