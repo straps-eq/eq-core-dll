@@ -1,5 +1,6 @@
 #include "patches.h"
 #include "nametags.h"
+#include "map.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -83,6 +84,9 @@ static const Feature kFeatures[] = {
 	{ "NoPatchme",        false, "Start without the patchme argument",              kPatchme,          COUNT(kPatchme) },
 	{ "ConNameTags",      false, "Colour NPC name tags by con colour",              nullptr,           0,
 	  kConNameTagsHooks, COUNT(kConNameTagsHooks), kConNameTagsRefs, COUNT(kConNameTagsRefs), ConNameTagsPrepare },
+	// Spawn dots/labels and target line on the map: hook on MapViewMap::PostDraw (FUN_140455a60), see map.cpp.
+	{ "MapSpawns",        false, "Spawns and target line on the map window",        nullptr,           0,
+	  kMapSpawnsHooks, COUNT(kMapSpawnsHooks), kMapSpawnsRefs, COUNT(kMapSpawnsRefs), MapSpawnsPrepare },
 };
 
 const Feature* GetFeatures(size_t* count) {
