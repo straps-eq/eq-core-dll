@@ -7,7 +7,7 @@
 //
 // Function names (FUN_...) and globals (DAT_...) are the Ghidra auto-names for this build.
 //
-// Adding a hooked feature:
+// Adding a hooked feature (nametags.cpp is a complete example):
 //  1. Put the detour, its tables and any state in its own src/<feature>.cpp (added to both targets
 //     in CMakeLists.txt) and expose them through a small header included by patches.cpp.
 //  2. HookSite: signature starting at the function's first byte; `stolen` = whole instructions

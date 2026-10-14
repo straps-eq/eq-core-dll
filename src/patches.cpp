@@ -1,4 +1,5 @@
 #include "patches.h"
+#include "nametags.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -70,6 +71,7 @@ static const PatchSite kPatchme[] = {
 	  1, 5, "0F 84 E1 04 00 00", "66 0F 1F 44 00 00" },
 };
 
+// Con-coloured NPC name tags: hook on EQPlayer::SetNameSpriteTint (FUN_1403014a0), see nametags.cpp.
 static const Feature kFeatures[] = {
 	{ "SoloLDoN",         false, "Solo LDoN adventures (no group needed)",          kSoloLDoN,         COUNT(kSoloLDoN) },
 	{ "NoDoubleDamage",   false, "Don't apply melee damage to own HP twice",        kNoDoubleDamage,   COUNT(kNoDoubleDamage) },
@@ -79,6 +81,8 @@ static const Feature kFeatures[] = {
 	{ "IllegalAugments",  false, "Allow augment combinations the player can't use", kIllegalAugments,  COUNT(kIllegalAugments) },
 	{ "NoFoodDrinkSpam",  false, "No hunger/thirst client processing or messages",  kFoodDrinkSpam,    COUNT(kFoodDrinkSpam) },
 	{ "NoPatchme",        false, "Start without the patchme argument",              kPatchme,          COUNT(kPatchme) },
+	{ "ConNameTags",      false, "Colour NPC name tags by con colour",              nullptr,           0,
+	  kConNameTagsHooks, COUNT(kConNameTagsHooks), kConNameTagsRefs, COUNT(kConNameTagsRefs), ConNameTagsPrepare },
 };
 
 const Feature* GetFeatures(size_t* count) {

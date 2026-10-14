@@ -21,6 +21,7 @@ client functions/globals a hook uses are found and checked the same way.
 | `IllegalAugments` | Allows augment combinations the player can't use |
 | `NoFoodDrinkSpam` | No client hunger/thirst processing or messages |
 | `NoPatchme` | Starts `eqgame.exe` without the `patchme` argument |
+| `ConNameTags` | Colours NPC name tags by con colour (pets, mercenaries, PCs and GM mode keep the client's colours). Tags refresh when a spawn's name is rebuilt or the target changes, and all NPCs are re-coloured after you level |
 
 Old-model horses need no patch on ToB: set `AllowPreLuclinMountRiders=1` under `[Defaults]` in `eqclient.ini`
 (Options window, "Toggle Display of Pre-Luclin Characters on Mounts").
