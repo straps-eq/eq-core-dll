@@ -30,7 +30,8 @@ const size_t kActorDefMercenary = 0x5f6;
 const size_t kActorVtblSetNameColour = 0x328; // (actor, uint32_t* colour)
 const size_t kSpawnMgrVtblFirst = 0x8;
 const size_t kSpawnNodeVtblNext = 0x88;
-const size_t kGmModeOwnerFlag = 0x5e4;   // *(int*)(DAT_140ee7010 + 0x5e4) == 1 = GM mode (yellow names)
+const size_t kGameState = 0x5e4;         // int: *(DAT_140ee7010 + 0x5e4)
+const int kGameStateInGame = 5;
 
 using TintFn = uint64_t (*)(uint8_t* spawn);
 using GetConLevelFn = int (*)(void* pEverQuest, uint8_t* spawn);
@@ -44,7 +45,7 @@ UserColourFn g_userColour = nullptr;       // FUN_14050b6d0
 void* g_getConLevelCalled = nullptr;       // target of the GetConLevel call next to the pEverQuest load
 void** g_pEverQuest = nullptr;             // &DAT_140e65d90
 uint64_t* g_gmModeFlag = nullptr;          // &DAT_140db4f38
-uint8_t** g_gmModeOwner = nullptr;         // &DAT_140ee7010
+uint8_t** g_gameStateOwner = nullptr;      // &DAT_140ee7010
 uint8_t** g_pLocalPlayer = nullptr;        // &DAT_140e66228
 uint8_t** g_spawnManager = nullptr;        // &DAT_140ee4b40
 
@@ -54,13 +55,20 @@ R VCall(void* obj, size_t slot, A... args) {
 	return fn(obj, args...);
 }
 
+// The game state lives at +0x5e4 of the object at DAT_140ee7010 (the crash handler prints it as
+// "Gamestate at crash"); 5 = in a zone. Character select is 1, and its preview models must be left
+// alone: the con lookup isn't safe before you're in game.
+bool InGame() {
+	return *g_gameStateOwner && *reinterpret_cast<int*>(*g_gameStateOwner + kGameState) == kGameStateInGame;
+}
+
 // Overrides the tint of a plain NPC with its con colour. Leaves PCs, corpses, pets, mercenaries,
 // objects and GM mode to the original. The target gets the plain con colour (no blink brightening).
 void ApplyConColour(uint8_t* spawn) {
+	if (!InGame()) return;
 	void* actor = *reinterpret_cast<void**>(spawn + kSpawnActor);
 	if (!actor || spawn[kSpawnType] != 1) return;
 	if (*reinterpret_cast<int*>(spawn + kSpawnPetOwnerType) != 0) return;
-	if (*g_gmModeFlag && *g_gmModeOwner && *reinterpret_cast<int*>(*g_gmModeOwner + kGmModeOwnerFlag) == 1) return;
 	if (VCall<int>(spawn, kVtblGetRace) >= 0x8cd) return;
 	uint8_t* actorDef = VCall<uint8_t*>(spawn, kVtblGetActorDef);
 	if (actorDef && actorDef[kActorDefMercenary]) return;
@@ -77,7 +85,7 @@ void RetintOnLocalLevelChange() {
 	static int lastLevel = -1;
 	static bool walking = false;
 	uint8_t* me = *g_pLocalPlayer;
-	if (!me || walking) return;
+	if (!me || walking || !InGame()) return;
 	int level = me[kSpawnLevel];
 	if (level == lastLevel) return;
 	bool first = lastLevel < 0;
@@ -140,7 +148,7 @@ const RefSite kConNameTagsRefs[9] = {
 	{ kTargetWndConSig, 20, 24, REF(g_pEverQuest) },
 	{ kTargetWndConSig, 25, 29, REF(g_getConLevelCalled) },
 	{ kTintSig, 32, 37, REF(g_gmModeFlag) },
-	{ kTintSig, 42, 46, REF(g_gmModeOwner) },
+	{ kTintSig, 42, 46, REF(g_gameStateOwner) },
 	{ kSpawnMgrSig, 3, 7, REF(g_spawnManager) },
 	{ kSpawnMgrSig, 36, 40, REF(g_pLocalPlayer) },
 };
