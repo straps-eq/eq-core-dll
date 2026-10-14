@@ -6,7 +6,7 @@
 // vtbl+0x40), the duration formatted by FUN_1405d2880, a CXStr built with FUN_1405853f0, pushed with
 // button->vtbl[+0x288] (SetTooltip) and released with FUN_140587670. The caster name the server sends
 // sits unused in the slot. We hook both refresh functions and replace them: for every slot with a button
-// we set the same first line, then the caster (when known), a compact effect summary for the common SPAs
+// we set the same first line, then the caster (when known), one line per effect in words (spellinfo.cpp)
 // and the cure counters the spell carries. Because the original would overwrite our text every 50 ms,
 // it is not called (except as a fallback while the spell manager does not exist yet). The text is set
 // only when something it depends on changed (button, spell, caster, remaining seconds), so SetTooltip
@@ -16,10 +16,11 @@
 //
 // Slot layout (buff/song: this+0x2f0, 0x90 bytes, count this+0x330; target: this+0x2f8, 0x78 bytes,
 // count this+0x300): +0 CButton*, +0x10 spell id, +0x14 remaining ms (<0 permanent, 0 none),
-// +0x18 caster CXStr-like (+0x20 char*, +0x28 length). Spell effect slots: count spell+0x64, first index
-// spell+0x60, slot = spellmgr->vtbl[+0x48](mgr, index): +8 base1, +0x10 base2, +0x18 max, +0x20 formula,
-// +0x24 SPA (the spell file order slot|spa|base|base2|formula|max).
+// +0x18 caster CXStr-like (+0x20 char*, +0x28 length). The effect summary and the cure counters come
+// from spellinfo.cpp (the client's own value calculator; the slot carries no caster level, so values
+// are shown over the spell's level range).
 #include "buffs.h"
+#include "spellinfo.h"
 #include <windows.h>
 #include <cstdarg>
 #include <cstdint>
@@ -45,21 +46,9 @@ const size_t kSlotRemainingMs = 0x14;
 const size_t kSlotCasterText = 0x20;
 const size_t kSlotCasterLen = 0x28;
 const size_t kButtonVtblSetTooltip = 0x288;  // (CButton*, CXStr*)
-// SPELL
-const size_t kSpellEffectFirst = 0x60;
-const size_t kSpellEffectCount = 0x64;
-const size_t kSpellName = 0x18f;             // char[64]
-// effect slot
-const size_t kEffectBase1 = 0x08;            // int64
-const size_t kEffectMax = 0x18;              // int64
-const size_t kEffectSpa = 0x24;              // int
-// spell manager
-const size_t kSpellMgrVtblGetSpell = 0x40;   // (mgr, int id) -> SPELL*
-const size_t kSpellMgrVtblGetEffect = 0x48;  // (mgr, int index) -> effect slot*
 
 const int kSpellNameMax = 63;
 const int kDurationCap = 0x19;               // what the client passes to FUN_1405d2880
-const int kMaxEffectSlots = 64;              // more than any stock spell
 
 using RefreshFn = void (*)(uint8_t* wnd);
 using FormatDurationFn = void (*)(char* out, int cap, int* seconds);
@@ -68,18 +57,10 @@ using CXStrReleaseFn = void (*)(void** str, void* rep);          // rep = *str; 
 
 RefreshFn g_origBuffRefresh = nullptr;       // trampoline into FUN_140390640
 RefreshFn g_origTargetRefresh = nullptr;     // trampoline into FUN_14050ec00
-uint8_t** g_everQuest = nullptr;           // &DAT_140ee7010; +0x5e4 = game state, 5 = in a zone
-
-// Only touch game data in a zone: at character select and while loading, windows and spawns exist
-// but the data behind them isn't ready.
-bool InGame() {
-	return *g_everQuest && *reinterpret_cast<int*>(*g_everQuest + 0x5e4) == 5;
-}
 FormatDurationFn g_formatDuration = nullptr; // FUN_1405d2880
 CXStrAssignFn g_cxstrAssign = nullptr;       // FUN_1405853f0
 CXStrReleaseFn g_cxstrRelease = nullptr;     // FUN_140587670
-void** g_spellManager = nullptr;             // &DAT_140ee6480 (from its write)
-void** g_spellManagerRead = nullptr;         // &DAT_140ee6480 (from an unrelated read, cross-check)
+void** g_spellManager = nullptr;             // &DAT_140ee6480, to cross-check the refresh functions
 uint8_t* g_buffRefreshFn = nullptr;          // FUN_140390640, to cross-check its callees
 uint8_t* g_targetRefreshFn = nullptr;        // FUN_14050ec00
 
@@ -123,9 +104,9 @@ void LoadConfig() {
 const int kMaxWindows = 4;    // buff, song, target (+1 spare)
 const int kMaxSlots = 64;     // >= 0x3e, the largest slot array
 const int kCasterMax = 64;
-const int kSummaryMax = 256;
+const int kSummaryMax = 640;
 const int kCuresMax = 96;
-const int kTextMax = 512;
+const int kTextMax = 1024;
 
 struct SlotCache {
 	void* button;             // CButton the text was set on (a UI reload makes new buttons)
@@ -166,86 +147,27 @@ void Append(char* out, size_t cap, size_t* len, const char* fmt, ...) {
 	if (*len >= cap) *len = cap - 1;
 }
 
-// "+500" or "+10 to 40" when the slot has a higher cap than its base value.
-void Amount(char* out, size_t cap, long long base, long long max) {
-	if (max != 0 && (max > 0 ? max : -max) > (base > 0 ? base : -base) && (max > 0) == (base > 0))
-		snprintf(out, cap, "%+lld to %lld", base, max);
-	else
-		snprintf(out, cap, "%+lld", base);
-}
-
-// Appends ", <effect>" for the SPAs we summarise; returns false for anything else (left out).
-bool DescribeEffect(int spa, long long base, long long max, char* out, size_t cap, size_t* len) {
-	char amt[48];
-	Amount(amt, sizeof(amt), base, max);
-	const char* sep = *len ? ", " : "";
-	switch (spa) {
-	case 0: case 100: Append(out, cap, len, "%s%s HP/tick", sep, amt); return true;   // HoT / DoT
-	case 1:   Append(out, cap, len, "%s%s AC", sep, amt); return true;
-	case 2:   Append(out, cap, len, "%s%s ATK", sep, amt); return true;
-	case 3:   Append(out, cap, len, "%s%s%% move", sep, amt); return true;
-	case 4:   Append(out, cap, len, "%s%s STR", sep, amt); return true;
-	case 5:   Append(out, cap, len, "%s%s DEX", sep, amt); return true;
-	case 6:   Append(out, cap, len, "%s%s AGI", sep, amt); return true;
-	case 7:   Append(out, cap, len, "%s%s STA", sep, amt); return true;
-	case 8:   Append(out, cap, len, "%s%s INT", sep, amt); return true;
-	case 9:   Append(out, cap, len, "%s%s WIS", sep, amt); return true;
-	case 10:
-		if (base == 0) return false;   // the spell file's blank placeholder
-		Append(out, cap, len, "%s%s CHA", sep, amt);
-		return true;
-	case 11:   // attack speed: 140 = +40% haste, 60 = 40% slow
-		if (base > 100) Append(out, cap, len, "%s+%lld%% haste", sep, base - 100);
-		else if (base > 0 && base < 100) Append(out, cap, len, "%s%lld%% slow", sep, 100 - base);
-		else return false;
-		return true;
-	case 15:  Append(out, cap, len, "%s%s mana/tick", sep, amt); return true;
-	case 46:  Append(out, cap, len, "%s%s FR", sep, amt); return true;
-	case 47:  Append(out, cap, len, "%s%s CR", sep, amt); return true;
-	case 48:  Append(out, cap, len, "%s%s PR", sep, amt); return true;
-	case 49:  Append(out, cap, len, "%s%s DR", sep, amt); return true;
-	case 50:  Append(out, cap, len, "%s%s MR", sep, amt); return true;
-	case 55:  Append(out, cap, len, "%srune %lld", sep, base); return true;
-	case 59:  Append(out, cap, len, "%sDS %lld", sep, base); return true;
-	case 69:  Append(out, cap, len, "%s%s max HP", sep, amt); return true;
-	case 97:  Append(out, cap, len, "%s%s max mana", sep, amt); return true;
-	case 111: Append(out, cap, len, "%s%s all resists", sep, amt); return true;
-	default:  return false;
-	}
-}
-
-const char* CounterName(int spa) {
-	switch (spa) {
-	case 35: return "disease";
-	case 36: return "poison";
-	case 116: return "curse";
-	case 369: return "corruption";
-	default: return nullptr;
-	}
-}
-
-// Fills the per-spell parts of the tooltip from the spell's effect slots.
-void BuildSummary(void* mgr, uint8_t* spell, char* summary, char* cures) {
+// Fills the per-spell parts of the tooltip: one line per effect (the configured separator between
+// them) and the cure counters the spell carries.
+void BuildSummary(uint8_t* spell, char* summary, char* cures) {
 	summary[0] = '\0';
 	cures[0] = '\0';
-	size_t sumLen = 0, cureLen = 0;
-	int shown = 0;
-	int first = *reinterpret_cast<int*>(spell + kSpellEffectFirst);
-	int count = *reinterpret_cast<int*>(spell + kSpellEffectCount);
-	if (count > kMaxEffectSlots) count = kMaxEffectSlots;
-	for (int i = 0; i < count; ++i) {
-		uint8_t* effect = VCall<uint8_t*>(mgr, kSpellMgrVtblGetEffect, first + i);
-		if (!effect) continue;
-		int spa = *reinterpret_cast<int*>(effect + kEffectSpa);
-		long long base = *reinterpret_cast<long long*>(effect + kEffectBase1);
-		long long max = *reinterpret_cast<long long*>(effect + kEffectMax);
-		if (const char* counter = CounterName(spa)) {
-			if (g_cfg.showCures && base > 0)
-				Append(cures, kCuresMax, &cureLen, "%s%lld %s", cureLen ? ", " : "needs cure: ", base, counter);
-			continue;
-		}
-		if (!g_cfg.showEffects || shown >= g_cfg.maxEffects) continue;
-		if (DescribeEffect(spa, base, max, summary, kSummaryMax, &sumLen)) ++shown;
+	if (g_cfg.showEffects) {
+		TextBuf t(summary, kSummaryMax);
+		SpellTextStyle style;
+		style.lineBreak = g_cfg.multiLine ? "\n" : ", ";
+		style.indent = "";
+		style.labelColour = 0;
+		style.maxEffects = g_cfg.maxEffects;
+		style.skipCounters = true;
+		SpellInfoWrite(t, spell, 0, kSpellEffects, style);
+		size_t skip = strlen(style.lineBreak);
+		if (t.len >= skip) memmove(summary, summary + skip, t.len - skip + 1);   // drop the leading separator
+		else summary[0] = '\0';
+	}
+	if (g_cfg.showCures) {
+		TextBuf t(cures, kCuresMax);
+		SpellInfoCures(t, spell);
 	}
 }
 
@@ -258,7 +180,6 @@ void SetTooltip(void* button, const char* text) {
 
 // Replacement for both native refresh loops: slots[0..count) of `size` bytes each.
 void Refresh(uint8_t* wnd, uint8_t* slots, int count, size_t size) {
-	void* mgr = *g_spellManager;
 	WindowCache* cache = CacheFor(wnd);
 	if (count > kMaxSlots) count = kMaxSlots;
 	for (int i = 0; i < count; ++i) {
@@ -268,7 +189,7 @@ void Refresh(uint8_t* wnd, uint8_t* slots, int count, size_t size) {
 		SlotCache& c = cache->slots[i];
 		int spellId = *reinterpret_cast<int*>(slot + kSlotSpellId);
 		int ms = *reinterpret_cast<int*>(slot + kSlotRemainingMs);
-		uint8_t* spell = (spellId > 0 && mgr) ? VCall<uint8_t*>(mgr, kSpellMgrVtblGetSpell, spellId) : nullptr;
+		uint8_t* spell = spellId > 0 ? SpellInfoGetSpell(spellId) : nullptr;
 		if (!spell || ms == 0) {
 			// As the client: no tooltip without a spell or with nothing remaining.
 			if (c.valid && c.button == button && c.spellId == 0) continue;
@@ -283,7 +204,7 @@ void Refresh(uint8_t* wnd, uint8_t* slots, int count, size_t size) {
 		if (!caster || *reinterpret_cast<int*>(slot + kSlotCasterLen) <= 0) caster = "";
 		bool spellChanged = !c.valid || c.button != button || c.spellId != spellId;
 		if (!spellChanged && c.seconds == seconds && strncmp(c.caster, caster, kCasterMax - 1) == 0) continue;
-		if (spellChanged) BuildSummary(mgr, spell, c.summary, c.cures);
+		if (spellChanged) BuildSummary(spell, c.summary, c.cures);
 		c.button = button;
 		c.spellId = spellId;
 		c.seconds = seconds;
@@ -292,7 +213,7 @@ void Refresh(uint8_t* wnd, uint8_t* slots, int count, size_t size) {
 
 		char text[kTextMax];
 		size_t len = 0;
-		const char* name = reinterpret_cast<const char*>(spell + kSpellName);
+		const char* name = SpellInfoName(spell);
 		if (ms < 0) {
 			Append(text, kTextMax, &len, "%.*s:Permanent", kSpellNameMax, name);
 		}
@@ -310,7 +231,7 @@ void Refresh(uint8_t* wnd, uint8_t* slots, int count, size_t size) {
 }
 
 void BuffRefreshDetour(uint8_t* wnd) {
-	if (!InGame() || !*g_spellManager) return g_origBuffRefresh(wnd);
+	if (!SpellInfoInGame()) return g_origBuffRefresh(wnd);
 	int count = *reinterpret_cast<int*>(wnd + kBuffSlotCount);
 	int capacity = *reinterpret_cast<int*>(wnd + kBuffSlotCapacity);
 	if (count > capacity) count = capacity;
@@ -318,7 +239,7 @@ void BuffRefreshDetour(uint8_t* wnd) {
 }
 
 void TargetRefreshDetour(uint8_t* wnd) {
-	if (!InGame() || !*g_spellManager) return g_origTargetRefresh(wnd);
+	if (!SpellInfoInGame()) return g_origTargetRefresh(wnd);
 	int count = *reinterpret_cast<int*>(wnd + kTargetSlotCount);
 	Refresh(wnd, *reinterpret_cast<uint8_t**>(wnd + kTargetSlots), count, kTargetSlotSize);
 }
@@ -366,9 +287,7 @@ const HookSite kBuffTooltipsHooks[2] = {
 	{ kTargetRefreshSig, 5, reinterpret_cast<void*>(&TargetRefreshDetour), REF(g_origTargetRefresh) },
 };
 
-const RefSite kBuffTooltipsRefs[8] = {
-	// mov rcx,[pEverQuest]; cmp dword [rcx+5e4],5 (the client's in-game test)
-	{ "48 8B 0D ?? ?? ?? ?? 83 B9 E4 05 00 00 05", 3, 7, REF(g_everQuest) },
+const RefSite kBuffTooltipsRefs[20] = {
 	// FUN_1405d2880(char* out, int cap, int* seconds): "%dh %dm %ds" / "%dm %ds" / "%ds"
 	{ "48 89 5C 24 10 57 48 83 EC 40 49 8B C0", 0, 0, REF(g_formatDuration) },
 	// FUN_1405853f0(CXStr*, const char*): strlen, *str = 0, allocate rep (len+1), copy at rep+0x18
@@ -377,15 +296,13 @@ const RefSite kBuffTooltipsRefs[8] = {
 	{ "48 89 5C 24 08 57 48 83 EC 20 80 3D ?? ?? ?? ?? 00 48 8B DA 48 8B F9 74 ?? 8B 05 ?? ?? ?? ??", 0, 0, REF(g_cxstrRelease) },
 	// Spell manager creation in FUN_14026e320: mov [spellManager],rcx; mov rax,[rcx]
 	{ "48 89 0D ?? ?? ?? ?? 48 8B 01", 3, 7, REF(g_spellManager) },
-	// FUN_1400d3a00: mov rcx,[spellManager]; cmp eax,[rcx+64]; jg; mov rax,[rcx]; call [rax+40] (GetSpell)
-	{ "48 8B 0D ?? ?? ?? ?? 3B 41 64 0F 8F ?? ?? ?? ?? 48 8B 01 FF 50 40 48 89 44 24 60", 3, 7, REF(g_spellManagerRead) },
 	{ kBuffRefreshSig, 0, 0, REF(g_buffRefreshFn) },
 	{ kTargetRefreshSig, 0, 0, REF(g_targetRefreshFn) },
+	SPELLINFO_REF_SITES,
 };
 
 const char* BuffTooltipsPrepare() {
-	if (g_spellManager != g_spellManagerRead)
-		return "the two spell manager references disagree";
+	if (const char* e = SpellInfoPrepare()) return e;
 	const uint8_t* fns[] = { g_buffRefreshFn, g_targetRefreshFn };
 	for (const uint8_t* fn : fns) {
 		if (!ReadsGlobal(fn, g_spellManager)) return "a refresh function does not read the spell manager";
