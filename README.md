@@ -1,15 +1,15 @@
 # eq-core-dll (ToB)
 
 A `dinput8.dll` proxy for the 64-bit EverQuest ToB client (`eqgame.exe` build `Sep 11 2025 11:54:10`).
-It forwards DirectInput to the system DLL and applies opt-in client patches chosen in `eqcore.ini`.
+It forwards DirectInput to the system DLL and applies opt-in client patches chosen in `dinput8.ini`.
 
 Every patch site is found by byte signature, and its original bytes are checked before anything is written.
-If a signature doesn't match on a given client build, that feature is skipped and logged to `eqcore.log`,
+If a signature doesn't match on a given client build, that feature is skipped and logged to `dinput8.log`,
 so a different build is never patched blindly.
 
 ## Features (all off by default)
 
-| `eqcore.ini` key | What it does |
+| `dinput8.ini` key | What it does |
 |---|---|
 | `SoloLDoN` | LDoN adventure requests without a group (server must allow solo) |
 | `MaxHPAbove10M` | Removes the client's three 10,000,000 HP caps |
@@ -28,7 +28,7 @@ Visual Studio 2022 with the C++ workload. Run `build.bat`; output goes to `bin\`
 
 ## Install
 
-Copy `bin\dinput8.dll` and `eqcore.ini` next to `eqgame.exe`, then turn features on in `eqcore.ini`.
+Copy `bin\dinput8.dll` and `dinput8.ini` next to `eqgame.exe`, then turn features on in `dinput8.ini`.
 
 ## Check a client without running it
 

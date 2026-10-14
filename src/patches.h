@@ -18,7 +18,7 @@ struct PatchSite {
 };
 
 struct Feature {
-	const char* iniKey;      // [Features] key in eqcore.ini
+	const char* iniKey;      // [Features] key in dinput8.ini
 	bool defaultOn;          // used when the key is absent
 	const char* description;
 	const PatchSite* sites;

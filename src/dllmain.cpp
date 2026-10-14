@@ -1,6 +1,6 @@
 // dinput8.dll proxy for the x64 EverQuest ToB client.
 // Forwards DirectInput to the system dinput8.dll and applies opt-in client patches (see patches.cpp)
-// when loaded into eqgame.exe. Features are chosen in eqcore.ini next to eqgame.exe.
+// when loaded into eqgame.exe. Features are chosen in dinput8.ini next to eqgame.exe.
 #include <windows.h>
 #include <unknwn.h>
 #include <cstdio>
@@ -16,7 +16,7 @@ char g_gameDir[MAX_PATH] = {};
 
 void Log(const char* fmt, ...) {
 	char path[MAX_PATH];
-	snprintf(path, sizeof(path), "%s\\eqcore.log", g_gameDir);
+	snprintf(path, sizeof(path), "%s\\dinput8.log", g_gameDir);
 	FILE* f = nullptr;
 	if (fopen_s(&f, path, "a") != 0 || !f) return;
 	SYSTEMTIME t;
@@ -51,7 +51,7 @@ bool IsEqGame() {
 
 void ApplyPatches() {
 	char ini[MAX_PATH];
-	snprintf(ini, sizeof(ini), "%s\\eqcore.ini", g_gameDir);
+	snprintf(ini, sizeof(ini), "%s\\dinput8.ini", g_gameDir);
 
 	CodeRegion text = {};
 	if (!FindTextSectionInImage(reinterpret_cast<uint8_t*>(GetModuleHandleA(nullptr)), &text)) {
