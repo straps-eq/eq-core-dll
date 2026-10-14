@@ -65,13 +65,13 @@ void ApplyPatches() {
 		const Feature& f = features[i];
 		bool on = GetPrivateProfileIntA("Features", f.iniKey, f.defaultOn ? 1 : 0, ini) != 0;
 		if (!on) continue;
-		std::vector<SiteResult> results;
+		Resolved resolved;
 		std::string error;
-		if (!ResolveFeature(text, f, &results, &error)) {
+		if (!ResolveFeature(text, f, &resolved, &error)) {
 			Log("%s: SKIPPED, %s", f.iniKey, error.c_str());
 			continue;
 		}
-		if (!ApplyFeature(f, results, &error)) {
+		if (!ApplyFeature(f, resolved, &error)) {
 			Log("%s: FAILED while patching, %s", f.iniKey, error.c_str());
 			continue;
 		}
@@ -127,8 +127,9 @@ BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID) {
 		GetModuleFileNameA(nullptr, g_gameDir, MAX_PATH);
 		char* slash = strrchr(g_gameDir, '\\');
 		if (slash) *slash = '\0';
-		// Patching is plain memory writes (no thread creation, no library loads), which is safe under
-		// the loader lock. eqgame.exe is fully mapped because it imports this DLL.
+		// Patching is plain memory writes plus VirtualAlloc for hook trampolines (no thread creation,
+		// no library loads), which is safe under the loader lock. eqgame.exe is fully mapped because
+		// it imports this DLL.
 		if (IsEqGame()) ApplyPatches();
 	}
 	else if (reason == DLL_PROCESS_DETACH && g_realDInput) {

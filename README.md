@@ -5,7 +5,9 @@ It forwards DirectInput to the system DLL and applies opt-in client patches chos
 
 Every patch site is found by byte signature, and its original bytes are checked before anything is written.
 If a signature doesn't match on a given client build, that feature is skipped and logged to `dinput8.log`,
-so a different build is never patched blindly.
+so a different build is never patched blindly. Features can also hook a client function (inline x64 hook:
+the function's first bytes go to a trampoline and are replaced by a jump to our code); hook sites and the
+client functions/globals a hook uses are found and checked the same way.
 
 ## Features (all off by default)
 

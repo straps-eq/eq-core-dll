@@ -31,15 +31,20 @@ int main(int argc, char** argv) {
 	const Feature* features = GetFeatures(&count);
 	int failed = 0;
 	for (size_t i = 0; i < count; ++i) {
-		std::vector<SiteResult> results;
+		Resolved r;
 		std::string error;
-		bool ok = ResolveFeature(text, features[i], &results, &error);
+		bool ok = ResolveFeature(text, features[i], &r, &error);
 		printf("%-18s %s", features[i].iniKey, ok ? "OK  " : "FAIL");
 		if (ok) {
-			for (const auto& r : results)
-				for (uint8_t* at : r.patchAddrs)
+			// patch and hook locations as file offsets, refs as image VAs
+			for (const auto& s : r.sites)
+				for (uint8_t* at : s.patchAddrs)
 					printf(" 0x%llx", static_cast<unsigned long long>(at - data.data()));
-			printf("  (file offsets)\n");
+			for (uint8_t* at : r.hookAddrs)
+				printf(" hook@0x%llx", static_cast<unsigned long long>(at - data.data()));
+			for (uint64_t va : r.refAddrs)
+				printf(" ref=0x%llx", static_cast<unsigned long long>(va));
+			printf("\n");
 		}
 		else {
 			printf("  %s\n", error.c_str());
