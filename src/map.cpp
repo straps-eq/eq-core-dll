@@ -199,6 +199,7 @@ struct Slot {
 	uint32_t spawnId;    // 0 = free
 	bool measured;       // width/height valid for the current text
 	bool used;           // claimed this frame
+	bool chained;        // already in this frame's list (guards against a repeated spawn id)
 };
 Slot g_slots[kMaxLabels];
 MapLine g_targetLine;
@@ -359,7 +360,7 @@ void BuildText(const Candidate& c, char* out) {
 // Refreshes the pool from this frame's candidates: existing slots keep their text (and measurement)
 // when nothing changed; spawns that left are released.
 void UpdateSlots(uint8_t* map) {
-	for (Slot& s : g_slots) s.used = false;
+	for (Slot& s : g_slots) s.used = s.chained = false;
 	Slot* chosen[kMaxLabels];
 	for (int i = 0; i < g_candidateCount; ++i) {
 		uint32_t id = *reinterpret_cast<uint32_t*>(g_candidates[i].spawn + kSpawnId);
@@ -379,6 +380,8 @@ void UpdateSlots(uint8_t* map) {
 			s->text[0] = '\0';
 			s->measured = false;
 		}
+		if (s->chained) continue;
+		s->chained = true;
 		char text[kTextMax];
 		BuildText(c, text);
 		if (strcmp(text, s->text) != 0) {
