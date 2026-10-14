@@ -109,19 +109,28 @@ void ApplyPatches() {
 		return;
 	}
 
+	// Resolve every enabled feature against the untouched image first, then apply. Applying as we go
+	// would let one feature's hook bytes break another feature's signature (shared hooks, overlapping refs).
 	size_t count = 0;
 	const Feature* features = GetFeatures(&count);
+	std::vector<Resolved> resolved(count);
+	std::vector<bool> ready(count, false);
 	for (size_t i = 0; i < count; ++i) {
 		const Feature& f = features[i];
 		bool on = GetPrivateProfileIntA("Features", f.iniKey, f.defaultOn ? 1 : 0, ini) != 0;
 		if (!on) continue;
-		Resolved resolved;
 		std::string error;
-		if (!ResolveFeature(text, f, &resolved, &error)) {
+		if (!ResolveFeature(text, f, &resolved[i], &error)) {
 			Log("%s: SKIPPED, %s", f.iniKey, error.c_str());
 			continue;
 		}
-		if (!ApplyFeature(f, resolved, &error)) {
+		ready[i] = true;
+	}
+	for (size_t i = 0; i < count; ++i) {
+		if (!ready[i]) continue;
+		const Feature& f = features[i];
+		std::string error;
+		if (!ApplyFeature(f, resolved[i], &error)) {
 			Log("%s: FAILED while patching, %s", f.iniKey, error.c_str());
 			continue;
 		}
