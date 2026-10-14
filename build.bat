@@ -9,4 +9,6 @@ cmake --build "%~dp0build" --config Release || exit /b 1
 if not exist "%~dp0bin" mkdir "%~dp0bin"
 copy /y "%~dp0build\Release\dinput8.dll" "%~dp0bin\" >nul
 copy /y "%~dp0build\Release\eqcore_check.exe" "%~dp0bin\" >nul
+copy /y "%~dp0build\Release\hook_test.exe" "%~dp0bin\" >nul
+"%~dp0bin\hook_test.exe" || (echo hook self-test FAILED & exit /b 1)
 echo Built bin\dinput8.dll and bin\eqcore_check.exe

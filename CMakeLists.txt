@@ -16,3 +16,7 @@ target_compile_options(dinput8 PRIVATE /W4)
 add_executable(eqcore_check tools/eqcore_check.cpp src/patcher.cpp src/patches.cpp src/nametags.cpp src/map.cpp src/buffs.cpp src/hud.cpp src/itemdisplay.cpp)
 target_compile_definitions(eqcore_check PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS)
 target_compile_options(eqcore_check PRIVATE /W4)
+
+add_executable(hook_test tools/hook_test.cpp src/patcher.cpp)
+target_compile_definitions(hook_test PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS)
+target_compile_options(hook_test PRIVATE /W4)

@@ -198,9 +198,17 @@ bool InstallHook(const HookSite& hook, uint8_t* target, std::string* error) {
 	// target: jmp stub, NOP padding
 	uint8_t jmp[kMaxStolen];
 	memset(jmp, 0x90, sizeof(jmp));
+	// The displacement is relative to where the JMP ends up (target + 5), not to this local buffer.
 	jmp[0] = 0xE9;
-	WriteRel32(jmp + 1, stub);
+	int32_t rel32 = static_cast<int32_t>(reinterpret_cast<int64_t>(stub) - reinterpret_cast<int64_t>(target + 5));
+	memcpy(jmp + 1, &rel32, 4);
 	if (!WriteCode(target, jmp, hook.stolen, error)) return false;
+	int32_t written = 0;
+	memcpy(&written, target + 1, 4);
+	if (target[0] != 0xE9 || target + 5 + written != stub) {
+		*error = "hook jump does not land on its stub";
+		return false;
+	}
 
 	*hook.original = trampoline;
 	return true;

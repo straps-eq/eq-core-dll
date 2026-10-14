@@ -180,7 +180,7 @@ const void* WINAPI Proxy_GetdfDIJoystick() {
 
 } // extern "C"
 
-BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID) {
+BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
 	if (reason == DLL_PROCESS_ATTACH) {
 		DisableThreadLibraryCalls(module);
 		GetModuleFileNameA(nullptr, g_gameDir, MAX_PATH);
@@ -190,14 +190,21 @@ BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID) {
 		// no library loads), which is safe under the loader lock. eqgame.exe is fully mapped because
 		// it imports this DLL.
 		if (IsEqGame()) {
+			// Hooks jump into this DLL for the life of the process, so it must never be unloaded,
+			// even if the game frees its DirectInput library.
+			HMODULE pinned = nullptr;
+			GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+			                   reinterpret_cast<LPCSTR>(&DllMain), &pinned);
+			Log("dinput8.dll loaded at 0x%llx", reinterpret_cast<unsigned long long>(module));
 			char ini[MAX_PATH];
 			snprintf(ini, sizeof(ini), "%s\\dinput8.ini", g_gameDir);
 			if (GetPrivateProfileIntA("Debug", "CrashLog", 1, ini)) AddVectoredExceptionHandler(1, CrashLogHandler);
 			ApplyPatches();
 		}
 	}
-	else if (reason == DLL_PROCESS_DETACH && g_realDInput) {
-		FreeLibrary(g_realDInput);
+	else if (reason == DLL_PROCESS_DETACH) {
+		if (!reserved) Log("dinput8.dll is being unloaded by FreeLibrary");
+		if (g_realDInput && !reserved) FreeLibrary(g_realDInput);
 	}
 	return TRUE;
 }
