@@ -1,0 +1,76 @@
+#include "patches.h"
+
+#define COUNT(a) (sizeof(a) / sizeof((a)[0]))
+
+// Solo LDoN: skip the "must be in a group of 2+" check in the adventure request window
+// (FUN_1400be1b0, eqstr 0x1405). JMP lands on the group-leader check, same as the RoF2 patch,
+// so a member of someone else's group still gets eqstr 0x1407.
+static const PatchSite kSoloLDoN[] = {
+	{ "48 8B 88 30 2E 00 00 48 85 C9 74 0C B2 01 E8 ?? ?? ?? ?? 83 F8 02 73 07 BA 05 14 00 00 EB 3E",
+	  1, 10, "74 0C", "EB 13" },
+};
+
+// Max HP above 10,000,000: remove the three client-side clamps.
+static const PatchSite kMaxHP[] = {
+	// Max HP calc FUN_1400fb4c0: CMOVG R8,RAX (RAX = 10,000,000) -> NOP
+	{ "B8 80 96 98 00 48 8B 6C 24 68 4C 3B C0 48 8B 74 24 70 0F 28 74 24 30 4C 0F 4F C0 49 8B C0",
+	  1, 23, "4C 0F 4F C0", "0F 1F 40 00" },
+	// Current HP FUN_1400eae00: CMOVG RBX,RAX -> NOP
+	{ "B8 80 96 98 00 48 3B D8 48 0F 4F D8 48 8B C3 48 8B 5C 24 68",
+	  1, 8, "48 0F 4F D8", "0F 1F 40 00" },
+	// HP delta applier FUN_1400fb7a0: MOV EBX,10M; CMP RAX,RBX; CMOVL RBX,RAX -> MOV RBX,RAX + NOPs
+	{ "48 03 C3 BB 80 96 98 00 48 3B C3 48 0F 4C D8 48 C7 C0 80 69 67 FF 48 3B D8 48 0F 4C D8",
+	  1, 3, "BB 80 96 98 00 48 3B C3 48 0F 4C D8", "48 8B D8 90 90 90 90 90 90 90 90 90" },
+};
+
+// AA below level 51: AA window (FUN_140356760) level gates 50/51 -> 0/1.
+static const PatchSite kAAPre51[] = {
+	{ "45 85 FF 75 ?? 41 80 FC 32 77 ?? 40 84 F6 74", 1, 8, "32", "00" },
+	{ "45 85 FF 75 ?? 85 FF 74 ?? 41 80 FC 33 72",    1, 12, "33", "01" },
+	{ "45 85 FF 75 ?? 83 FF 64 73 ?? 41 80 FC 33 72", 1, 13, "33", "01" },
+};
+
+// Optional, cosmetic: show the AA exp controls on the inventory window below 51 (FUN_1403fe480).
+// One shared signature, exactly 10 sites. (The old RoF2 version crashed because it patched the
+// ModRM byte instead of the immediate.)
+static const PatchSite kAAPre51Inventory[] = {
+	{ "FF 90 E8 00 00 00 83 F8 33 7C 04 B2 01 EB 02 33 D2", 10, 8, "33", "01" },
+};
+
+// Optional: allow augment combinations the character can't use (FUN_14042dcc0, FUN_1404323a0).
+// Medium confidence: the usability check FUN_1400e9a80 was not fully decompiled.
+static const PatchSite kIllegalAugments[] = {
+	{ "E8 ?? ?? ?? ?? 84 C0 75 05 40 B6 01 EB 03 40 32 F6 F6 44 24 70 01",
+	  1, 7, "75 05", "EB 05" },
+	{ "E8 ?? ?? ?? ?? 84 C0 0F 84 8C 00 00 00 C6 44 24 20 01 45 33 C9 45 8B C5",
+	  1, 7, "0F 84 8C 00 00 00", "66 0F 1F 44 00 00" },
+};
+
+// Optional: skip client hunger/thirst processing and messages (FUN_1400fef10). Like RoF2, this
+// disables the whole client-side tick, not only the text.
+static const PatchSite kFoodDrinkSpam[] = {
+	{ "48 8B 41 10 45 33 F6 8B EA 48 8B F1 48 85 C0 0F 84 DA 03 00 00 44 38 B0 35 01 00 00",
+	  1, 15, "0F 84 DA 03 00 00", "90 E9 DA 03 00 00" },
+};
+
+// Optional: start eqgame.exe without the "patchme" argument (WinMain FUN_140346ca0).
+// Note: patches are applied while eqgame.exe loads its imports, before WinMain runs.
+static const PatchSite kPatchme[] = {
+	{ "44 38 7C 24 60 0F 84 E1 04 00 00 48 8D 55 E0",
+	  1, 5, "0F 84 E1 04 00 00", "66 0F 1F 44 00 00" },
+};
+
+static const Feature kFeatures[] = {
+	{ "SoloLDoN",         false, "Solo LDoN adventures (no group needed)",          kSoloLDoN,         COUNT(kSoloLDoN) },
+	{ "MaxHPAbove10M",    false, "Remove the 10,000,000 HP caps",                   kMaxHP,            COUNT(kMaxHP) },
+	{ "AAPre51",          false, "AA window usable below level 51",                 kAAPre51,          COUNT(kAAPre51) },
+	{ "AAPre51Inventory", false, "Show AA exp on the inventory window below 51",    kAAPre51Inventory, COUNT(kAAPre51Inventory) },
+	{ "IllegalAugments",  false, "Allow augment combinations the player can't use", kIllegalAugments,  COUNT(kIllegalAugments) },
+	{ "NoFoodDrinkSpam",  false, "No hunger/thirst client processing or messages",  kFoodDrinkSpam,    COUNT(kFoodDrinkSpam) },
+	{ "NoPatchme",        false, "Start without the patchme argument",              kPatchme,          COUNT(kPatchme) },
+};
+
+const Feature* GetFeatures(size_t* count) {
+	*count = COUNT(kFeatures);
+	return kFeatures;
+}
