@@ -23,6 +23,8 @@ client functions/globals a hook uses are found and checked the same way.
 | `NoPatchme` | Starts `eqgame.exe` without the `patchme` argument |
 | `ConNameTags` | Colours NPC name tags by con colour (pets, mercenaries, PCs and GM mode keep the client's colours). Tags refresh when a spawn's name is rebuilt or the target changes, and all NPCs are re-coloured after you level |
 | `MapSpawns` | Draws spawns on the map window as labelled dots (NPCs in con colour; players, group members, pets, mercenaries and corpses in their own colours) plus a line to your target. Only spawns the client itself shows you: nothing untargetable, invisible to you, or a trigger/trap/object. Nearest `MaxLabels` spawns; filters, colours and font under `[Map]` in `dinput8.ini`. Labels live on map layer 3 by default, so the map's layer buttons and Z filter apply |
+| `TargetDistance` | Draws the distance to your target (3D) inside the Target window, right-aligned at the top; colour, font and offsets under `[TargetDistance]`. Drawn with the client's own text routine, so it works with any UI skin |
+| `Hud` | A fixed text block at `[Hud]` `X`,`Y`: your loc (Y, X, Z like `/loc`), zone long name, target name and distance, FPS (measured from frame deltas) and the local clock. Each line has its own on/off key; colour and font under `[Hud]`. Shares one per-frame hook with `TargetDistance`; both draw only while in game |
 
 Old-model horses need no patch on ToB: set `AllowPreLuclinMountRiders=1` under `[Defaults]` in `eqclient.ini`
 (Options window, "Toggle Display of Pre-Luclin Characters on Mounts").

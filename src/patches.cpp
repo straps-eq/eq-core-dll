@@ -1,6 +1,7 @@
 #include "patches.h"
 #include "nametags.h"
 #include "map.h"
+#include "hud.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -87,6 +88,11 @@ static const Feature kFeatures[] = {
 	// Spawn dots/labels and target line on the map: hook on MapViewMap::PostDraw (FUN_140455a60), see map.cpp.
 	{ "MapSpawns",        false, "Spawns and target line on the map window",        nullptr,           0,
 	  kMapSpawnsHooks, COUNT(kMapSpawnsHooks), kMapSpawnsRefs, COUNT(kMapSpawnsRefs), MapSpawnsPrepare },
+	// On-screen text: both share one hook on CXWndManager::DrawWindows (FUN_1405cc3a0), see hud.cpp.
+	{ "TargetDistance",   false, "Distance to the target in the Target window",     nullptr,           0,
+	  kHudHooks, COUNT(kHudHooks), kHudRefs, COUNT(kHudRefs), TargetDistancePrepare },
+	{ "Hud",              false, "On-screen loc, zone, target, FPS and clock",      nullptr,           0,
+	  kHudHooks, COUNT(kHudHooks), kHudRefs, COUNT(kHudRefs), HudPrepare },
 };
 
 const Feature* GetFeatures(size_t* count) {

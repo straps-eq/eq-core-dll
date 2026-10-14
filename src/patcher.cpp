@@ -267,7 +267,9 @@ bool ResolveFeature(const CodeRegion& text, const Feature& f, Resolved* out, std
 			if (mask.size() < hook.stolen) e = "signature shorter than the stolen bytes";
 			for (size_t i = 0; e.empty() && i < hook.stolen; ++i)
 				if (!mask[i]) e = "wildcard inside the stolen bytes";
-			if (e.empty() && at[0] == 0xE9) e = "already hooked";
+			// A hook two features share (same detour and `original`) is installed by the first of them;
+			// the second finds its trampoline already set and skips the install.
+			if (e.empty() && at[0] == 0xE9 && !*hook.original) e = "already hooked";
 		}
 		if (!e.empty()) {
 			ok = false;
@@ -318,6 +320,7 @@ bool ApplyFeature(const Feature& f, const Resolved& r, std::string* error) {
 		}
 	}
 	for (size_t h = 0; h < f.hookCount; ++h) {
+		if (*f.hooks[h].original) continue;   // shared hook, installed by an earlier feature
 		if (!InstallHook(f.hooks[h], r.hookAddrs[h], error)) {
 			SealPage();
 			return false;
