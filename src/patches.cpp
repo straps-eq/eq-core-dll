@@ -1,6 +1,7 @@
 #include "patches.h"
 #include "nametags.h"
 #include "map.h"
+#include "itemdisplay.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -87,6 +88,10 @@ static const Feature kFeatures[] = {
 	// Spawn dots/labels and target line on the map: hook on MapViewMap::PostDraw (FUN_140455a60), see map.cpp.
 	{ "MapSpawns",        false, "Spawns and target line on the map window",        nullptr,           0,
 	  kMapSpawnsHooks, COUNT(kMapSpawnsHooks), kMapSpawnsRefs, COUNT(kMapSpawnsRefs), MapSpawnsPrepare },
+	// Value, clicky cooldown and spell details in the item window: hook on the CItemDisplayWnd text finalise
+	// step (FUN_1404340d0), see itemdisplay.cpp.
+	{ "ItemDisplayExtras", false, "Value, clicky cooldown and spell details in the item window", nullptr, 0,
+	  kItemDisplayExtrasHooks, COUNT(kItemDisplayExtrasHooks), kItemDisplayExtrasRefs, COUNT(kItemDisplayExtrasRefs), ItemDisplayExtrasPrepare },
 };
 
 const Feature* GetFeatures(size_t* count) {
