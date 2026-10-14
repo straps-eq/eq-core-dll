@@ -9,7 +9,7 @@ so a different build is never patched blindly. Features can also hook a client f
 the function's first bytes go to a trampoline and are replaced by a jump to our code); hook sites and the
 client functions/globals a hook uses are found and checked the same way.
 
-## Features (all off by default)
+## Features (the shipped `dinput8.ini` turns the safe ones on)
 
 | `dinput8.ini` key | What it does |
 |---|---|
@@ -23,10 +23,11 @@ client functions/globals a hook uses are found and checked the same way.
 | `NoPatchme` | Starts `eqgame.exe` without the `patchme` argument |
 | `ConNameTags` | Colours NPC name tags by con colour (pets, mercenaries, PCs and GM mode keep the client's colours). Tags refresh when a spawn's name is rebuilt or the target changes, and all NPCs are re-coloured after you level |
 | `MapSpawns` | Draws spawns on the map window as labelled dots (NPCs in con colour; players, group members, pets, mercenaries and corpses in their own colours) plus a line to your target. Only spawns the client itself shows you: nothing untargetable, invisible to you, or a trigger/trap/object. Nearest `MaxLabels` spawns; filters, colours and font under `[Map]` in `dinput8.ini`. Labels live on map layer 3 by default, so the map's layer buttons and Z filter apply |
-| `BuffTooltips` | Buff, song and target buff tooltips show the caster (when the server sent one), the remaining time as the client formats it, a compact effect summary for common effects (HP/mana per tick, AC, ATK, stats, resists, haste/slow, rune, damage shield, max HP/mana) and the cure counters a spell carries ("needs cure: 3 poison"). Text is re-set only when it changes; options under `[Buffs]` in `dinput8.ini` |
+| `BuffTooltips` | Buff, song and target buff tooltips show the caster (when the server sent one), the remaining time as the client formats it, one line per effect in words ("Increase Hitpoints by 120 (L1) to 450 (L60) per tick", values from the client's own calculator over the spell's level range) and the cure counters a spell carries ("needs cure: 3 poison"). Text is re-set only when it changes; options under `[Buffs]` in `dinput8.ini` |
 | `TargetDistance` | Draws the distance to your target (3D) inside the Target window, right-aligned at the top; colour, font and offsets under `[TargetDistance]`. Drawn with the client's own text routine, so it works with any UI skin |
 | `Hud` | A fixed text block at `[Hud]` `X`,`Y`: your loc (Y, X, Z like `/loc`), zone long name, target name and distance, FPS (measured from frame deltas) and the local clock. Each line has its own on/off key; colour and font under `[Hud]`. Shares one per-frame hook with `TargetDistance`; both draw only while in game |
-| `ItemDisplayExtras` | Adds text to the bottom of the item window: the item's value in pp/gp/sp/cp, how long a clicky still has to cool down, and for every click/proc/worn/focus/scroll/blessing effect the spell's name plus a one-line summary of its effect slots (HP, mana, AC, stats, resists, haste and other common effects by name; anything else as `SPA n: value`), taken from the client's own spell data |
+| `ItemDisplayExtras` | Adds text to the bottom of the item window: lore text (when it differs from the name), value in pp/gp/sp/cp, tribute values, required/recommended level, container slots/size/weight reduction, stack size, how long a clicky still has to cool down, and for every click/proc/worn/focus/scroll/blessing effect a header with the spell's name, cast level, charges, cast and recast, followed by its effects in words, duration and range. Options under `[ItemDisplay]` |
+| `SpellWindowExtras` | Appends to the spell window (a buff's right-click "Show Spell Information", spell links in items and chat, spell gems): one line per effect slot in words with the value the client's own calculator gives (a level range when it scales, or the cast level the window was opened with), cast/recast/recovery, the classes that get the spell with their levels, and the dbstr category. Options under `[SpellWindow]` |
 
 Old-model horses need no patch on ToB: set `AllowPreLuclinMountRiders=1` under `[Defaults]` in `eqclient.ini`
 (Options window, "Toggle Display of Pre-Luclin Characters on Mounts").
