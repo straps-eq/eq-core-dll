@@ -9,10 +9,10 @@ if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
 	message(FATAL_ERROR "Build x64: the ToB client is a 64-bit process.")
 endif()
 
-add_library(dinput8 SHARED src/dllmain.cpp src/patcher.cpp src/patches.cpp src/nametags.cpp src/map.cpp src/buffs.cpp src/dinput8.def)
+add_library(dinput8 SHARED src/dllmain.cpp src/patcher.cpp src/patches.cpp src/nametags.cpp src/map.cpp src/buffs.cpp src/hud.cpp src/dinput8.def)
 target_compile_definitions(dinput8 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS)
 target_compile_options(dinput8 PRIVATE /W4)
 
-add_executable(eqcore_check tools/eqcore_check.cpp src/patcher.cpp src/patches.cpp src/nametags.cpp src/map.cpp src/buffs.cpp)
+add_executable(eqcore_check tools/eqcore_check.cpp src/patcher.cpp src/patches.cpp src/nametags.cpp src/map.cpp src/buffs.cpp src/hud.cpp)
 target_compile_definitions(eqcore_check PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS)
 target_compile_options(eqcore_check PRIVATE /W4)

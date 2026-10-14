@@ -20,6 +20,8 @@
 //     the function resolved separately). Returning an error skips the feature before anything is written.
 //  5. Add the Feature entry (default off), a dinput8.ini key and a README row, then confirm
 //     eqcore_check prints OK with the expected hook offset and ref addresses.
+//  Two features may share one hook (same tables, detour and `original`; hud.cpp): the first one
+//  applied installs it, the second finds the trampoline already set and only runs its prepare.
 
 #include <cstddef>
 
