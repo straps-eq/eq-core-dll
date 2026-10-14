@@ -23,6 +23,7 @@ client functions/globals a hook uses are found and checked the same way.
 | `NoPatchme` | Starts `eqgame.exe` without the `patchme` argument |
 | `ConNameTags` | Colours NPC name tags by con colour (pets, mercenaries, PCs and GM mode keep the client's colours). Tags refresh when a spawn's name is rebuilt or the target changes, and all NPCs are re-coloured after you level |
 | `MapSpawns` | Draws spawns on the map window as labelled dots (NPCs in con colour; players, group members, pets, mercenaries and corpses in their own colours) plus a line to your target. Only spawns the client itself shows you: nothing untargetable, invisible to you, or a trigger/trap/object. Nearest `MaxLabels` spawns; filters, colours and font under `[Map]` in `dinput8.ini`. Labels live on map layer 3 by default, so the map's layer buttons and Z filter apply |
+| `BuffTooltips` | Buff, song and target buff tooltips show the caster (when the server sent one), the remaining time as the client formats it, a compact effect summary for common effects (HP/mana per tick, AC, ATK, stats, resists, haste/slow, rune, damage shield, max HP/mana) and the cure counters a spell carries ("needs cure: 3 poison"). Text is re-set only when it changes; options under `[Buffs]` in `dinput8.ini` |
 
 Old-model horses need no patch on ToB: set `AllowPreLuclinMountRiders=1` under `[Defaults]` in `eqclient.ini`
 (Options window, "Toggle Display of Pre-Luclin Characters on Mounts").

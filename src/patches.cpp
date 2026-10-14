@@ -1,6 +1,7 @@
 #include "patches.h"
 #include "nametags.h"
 #include "map.h"
+#include "buffs.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -87,6 +88,10 @@ static const Feature kFeatures[] = {
 	// Spawn dots/labels and target line on the map: hook on MapViewMap::PostDraw (FUN_140455a60), see map.cpp.
 	{ "MapSpawns",        false, "Spawns and target line on the map window",        nullptr,           0,
 	  kMapSpawnsHooks, COUNT(kMapSpawnsHooks), kMapSpawnsRefs, COUNT(kMapSpawnsRefs), MapSpawnsPrepare },
+	// Caster, effects and cure counters on buff tooltips: hooks on the buff/song (FUN_140390640) and
+	// target (FUN_14050ec00) tooltip refresh, see buffs.cpp.
+	{ "BuffTooltips",     false, "Caster, effects and cures on buff tooltips",      nullptr,           0,
+	  kBuffTooltipsHooks, COUNT(kBuffTooltipsHooks), kBuffTooltipsRefs, COUNT(kBuffTooltipsRefs), BuffTooltipsPrepare },
 };
 
 const Feature* GetFeatures(size_t* count) {
