@@ -41,6 +41,56 @@ FARPROC RealProc(const char* name) {
 	return GetProcAddress(g_realDInput, name);
 }
 
+// Describes an address as module+offset, e.g. "eqgame.exe+0x455a60".
+void DescribeAddress(DWORD64 addr, char* out, size_t size) {
+	HMODULE mod = nullptr;
+	char name[MAX_PATH] = "?";
+	if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			reinterpret_cast<LPCSTR>(addr), &mod) && mod) {
+		char path[MAX_PATH];
+		GetModuleFileNameA(mod, path, MAX_PATH);
+		const char* slash = strrchr(path, '\\');
+		strcpy_s(name, slash ? slash + 1 : path);
+		snprintf(out, size, "%s+0x%llx", name, static_cast<unsigned long long>(addr - reinterpret_cast<DWORD64>(mod)));
+	}
+	else {
+		snprintf(out, size, "0x%llx", static_cast<unsigned long long>(addr));
+	}
+}
+
+// Logs the first few access violations (module+offset and an unwound call stack) so a crash in the
+// field can be traced to a feature without a dump. First-chance: some of these may be handled.
+LONG CALLBACK CrashLogHandler(PEXCEPTION_POINTERS info) {
+	static volatile LONG logged = 0;
+	DWORD code = info->ExceptionRecord->ExceptionCode;
+	if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_ILLEGAL_INSTRUCTION) return EXCEPTION_CONTINUE_SEARCH;
+	if (InterlockedIncrement(&logged) > 5) return EXCEPTION_CONTINUE_SEARCH;
+	char where[MAX_PATH + 32];
+	DescribeAddress(info->ContextRecord->Rip, where, sizeof(where));
+	ULONG_PTR rw = info->ExceptionRecord->NumberParameters >= 2 ? info->ExceptionRecord->ExceptionInformation[0] : 0;
+	ULONG_PTR target = info->ExceptionRecord->NumberParameters >= 2 ? info->ExceptionRecord->ExceptionInformation[1] : 0;
+	Log("EXCEPTION 0x%08lx at %s (%s 0x%llx) rcx=0x%llx rdx=0x%llx", code, where, rw == 1 ? "write" : rw == 8 ? "exec" : "read",
+		static_cast<unsigned long long>(target), info->ContextRecord->Rcx, info->ContextRecord->Rdx);
+	CONTEXT ctx = *info->ContextRecord;
+	for (int frame = 0; frame < 12 && ctx.Rip; ++frame) {
+		DWORD64 imageBase = 0;
+		PRUNTIME_FUNCTION fn = RtlLookupFunctionEntry(ctx.Rip, &imageBase, nullptr);
+		if (!fn) {
+			ctx.Rip = *reinterpret_cast<DWORD64*>(ctx.Rsp);   // leaf function
+			ctx.Rsp += 8;
+		}
+		else {
+			void* handlerData = nullptr;
+			DWORD64 establisher = 0;
+			RtlVirtualUnwind(UNW_FLAG_NHANDLER, imageBase, ctx.Rip, fn, &ctx, &handlerData, &establisher, nullptr);
+		}
+		if (!ctx.Rip) break;
+		DescribeAddress(ctx.Rip, where, sizeof(where));
+		Log("  called from %s", where);
+	}
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+
 bool IsEqGame() {
 	char exe[MAX_PATH];
 	GetModuleFileNameA(nullptr, exe, MAX_PATH);
@@ -130,7 +180,12 @@ BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID) {
 		// Patching is plain memory writes plus VirtualAlloc for hook trampolines (no thread creation,
 		// no library loads), which is safe under the loader lock. eqgame.exe is fully mapped because
 		// it imports this DLL.
-		if (IsEqGame()) ApplyPatches();
+		if (IsEqGame()) {
+			char ini[MAX_PATH];
+			snprintf(ini, sizeof(ini), "%s\\dinput8.ini", g_gameDir);
+			if (GetPrivateProfileIntA("Debug", "CrashLog", 1, ini)) AddVectoredExceptionHandler(1, CrashLogHandler);
+			ApplyPatches();
+		}
 	}
 	else if (reason == DLL_PROCESS_DETACH && g_realDInput) {
 		FreeLibrary(g_realDInput);

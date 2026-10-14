@@ -3,6 +3,7 @@
 #include "map.h"
 #include "buffs.h"
 #include "hud.h"
+#include "itemdisplay.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -98,6 +99,10 @@ static const Feature kFeatures[] = {
 	  kHudHooks, COUNT(kHudHooks), kHudRefs, COUNT(kHudRefs), TargetDistancePrepare },
 	{ "Hud",              false, "On-screen loc, zone, target, FPS and clock",      nullptr,           0,
 	  kHudHooks, COUNT(kHudHooks), kHudRefs, COUNT(kHudRefs), HudPrepare },
+	// Value, clicky cooldown and spell details in the item window: hook on the CItemDisplayWnd text finalise
+	// step (FUN_1404340d0), see itemdisplay.cpp.
+	{ "ItemDisplayExtras", false, "Value, clicky cooldown and spell details in the item window", nullptr, 0,
+	  kItemDisplayExtrasHooks, COUNT(kItemDisplayExtrasHooks), kItemDisplayExtrasRefs, COUNT(kItemDisplayExtrasRefs), ItemDisplayExtrasPrepare },
 };
 
 const Feature* GetFeatures(size_t* count) {
