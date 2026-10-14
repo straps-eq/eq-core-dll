@@ -102,6 +102,13 @@ using MeasureLabelFn = void (*)(uint8_t* map, MapLabel* label);
 using HasBodyTypeFn = char (*)(uint8_t* spawn, int bodyType, int zero);
 
 PostDrawFn g_origPostDraw = nullptr;       // trampoline into FUN_140455a60
+uint8_t** g_everQuest = nullptr;           // &DAT_140ee7010; +0x5e4 = game state, 5 = in a zone
+
+// Only touch game data in a zone: at character select and while loading, windows and spawns exist
+// but the data behind them isn't ready.
+bool InGame() {
+	return *g_everQuest && *reinterpret_cast<int*>(*g_everQuest + 0x5e4) == 5;
+}
 GetConLevelFn g_getConLevel = nullptr;     // FUN_1402d7fa0
 ConColourIndexFn g_conColourIndex = nullptr; // FUN_140661f70
 UserColourFn g_userColour = nullptr;       // FUN_14050b6d0
@@ -408,7 +415,7 @@ void UpdateSlots(uint8_t* map) {
 
 uint64_t PostDrawDetour(uint8_t* map) {
 	uint8_t* me = *g_pLocalPlayer;
-	if (g_inDraw || !me || !*g_pLocalPC) return g_origPostDraw(map);
+	if (g_inDraw || !me || !*g_pLocalPC || !InGame()) return g_origPostDraw(map);
 	uint32_t zone = *reinterpret_cast<uint32_t*>(me + kSpawnZoneId);
 	if (zone != g_lastZone) {
 		ResetPool();
@@ -494,7 +501,9 @@ const HookSite kMapSpawnsHooks[1] = {
 	{ kPostDrawSig, 6, reinterpret_cast<void*>(&PostDrawDetour), REF(g_origPostDraw) },
 };
 
-const RefSite kMapSpawnsRefs[16] = {
+const RefSite kMapSpawnsRefs[17] = {
+	// mov rcx,[pEverQuest]; cmp dword [rcx+5e4],5 (the client's in-game test)
+	{ "48 8B 0D ?? ?? ?? ?? 83 B9 E4 05 00 00 05", 3, 7, REF(g_everQuest) },
 	// GetConLevel FUN_1402d7fa0(pLocalPC, spawn): corpse test on +0x135, vtbl+0xa0 untargetable test
 	{ "48 89 5C 24 18 57 48 83 EC 20 80 BA 35 01 00 00 02 48 8B FA 48 8B D9 0F 83 ?? ?? ?? ?? "
 	  "48 8B 02 48 8B CA FF 90 A0 00 00 00 84 C0", 0, 0, REF(g_getConLevel) },

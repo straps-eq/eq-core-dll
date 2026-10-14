@@ -3,5 +3,5 @@
 #include "patches.h"
 
 extern const HookSite kMapSpawnsHooks[1];
-extern const RefSite kMapSpawnsRefs[16];
+extern const RefSite kMapSpawnsRefs[17];
 const char* MapSpawnsPrepare();

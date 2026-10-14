@@ -77,22 +77,22 @@ static const PatchSite kPatchme[] = {
 
 // Con-coloured NPC name tags: hook on EQPlayer::SetNameSpriteTint (FUN_1403014a0), see nametags.cpp.
 static const Feature kFeatures[] = {
-	{ "SoloLDoN",         false, "Solo LDoN adventures (no group needed)",          kSoloLDoN,         COUNT(kSoloLDoN) },
-	{ "NoDoubleDamage",   false, "Don't apply melee damage to own HP twice",        kNoDoubleDamage,   COUNT(kNoDoubleDamage) },
-	{ "MaxHPAbove10M",    false, "Remove the 10,000,000 HP caps",                   kMaxHP,            COUNT(kMaxHP) },
-	{ "AAPre51",          false, "AA window usable below level 51",                 kAAPre51,          COUNT(kAAPre51) },
-	{ "AAPre51Inventory", false, "Show AA exp on the inventory window below 51",    kAAPre51Inventory, COUNT(kAAPre51Inventory) },
+	{ "SoloLDoN",         true, "Solo LDoN adventures (no group needed)",          kSoloLDoN,         COUNT(kSoloLDoN) },
+	{ "NoDoubleDamage",   true, "Don't apply melee damage to own HP twice",        kNoDoubleDamage,   COUNT(kNoDoubleDamage) },
+	{ "MaxHPAbove10M",    true, "Remove the 10,000,000 HP caps",                   kMaxHP,            COUNT(kMaxHP) },
+	{ "AAPre51",          true, "AA window usable below level 51",                 kAAPre51,          COUNT(kAAPre51) },
+	{ "AAPre51Inventory", true, "Show AA exp on the inventory window below 51",    kAAPre51Inventory, COUNT(kAAPre51Inventory) },
 	{ "IllegalAugments",  false, "Allow augment combinations the player can't use", kIllegalAugments,  COUNT(kIllegalAugments) },
 	{ "NoFoodDrinkSpam",  false, "No hunger/thirst client processing or messages",  kFoodDrinkSpam,    COUNT(kFoodDrinkSpam) },
 	{ "NoPatchme",        false, "Start without the patchme argument",              kPatchme,          COUNT(kPatchme) },
-	{ "ConNameTags",      false, "Colour NPC name tags by con colour",              nullptr,           0,
+	{ "ConNameTags",      true, "Colour NPC name tags by con colour",              nullptr,           0,
 	  kConNameTagsHooks, COUNT(kConNameTagsHooks), kConNameTagsRefs, COUNT(kConNameTagsRefs), ConNameTagsPrepare },
 	// Spawn dots/labels and target line on the map: hook on MapViewMap::PostDraw (FUN_140455a60), see map.cpp.
-	{ "MapSpawns",        false, "Spawns and target line on the map window",        nullptr,           0,
+	{ "MapSpawns",        true, "Spawns and target line on the map window",        nullptr,           0,
 	  kMapSpawnsHooks, COUNT(kMapSpawnsHooks), kMapSpawnsRefs, COUNT(kMapSpawnsRefs), MapSpawnsPrepare },
 	// Caster, effects and cure counters on buff tooltips: hooks on the buff/song (FUN_140390640) and
 	// target (FUN_14050ec00) tooltip refresh, see buffs.cpp.
-	{ "BuffTooltips",     false, "Caster, effects and cures on buff tooltips",      nullptr,           0,
+	{ "BuffTooltips",     true, "Caster, effects and cures on buff tooltips",      nullptr,           0,
 	  kBuffTooltipsHooks, COUNT(kBuffTooltipsHooks), kBuffTooltipsRefs, COUNT(kBuffTooltipsRefs), BuffTooltipsPrepare },
 	// On-screen text: both share one hook on CXWndManager::DrawWindows (FUN_1405cc3a0), see hud.cpp.
 	{ "TargetDistance",   false, "Distance to the target in the Target window",     nullptr,           0,

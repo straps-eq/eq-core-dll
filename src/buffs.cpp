@@ -68,6 +68,13 @@ using CXStrReleaseFn = void (*)(void** str, void* rep);          // rep = *str; 
 
 RefreshFn g_origBuffRefresh = nullptr;       // trampoline into FUN_140390640
 RefreshFn g_origTargetRefresh = nullptr;     // trampoline into FUN_14050ec00
+uint8_t** g_everQuest = nullptr;           // &DAT_140ee7010; +0x5e4 = game state, 5 = in a zone
+
+// Only touch game data in a zone: at character select and while loading, windows and spawns exist
+// but the data behind them isn't ready.
+bool InGame() {
+	return *g_everQuest && *reinterpret_cast<int*>(*g_everQuest + 0x5e4) == 5;
+}
 FormatDurationFn g_formatDuration = nullptr; // FUN_1405d2880
 CXStrAssignFn g_cxstrAssign = nullptr;       // FUN_1405853f0
 CXStrReleaseFn g_cxstrRelease = nullptr;     // FUN_140587670
@@ -303,7 +310,7 @@ void Refresh(uint8_t* wnd, uint8_t* slots, int count, size_t size) {
 }
 
 void BuffRefreshDetour(uint8_t* wnd) {
-	if (!*g_spellManager) return g_origBuffRefresh(wnd);
+	if (!InGame() || !*g_spellManager) return g_origBuffRefresh(wnd);
 	int count = *reinterpret_cast<int*>(wnd + kBuffSlotCount);
 	int capacity = *reinterpret_cast<int*>(wnd + kBuffSlotCapacity);
 	if (count > capacity) count = capacity;
@@ -311,7 +318,7 @@ void BuffRefreshDetour(uint8_t* wnd) {
 }
 
 void TargetRefreshDetour(uint8_t* wnd) {
-	if (!*g_spellManager) return g_origTargetRefresh(wnd);
+	if (!InGame() || !*g_spellManager) return g_origTargetRefresh(wnd);
 	int count = *reinterpret_cast<int*>(wnd + kTargetSlotCount);
 	Refresh(wnd, *reinterpret_cast<uint8_t**>(wnd + kTargetSlots), count, kTargetSlotSize);
 }
@@ -359,7 +366,9 @@ const HookSite kBuffTooltipsHooks[2] = {
 	{ kTargetRefreshSig, 5, reinterpret_cast<void*>(&TargetRefreshDetour), REF(g_origTargetRefresh) },
 };
 
-const RefSite kBuffTooltipsRefs[7] = {
+const RefSite kBuffTooltipsRefs[8] = {
+	// mov rcx,[pEverQuest]; cmp dword [rcx+5e4],5 (the client's in-game test)
+	{ "48 8B 0D ?? ?? ?? ?? 83 B9 E4 05 00 00 05", 3, 7, REF(g_everQuest) },
 	// FUN_1405d2880(char* out, int cap, int* seconds): "%dh %dm %ds" / "%dm %ds" / "%ds"
 	{ "48 89 5C 24 10 57 48 83 EC 40 49 8B C0", 0, 0, REF(g_formatDuration) },
 	// FUN_1405853f0(CXStr*, const char*): strlen, *str = 0, allocate rep (len+1), copy at rep+0x18
