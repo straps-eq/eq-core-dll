@@ -140,7 +140,7 @@ const int kTextMax = 96;
 struct Config {
 	int maxLabels = 100;
 	int maxDistance = 0;        // 0 = no limit
-	int labelSize = 2;          // 1..3
+	int labelSize = 3;          // 1..3
 	int layer = 3;              // 0..3, toggled with the map's layer buttons
 	bool showLevel = true;
 	bool showNPCs = true;
