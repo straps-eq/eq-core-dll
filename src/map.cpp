@@ -99,7 +99,7 @@ using ConColourIndexFn = int (*)(int con);
 using UserColourFn = uint32_t (*)(int index);
 using IsInvisibleToFn = char (*)(uint8_t* me, uint8_t* spawn, char lenient);
 using MeasureLabelFn = void (*)(uint8_t* map, MapLabel* label);
-using HasBodyTypeFn = char (*)(uint8_t* spawn, int bodyType, int zero);
+using HasBodyTypeFn = char (*)(uint8_t* spawn, int bodyType, int zero1, int zero2); // client passes (bt, 0, 0)
 
 PostDrawFn g_origPostDraw = nullptr;       // trampoline into FUN_140455a60
 uint8_t** g_everQuest = nullptr;           // &DAT_140ee7010; +0x5e4 = game state, 5 = in a zone
@@ -287,7 +287,7 @@ bool Classify(uint8_t* spawn, uint8_t* me, Candidate* out) {
 	if (VCall<int>(spawn, kVtblGetRace) >= 0x8cd) return false;
 	if (g_isInvisibleTo(me, spawn, 0)) return false;
 	for (int bt : kHiddenBodyTypes)
-		if (g_hasBodyType(spawn, bt, 0)) return false;
+		if (g_hasBodyType(spawn, bt, 0, 0)) return false;
 
 	uint8_t type = spawn[kSpawnType];
 	out->withLevel = g_cfg.showLevel;
@@ -362,6 +362,7 @@ void BuildText(const Candidate& c, char* out) {
 	if (!name[0]) name = reinterpret_cast<const char*>(c.spawn + kSpawnName);
 	if (c.withLevel) snprintf(out, kTextMax, "%.*s (%d)", 0x3f, name, c.spawn[kSpawnLevel]);
 	else snprintf(out, kTextMax, "%.*s", 0x3f, name);
+	if (!out[0]) strcpy_s(out, kTextMax, "?");   // the client never measures or draws an empty label
 }
 
 // Refreshes the pool from this frame's candidates: existing slots keep their text (and measurement)
@@ -421,8 +422,10 @@ uint64_t PostDrawDetour(uint8_t* map) {
 		ResetPool();
 		g_lastZone = zone;
 	}
-	// Only the current zone's map, and not on the draw that re-fits the view to the labels.
-	if (*reinterpret_cast<uint32_t*>(map + kMapZoneId) != zone || map[kMapRefit] == 1) return g_origPostDraw(map);
+	// Only the current zone's map, and not on the draw that re-fits the view to the labels. The draw only
+	// clears the re-fit flag when the map has labels of its own, so ignore it on a label-less map.
+	bool refit = map[kMapRefit] == 1 && *reinterpret_cast<MapLabel**>(map + kMapLabels);
+	if (*reinterpret_cast<uint32_t*>(map + kMapZoneId) != zone || refit) return g_origPostDraw(map);
 
 	g_inDraw = true;
 	CollectCandidates(me);
