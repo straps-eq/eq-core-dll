@@ -1,20 +1,22 @@
-// SpellWindowExtras: appends a details block to the spell window (CSpellDisplayWnd), the window a
+// SpellWindowExtras: adds a details block to the spell window (CSpellDisplayWnd), the window a
 // buff's right-click "Show Spell Information" opens, as well as spell links in items, chat and the
-// spell book: one line per effect slot in words with the values the client's own calculator gives
-// (a level range when the value scales), then recast/recovery, the classes that get the spell with
-// their levels, the dbstr category and optionally the spell id.
+// spell book. Below the client's own text: "Spell Effect: <description>" when the client did not print
+// the description itself, then one block in the layout players know from other tools: ID and duration,
+// recovery and recast, range, resist (detrimental spells), one "Slot N:" line per effect in words with
+// the values the client's own calculator gives, the classes that get the spell with their levels, the
+// dbstr category and subcategory, and the spell icon number.
 //
 // The client builds the window's body in SetSpell (FUN_1404fb030: level, skill, mana, cast time,
 // caster, stacking, resist, target, range, duration, description, cast messages) and pushes it into
 // the "SDW_SpellDescription" STML (this+0x2d8) in the finalise step FUN_1404fcdc0 with
-// CStmlWnd::SetSTMLText (FUN_1405ca040, append = 0), which replaces the text. The finalise step also
-// runs on refreshes, so we hook it: the original runs, then our block is appended once with the same
-// call in append mode. The window keeps the spell id at +0x3a0, the cast level at +0x3a4 (0 unless the
-// window came from a link with a level) and the caster name at +0x328/+0x330 (length; set only by the
-// buff menu). The client already prints "Caster:" itself when it has one, so ours is off by default.
-// The CXStr is built with the client's constructor (FUN_1405853f0) and consumed by SetSTMLText.
+// CStmlWnd::SetSTMLText (FUN_1405ca040). The finalise step also runs on refreshes, so we hook it: the
+// original runs, then the window's text is read back, ours is added after it and the whole text is set
+// again (stml.h explains why SetSTMLText's "append" flag cannot be used). The window keeps the spell
+// id at +0x3a0, the cast level at +0x3a4 (0 unless the window came from a link with a level) and the
+// caster name at +0x328/+0x330 (length; set only by the buff menu).
 #include "spellwindow.h"
 #include "spellinfo.h"
+#include "stml.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdlib>
@@ -30,25 +32,22 @@ const size_t kWndSpellId = 0x3a0;       // int
 const size_t kWndCastLevel = 0x3a4;     // int
 
 using FinaliseFn = void (*)(uint8_t* wnd);
-using CXStrFromCStrFn = void* (*)(void** out, const char* text);
-using SetStmlTextFn = void (*)(void* stml, void** text, char append, void* fmt);
 
-FinaliseFn g_origFinalise = nullptr;       // trampoline into FUN_1404fcdc0
-CXStrFromCStrFn g_cxstrFromCStr = nullptr; // FUN_1405853f0
-SetStmlTextFn g_setStmlText = nullptr;     // FUN_1405ca040
+FinaliseFn g_origFinalise = nullptr;         // trampoline into FUN_1404fcdc0
+StmlCXStrCtorFn g_cxstrFromCStr = nullptr;   // FUN_1405853f0
+StmlSetTextFn g_setStmlText = nullptr;       // FUN_1405ca040
 
 // ---- configuration ([SpellWindow] in dinput8.ini) ----
 
 struct Config {
-	bool effects = true;
-	bool recast = true;
+	bool description = true;    // "Spell Effect: ..." when the client's text lacks the description
+	bool details = true;        // ID/duration, recovery/recast, range, resist, effect slots
 	bool classes = true;
-	bool category = true;
-	bool id = false;
+	bool category = true;       // category, subcategory, spell icon
 	bool caster = false;        // the client prints its own "Caster:" line
-	bool all = false;           // also duration, costs, resist, target, range, skill and cast messages
+	bool messages = false;      // cast on you / on other / wears off (the client prints them too)
 	int maxEffects = 20;
-	uint32_t colour = 0x8aa3ff; // label colour (0 = plain)
+	uint32_t colour = 0x00ffff; // block colour (0 = plain)
 };
 Config g_cfg;
 
@@ -62,13 +61,12 @@ void LoadConfig() {
 	strcat_s(ini, "\\dinput8.ini");
 	auto Int = [&](const char* key, int def) { return static_cast<int>(GetPrivateProfileIntA("SpellWindow", key, def, ini)); };
 	Config c;
-	c.effects = Int("ShowEffects", c.effects) != 0;
-	c.recast = Int("ShowRecast", c.recast) != 0;
+	c.description = Int("ShowDescription", c.description) != 0;
+	c.details = Int("ShowDetails", c.details) != 0;
 	c.classes = Int("ShowClasses", c.classes) != 0;
 	c.category = Int("ShowCategory", c.category) != 0;
-	c.id = Int("ShowId", c.id) != 0;
 	c.caster = Int("ShowCaster", c.caster) != 0;
-	c.all = Int("ShowAll", c.all) != 0;
+	c.messages = Int("ShowMessages", c.messages) != 0;
 	c.maxEffects = Clamp(Int("MaxEffects", c.maxEffects), 1, 40);
 	char buf[32] = {};
 	GetPrivateProfileStringA("SpellWindow", "Colour", "", buf, sizeof(buf), ini);
@@ -76,9 +74,27 @@ void LoadConfig() {
 	g_cfg = c;
 }
 
-// ---- hook ----
+// ---- text ----
 
-const size_t kTextMax = 8192;
+const size_t kTextMax = 32768;      // the client's text plus ours
+const size_t kDescriptionMax = 2048;
+
+// Whether the client's text already carries the description (it prints it when the dbstr entry exists).
+bool HasDescription(const char* native, const char* description) {
+	char probe[48];
+	size_t n = strlen(description);
+	if (n > sizeof(probe) - 1) n = sizeof(probe) - 1;
+	if (n < 8) return strstr(native, description) != nullptr;
+	memcpy(probe, description, n);
+	probe[n] = '\0';
+	return strstr(native, probe) != nullptr;
+}
+
+void Colour(TextBuf& t, bool open) {
+	if (!g_cfg.colour) return;
+	if (open) t.Add("<C \"#%06X\">", g_cfg.colour);
+	else t.Add("</C>");
+}
 
 void AppendExtras(uint8_t* wnd) {
 	void* stml = *reinterpret_cast<void**>(wnd + kWndDescription);
@@ -88,46 +104,58 @@ void AppendExtras(uint8_t* wnd) {
 	int castLevel = *reinterpret_cast<int*>(wnd + kWndCastLevel);
 
 	static char text[kTextMax];
-	TextBuf t(text, sizeof(text));
+	size_t native = StmlCurrentText(stml, text, sizeof(text));
+	TextBuf t(text + native, sizeof(text) - native);
 	SpellTextStyle style;
 	style.lineBreak = "<BR>";
 	style.indent = "";
-	style.labelColour = g_cfg.colour;
+	style.labelColour = 0;
 	style.maxEffects = g_cfg.maxEffects;
+	style.classesBare = true;
 
+	if (g_cfg.description) {
+		static char description[kDescriptionMax];
+		TextBuf d(description, sizeof(description));
+		if (SpellInfoDescription(d, spell, castLevel) && !HasDescription(text, description))
+			t.Add("<BR>Spell Effect: %s<BR>", description);
+	}
 	if (g_cfg.caster && *reinterpret_cast<int*>(wnd + kWndCasterLen) > 0) {
 		const char* caster = *reinterpret_cast<const char**>(wnd + kWndCasterText);
-		if (caster && caster[0]) {
-			t.Add("<BR>");
-			if (g_cfg.colour) t.Add("<C #%06x>Caster:</C> ", g_cfg.colour);
-			else t.Add("Caster: ");
-			t.Add("%.63s", caster);
-		}
+		if (caster && caster[0]) t.Add("<BR>Caster: %.63s", caster);
 	}
-	if (g_cfg.effects) {
+	size_t blockStart = t.len;
+	Colour(t, true);
+	size_t mark = t.len;
+	if (g_cfg.details) {
 		t.Add("<BR>");
-		if (g_cfg.colour) t.Add("<C #%06x>Effects:</C>", g_cfg.colour);
-		else t.Add("Effects:");
-		size_t mark = t.len;
-		SpellTextStyle effects = style;
-		effects.indent = "- ";
-		SpellInfoWrite(t, spell, castLevel, kSpellEffects, effects);
-		if (t.len == mark) t.Add("<BR>- none");
+		SpellInfoDetails(t, spell, castLevel, style);
 	}
-	unsigned parts = 0;
-	if (g_cfg.recast) parts |= kSpellTimes;
-	if (g_cfg.all) parts |= kSpellDuration | kSpellCosts | kSpellResist | kSpellTarget | kSpellRange | kSpellSkill;
-	if (g_cfg.classes) parts |= kSpellClasses;
-	if (g_cfg.category) parts |= kSpellCategory;
-	if (g_cfg.all) parts |= kSpellMessages;
-	if (g_cfg.id) parts |= kSpellId;
-	SpellInfoWrite(t, spell, castLevel, parts, style);
+	if (g_cfg.classes) {
+		t.Add("<BR>");
+		SpellInfoWrite(t, spell, castLevel, kSpellClasses, style);
+	}
+	if (g_cfg.category) {
+		const char* cat = nullptr;
+		const char* sub = nullptr;
+		SpellInfoCategory(spell, &cat, &sub);
+		t.Add("<BR>");
+		if (cat) t.Add("<BR>Category: %.47s", cat);
+		if (sub) t.Add("<BR>Subcategory: %.47s", sub);
+		t.Add("<BR>Spell Icon: %d", SpellInfoIcon(spell));
+	}
+	if (g_cfg.messages) {
+		t.Add("<BR>");
+		SpellInfoWrite(t, spell, castLevel, kSpellMessages, style);
+	}
+	if (t.len == mark && !t.full) {
+		t.len = blockStart;   // nothing was added: drop the colour tag
+		t.buf[t.len] = '\0';
+	}
+	else {
+		Colour(t, false);
+	}
 	if (!t.len) return;
-
-	void* cxstr = nullptr;
-	g_cxstrFromCStr(&cxstr, text);
-	if (!cxstr) return;
-	g_setStmlText(stml, &cxstr, 1, nullptr);   // append; releases cxstr
+	StmlSetText(stml, text, g_cxstrFromCStr, g_setStmlText);
 }
 
 void FinaliseDetour(uint8_t* wnd) {
@@ -151,10 +179,10 @@ const HookSite kSpellWindowExtrasHooks[1] = {
 	{ kFinaliseSig, 6, reinterpret_cast<void*>(&FinaliseDetour), REF(g_origFinalise) },
 };
 
-const RefSite kSpellWindowExtrasRefs[16] = {
+const RefSite kSpellWindowExtrasRefs[17] = {
 	// CXStr::CXStr(const char*) FUN_1405853f0
 	{ "48 89 74 24 18 57 48 83 EC 20 48 8B F2 48 8B F9 48 85 D2 74 ?? 48 89 5C 24 30", 0, 0, REF(g_cxstrFromCStr) },
-	// CStmlWnd::SetSTMLText FUN_1405ca040(stml, CXStr*, append, fmt)
+	// CStmlWnd::SetSTMLText FUN_1405ca040(stml, CXStr*, flag, fmt)
 	{ "48 89 5C 24 18 48 89 6C 24 20 48 89 54 24 10 56 57 41 56", 0, 0, REF(g_setStmlText) },
 	SPELLINFO_REF_SITES,
 };
