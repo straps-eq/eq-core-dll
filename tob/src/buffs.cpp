@@ -287,7 +287,7 @@ const HookSite kBuffTooltipsHooks[2] = {
 	{ kTargetRefreshSig, 5, reinterpret_cast<void*>(&TargetRefreshDetour), REF(g_origTargetRefresh) },
 };
 
-const RefSite kBuffTooltipsRefs[20] = {
+const RefSite kBuffTooltipsRefs[21] = {
 	// FUN_1405d2880(char* out, int cap, int* seconds): "%dh %dm %ds" / "%dm %ds" / "%ds"
 	{ "48 89 5C 24 10 57 48 83 EC 40 49 8B C0", 0, 0, REF(g_formatDuration) },
 	// FUN_1405853f0(CXStr*, const char*): strlen, *str = 0, allocate rep (len+1), copy at rep+0x18

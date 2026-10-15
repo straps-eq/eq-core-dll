@@ -7,8 +7,9 @@
 // case and the max clamp, exactly as the client applies them), the duration from its duration function
 // (FUN_1400e27a0, ticks; 0xffffffff permanent), cast messages from the spell string table
 // (FUN_1400c2410 on DAT_140d99970), category names from the dbstr table (FUN_14018b660 on
-// DAT_140db4de0, type 5), and the skill name from the skill table (FUN_14032e520 on DAT_140ee6418 ->
-// eqstr id, FUN_140673e50 on DAT_140e65d98 -> text). Both calculators take the local PC's affect block
+// DAT_140db4de0, type 5), the skill name from the skill table (FUN_14032e520 on DAT_140ee6418 ->
+// eqstr id, FUN_140673e50 on DAT_140e65d98 -> text), and the description from the client's own
+// expander (FUN_14024c590: dbstr type 6 keyed by the spell's descnum with #1/@1/%z filled in). Both calculators take the local PC's affect block
 // (pLocalPC + 0x27b8) as their first argument, as every caller in the client does; with no running
 // buff (affect = null) the time-dependent calc codes (1000s/4000s) fall back to the base value, which is
 // what the client does too.
@@ -59,6 +60,8 @@ const size_t kOffResistAdjust = 0x6c;
 const size_t kOffId = 0x8c;
 const size_t kOffCategory = 0x94;
 const size_t kOffSubcategory = 0x98;
+const size_t kOffDescNum = 0x68;         // dbstr type 6 key (0 = no description)
+const size_t kOffIcon = 0x7c;
 const size_t kOffEndurance = 0xac;
 const size_t kOffEndurancePct = 0xb0;
 const size_t kOffPcOnly = 0xe4;
@@ -89,6 +92,8 @@ const int kClassCount = 16;
 const int kMaxLevel = 125;
 const int kMaxSlots = 64;
 const int kDbstrSpellCategory = 5;
+const int kDbstrSpellDescription = 6;
+const size_t kDescribeOut = 0x800;       // FUN_14024c590 writes up to this many bytes
 const unsigned kDurationPermanent = 0xffffffffu;
 const int kTickSeconds = 6;
 
@@ -101,6 +106,7 @@ SpellStringFn g_spellString = nullptr;
 DbStrFn g_dbstr = nullptr;
 SkillNameIdFn g_skillNameId = nullptr;
 EqStrFn g_eqstr = nullptr;
+DescribeFn g_describe = nullptr;
 void** g_spellStringTable = nullptr;
 void** g_dbstrTable = nullptr;
 void** g_skillTable = nullptr;
@@ -522,7 +528,7 @@ bool DescribeSlot(TextBuf& out, const uint8_t* spell, int slotIdx, const uint8_t
 
 void Label(TextBuf& out, const SpellTextStyle& s, const char* label) {
 	out.Add("%s%s", s.lineBreak, s.indent);
-	if (s.labelColour) out.Add("<C #%06x>%s</C> ", s.labelColour & 0xffffff, label);
+	if (s.labelColour) out.Add("<C \"#%06X\">%s</C> ", s.labelColour & 0xffffff, label);
 	else out.Add("%s ", label);
 }
 
@@ -564,6 +570,7 @@ void AddEffects(TextBuf& out, const uint8_t* spell, int castLevel, const SpellTe
 		if (s.skipCounters && (spa == 35 || spa == 36 || spa == 116 || spa == 369)) continue;
 		size_t mark = out.len;
 		out.Add("%s%s", s.lineBreak, s.indent);
+		if (s.slotNumbers) out.Add("Slot %d: ", I32(slot, 0) + 1);
 		if (DescribeSlot(out, spell, i, slot, castLevel, hasDuration)) ++shown;
 		else if (!out.full) { out.len = mark; out.buf[mark] = '\0'; }
 	}
@@ -634,8 +641,12 @@ void AddClasses(TextBuf& out, const uint8_t* spell, const SpellTextStyle& s) {
 	for (int c = 1; c <= kClassCount; ++c) {
 		int lvl = spell[kOffClassLevels + static_cast<size_t>(c)];
 		if (lvl < 1 || lvl > kMaxLevel) continue;
-		if (!any) Label(out, s, "Classes:");
-		out.Add("%s%s (%d)", any ? ", " : "", kClassNames[c], lvl);
+		if (!any) {
+			if (s.classesBare) out.Add("%s%s", s.lineBreak, s.indent);
+			else Label(out, s, "Classes:");
+		}
+		if (s.classesBare) out.Add("%s%s(%d)", any ? ", " : "", kClassNames[c], lvl);
+		else out.Add("%s%s (%d)", any ? ", " : "", kClassNames[c], lvl);
 		any = true;
 	}
 }
@@ -739,6 +750,71 @@ void SpellInfoWrite(TextBuf& out, const uint8_t* spell, int castLevel, unsigned 
 		Label(out, style, "ID:");
 		out.Add("%d", I32(spell, kOffId));
 	}
+}
+
+int SpellInfoId(const uint8_t* spell) { return I32(spell, kOffId); }
+int SpellInfoIcon(const uint8_t* spell) { return I32(spell, kOffIcon); }
+
+void SpellInfoCategory(const uint8_t* spell, const char** category, const char** subcategory) {
+	*category = DbStr(I32(spell, kOffCategory), kDbstrSpellCategory);
+	*subcategory = DbStr(I32(spell, kOffSubcategory), kDbstrSpellCategory);
+}
+
+void SpellInfoDetails(TextBuf& out, const uint8_t* spell, int castLevel, const SpellTextStyle& s) {
+	if (!spell) return;
+	if (castLevel > kMaxLevel) castLevel = kMaxLevel;
+	// "ID: n   Duration: d"
+	out.Add("%s%sID: %d   Duration: ", s.lineBreak, s.indent, I32(spell, kOffId));
+	if (I32(spell, kOffDurationFormula) == 0) out.Add("Instant");
+	else {
+		int lo = castLevel > 0 ? castLevel : MinLevel(spell);
+		unsigned first = Ticks(spell, lo);
+		unsigned last = castLevel > 0 ? first : Ticks(spell, kMaxLevel);
+		if (!first && !last) out.Add("Unknown");
+		else {
+			AddTicks(out, first);
+			if (first != last) {
+				out.Add(" (L%d) to ", lo);
+				AddTicks(out, last);
+				out.Add(" (L%d)", kMaxLevel);
+			}
+		}
+	}
+	out.Add("%s%sRecoveryTime: %.2f   RecastTime: %.2f", s.lineBreak, s.indent,
+	        I32(spell, kOffRecoveryMs) / 1000.0, I32(spell, kOffRecastMs) / 1000.0);
+	float range = F32(spell, kOffRange), ae = F32(spell, kOffAERange);
+	out.Add("%s%sRange: %.0f", s.lineBreak, s.indent, range);
+	if (ae > 0) out.Add("   AE Range: %.0f", ae);
+	if (spell[kOffBeneficial] == 0) {
+		const char* name = ResistName(spell[kOffResistType]);
+		out.Add("%s%sResist: ", s.lineBreak, s.indent);
+		if (name) out.Add("%s", name);
+		else out.Add("type %d", spell[kOffResistType]);
+		int adjust = I32(spell, kOffResistAdjust);
+		if (adjust) out.Add("  (Resist Adj.: %d)", adjust);
+	}
+	out.Add("%s", s.lineBreak);
+	SpellTextStyle slots = s;
+	slots.slotNumbers = true;
+	AddEffects(out, spell, castLevel, slots);
+}
+
+bool SpellInfoDescription(TextBuf& out, const uint8_t* spell, int castLevel) {
+	if (!spell || I32(spell, kOffDescNum) == 0) return false;
+	if (castLevel > kMaxLevel) castLevel = kMaxLevel;
+	if (g_describe) {
+		static char text[kDescribeOut + 64];
+		text[0] = '\0';
+		g_describe(text, 1, I32(spell, kOffId), -1, castLevel);
+		text[kDescribeOut] = '\0';
+		if (!text[0] || strncmp(text, "Unknown", 7) == 0) return false;
+		out.Add("%s", text);
+		return true;
+	}
+	const char* raw = DbStr(I32(spell, kOffDescNum), kDbstrSpellDescription);
+	if (!raw) return false;
+	out.Add("%s", raw);
+	return true;
 }
 
 bool SpellInfoInGame() {

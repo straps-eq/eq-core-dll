@@ -36,17 +36,30 @@ enum SpellParts : unsigned {
 struct SpellTextStyle {
 	const char* lineBreak = "<BR>";  // every line starts with this ("\n" for tooltips)
 	const char* indent = "";         // then this
-	uint32_t labelColour = 0;        // 0x00RRGGBB for STML <C> tags round labels; 0 = none
+	uint32_t labelColour = 0;        // 0x00RRGGBB for STML <C "#rrggbb"> tags round labels; 0 = none
 	int maxEffects = 20;             // effect lines per spell
 	bool skipCounters = false;       // leave disease/poison/curse/corruption counters to the caller
+	bool slotNumbers = false;        // effect lines start with "Slot N: " (the spell file's slot number)
+	bool classesBare = false;        // classes as "Warrior(1), Cleric(1)" without the "Classes:" label
 };
 
 // The spell for an id, or nullptr when the spell manager does not know it.
 uint8_t* SpellInfoGetSpell(int id);
 const char* SpellInfoName(const uint8_t* spell);   // char[64] inside the SPELL
+int SpellInfoId(const uint8_t* spell);
+int SpellInfoIcon(const uint8_t* spell);
+// dbstr category / subcategory names (nullptr when missing).
+void SpellInfoCategory(const uint8_t* spell, const char** category, const char** subcategory);
 // Appends the chosen parts. castLevel > 0 computes values and duration for that level; 0 shows the
 // spell's own level range ("by 10 (L1) to 60 (L50)").
 void SpellInfoWrite(TextBuf& out, const uint8_t* spell, int castLevel, unsigned parts, const SpellTextStyle& style);
+// The detail block in the layout players know from other tools, each line starting with style.lineBreak:
+// "ID: n   Duration: d", "RecoveryTime: x   RecastTime: y", "Range: r [  AE Range: a]", for detrimental
+// spells "Resist: <type>  (Resist Adj.: n)", a blank line, then "Slot N: <effect>" lines.
+void SpellInfoDetails(TextBuf& out, const uint8_t* spell, int castLevel, const SpellTextStyle& style);
+// The spell's description text (dbstr type 6 keyed by the spell's descnum), with the client's own macro
+// expansion (#1, @1, %z) when the expander resolved; false when the spell has none.
+bool SpellInfoDescription(TextBuf& out, const uint8_t* spell, int castLevel);
 // "needs cure: 3 poison, 2 disease" for a spell carrying counters; false when it carries none.
 bool SpellInfoCures(TextBuf& out, const uint8_t* spell);
 // Seconds -> "1h 2m 3s" / "2m 3s" / "3s".
@@ -55,7 +68,7 @@ bool SpellInfoInGame();   // game state 5 and the spell manager / local PC exist
 // Cross-checks on the resolved references; an error string skips the calling feature.
 const char* SpellInfoPrepare();
 
-// Client references the formatter needs. Each feature using it splices SPELLINFO_REF_SITES (14
+// Client references the formatter needs. Each feature using it splices SPELLINFO_REF_SITES (15
 // entries) into its own RefSite table; resolving them more than once stores the same addresses.
 namespace spellinfo {
 using CalcValueFn = int64_t (*)(void* affects, const uint8_t* spell, uint8_t level, uint8_t slot, void* affect, int64_t base, uint8_t applyMax);
@@ -64,12 +77,14 @@ using SpellStringFn = const char* (*)(void* table, unsigned spellId, int which);
 using DbStrFn = const char* (*)(void* table, unsigned id, unsigned type, bool* found);
 using SkillNameIdFn = int (*)(void* table, unsigned skill);
 using EqStrFn = const char* (*)(void* table, int id, int flags);
+using DescribeFn = char* (*)(char* out, int one, int spellId, int minusOne, int castLevel);
 extern CalcValueFn g_calcValue;         // FUN_1400d48e0
 extern DurationFn g_duration;           // FUN_1400e27a0
 extern SpellStringFn g_spellString;     // FUN_1400c2410
 extern DbStrFn g_dbstr;                 // FUN_14018b660
 extern SkillNameIdFn g_skillNameId;     // FUN_14032e520
 extern EqStrFn g_eqstr;                 // FUN_140673e50
+extern DescribeFn g_describe;           // FUN_14024c590: description with macros expanded (out >= 0x800 bytes)
 extern void** g_spellStringTable;       // &DAT_140d99970
 extern void** g_dbstrTable;             // &DAT_140db4de0
 extern void** g_skillTable;             // &DAT_140ee6418
@@ -79,9 +94,11 @@ extern uint8_t** g_spellManagerRead;    // &DAT_140ee6480 (from a read, cross-ch
 extern uint8_t** g_pLocalPC;            // &DAT_140e65d90
 extern uint8_t** g_everQuest;           // &DAT_140ee7010; +0x5e4 game state
 }
-const size_t kSpellInfoRefCount = 14;
+const size_t kSpellInfoRefCount = 15;
 #define SPELLINFO_REF(var) reinterpret_cast<void**>(&spellinfo::var)
 #define SPELLINFO_REF_SITES \
+	/* FUN_14024c590(char* out, 1, spellId, -1, castLevel): spell description with macro expansion */ \
+	{ "40 53 55 56 57 48 81 EC 68 0A 00 00", 0, 0, SPELLINFO_REF(g_describe) }, \
 	/* Spell manager creation in FUN_14026e320: mov [spellManager],rcx; mov rax,[rcx] */ \
 	{ "48 89 0D ?? ?? ?? ?? 48 8B 01", 3, 7, SPELLINFO_REF(g_spellManager) }, \
 	/* Buff-slot scan FUN_1400d3a00: mov rcx,[spellManager]; cmp eax,[rcx+64]; jg; mov rax,[rcx]; call [rax+40] */ \

@@ -4,5 +4,5 @@
 #include "patches.h"
 
 extern const HookSite kBuffTooltipsHooks[2];
-extern const RefSite kBuffTooltipsRefs[20];
+extern const RefSite kBuffTooltipsRefs[21];
 const char* BuffTooltipsPrepare();
