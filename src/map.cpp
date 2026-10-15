@@ -140,9 +140,9 @@ const int kTextMax = 96;
 struct Config {
 	int maxLabels = 100;
 	int maxDistance = 0;        // 0 = no limit
-	int labelSize = 3;          // 1..3
+	int labelSize = 3;          // 1..3: the draw keeps a three-entry font table (fonts[0..2]) on its stack
 	int layer = 3;              // 0..3, toggled with the map's layer buttons
-	bool showLevel = true;
+	bool showLevel = false;
 	bool showNPCs = true;
 	bool showPCs = true;
 	bool showGroup = true;
@@ -157,6 +157,7 @@ struct Config {
 	uint32_t colourPCCorpse = 0xFFFFC0FF;
 	uint32_t colourNPCCorpse = 0xFF808080;
 	uint32_t colourTargetLine = 0xFFFF0000;
+	uint32_t colourGreyCon = 0xFF505050; // grey-con NPCs (the Options grey is too light on the parchment)
 };
 Config g_cfg;
 
@@ -195,6 +196,7 @@ void LoadConfig() {
 	c.colourPCCorpse = Colour("ColourPCCorpse", c.colourPCCorpse);
 	c.colourNPCCorpse = Colour("ColourNPCCorpse", c.colourNPCCorpse);
 	c.colourTargetLine = Colour("ColourTargetLine", c.colourTargetLine);
+	c.colourGreyCon = Colour("ColourGreyCon", c.colourGreyCon);
 	g_cfg = c;
 }
 
@@ -322,7 +324,7 @@ bool Classify(uint8_t* spawn, uint8_t* me, Candidate* out) {
 		if (!pc) return false;
 		int con = g_getConLevel(pc, spawn);   // 0 = not conable
 		if (con < 1 || con > 7) return false;
-		out->colour = g_userColour(g_conColourIndex(con)) | 0xFF000000u;
+		out->colour = con == 1 ? g_cfg.colourGreyCon : (g_userColour(g_conColourIndex(con)) | 0xFF000000u);
 	}
 	out->spawn = spawn;
 	return true;
