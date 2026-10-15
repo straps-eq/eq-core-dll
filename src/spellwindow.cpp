@@ -1,8 +1,9 @@
 // SpellWindowExtras: adds a details block to the spell window (CSpellDisplayWnd), the window a
 // buff's right-click "Show Spell Information" opens, as well as spell links in items, chat and the
 // spell book. Below the client's own text: "Spell Effect: <description>" when the client did not print
-// the description itself, then one block in the layout players know from other tools: ID and duration,
-// recovery and recast, range, resist (detrimental spells), one "Slot N:" line per effect in words with
+// the description itself, then one block in the layout players know from other tools: ID (and duration,
+// range and resist only when the client's body lacks those lines, or always with ShowDuplicates=1),
+// recovery and recast, one "Slot N:" line per effect in words with
 // the values the client's own calculator gives, the classes that get the spell with their levels, the
 // dbstr category and subcategory, and the spell icon number.
 //
@@ -46,6 +47,7 @@ struct Config {
 	bool category = true;       // category, subcategory, spell icon
 	bool caster = false;        // the client prints its own "Caster:" line
 	bool messages = false;      // cast on you / on other / wears off (the client prints them too)
+	bool duplicates = false;    // repeat Duration / Range / Resist even when the client's text has them
 	int maxEffects = 20;
 	uint32_t colour = 0x00ffff; // block colour (0 = plain)
 };
@@ -67,6 +69,7 @@ void LoadConfig() {
 	c.category = Int("ShowCategory", c.category) != 0;
 	c.caster = Int("ShowCaster", c.caster) != 0;
 	c.messages = Int("ShowMessages", c.messages) != 0;
+	c.duplicates = Int("ShowDuplicates", c.duplicates) != 0;
 	c.maxEffects = Clamp(Int("MaxEffects", c.maxEffects), 1, 40);
 	char buf[32] = {};
 	GetPrivateProfileStringA("SpellWindow", "Colour", "", buf, sizeof(buf), ini);
@@ -78,17 +81,6 @@ void LoadConfig() {
 
 const size_t kTextMax = 32768;      // the client's text plus ours
 const size_t kDescriptionMax = 2048;
-
-// Whether the client's text already carries the description (it prints it when the dbstr entry exists).
-bool HasDescription(const char* native, const char* description) {
-	char probe[48];
-	size_t n = strlen(description);
-	if (n > sizeof(probe) - 1) n = sizeof(probe) - 1;
-	if (n < 8) return strstr(native, description) != nullptr;
-	memcpy(probe, description, n);
-	probe[n] = '\0';
-	return strstr(native, probe) != nullptr;
-}
 
 void Colour(TextBuf& t, bool open) {
 	if (!g_cfg.colour) return;
@@ -103,8 +95,10 @@ void AppendExtras(uint8_t* wnd) {
 	if (!spell) return;
 	int castLevel = *reinterpret_cast<int*>(wnd + kWndCastLevel);
 
+	// The client's text ends in line breaks; after trimming them, every section below starts with one "<BR>"
+	// (a blank line) and every line with another, so sections are separated by exactly one blank line.
 	static char text[kTextMax];
-	size_t native = StmlCurrentText(stml, text, sizeof(text));
+	size_t native = StmlTrimBreaks(text, StmlCurrentText(stml, text, sizeof(text)));
 	TextBuf t(text + native, sizeof(text) - native);
 	SpellTextStyle style;
 	style.lineBreak = "<BR>";
@@ -112,16 +106,21 @@ void AppendExtras(uint8_t* wnd) {
 	style.labelColour = 0;
 	style.maxEffects = g_cfg.maxEffects;
 	style.classesBare = true;
+	style.gap = kStmlGap;
+	// The client's body already has "Duration:", "Range:" and (detrimental spells) "Resist:" lines.
+	style.duration = g_cfg.duplicates || !StmlHasText(text, "Duration:");
+	style.range = g_cfg.duplicates || !StmlHasText(text, "Range:");
+	style.resist = g_cfg.duplicates || !StmlHasText(text, "Resist:");
 
 	if (g_cfg.description) {
 		static char description[kDescriptionMax];
 		TextBuf d(description, sizeof(description));
-		if (SpellInfoDescription(d, spell, castLevel) && !HasDescription(text, description))
-			t.Add("<BR>Spell Effect: %s<BR>", description);
+		if (SpellInfoDescription(d, spell, castLevel) && !StmlHasText(text, description))
+			t.Add("<BR><BR>Spell Effect: %s", description);
 	}
 	if (g_cfg.caster && *reinterpret_cast<int*>(wnd + kWndCasterLen) > 0) {
 		const char* caster = *reinterpret_cast<const char**>(wnd + kWndCasterText);
-		if (caster && caster[0]) t.Add("<BR>Caster: %.63s", caster);
+		if (caster && caster[0]) t.Add("<BR><BR>Caster: %.63s", caster);
 	}
 	size_t blockStart = t.len;
 	Colour(t, true);

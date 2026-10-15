@@ -1,6 +1,7 @@
 // ItemDisplayExtras: adds lines below the item window's description text (the "ItemDescription"
 // STML) in the layout players know from other tools: for each spell on the item its name and
-// "Spell Effect: <description>"; a block with item id, icon id, stack size, value, tribute, weapon
+// "Spell Effect: <description>" (only when the window did not print that description itself, which it
+// does after its "Effect:" lines); a block with item id, icon id, stack size, value, tribute, weapon
 // ratio and efficiency, lore text, proc / click levels, required and recommended level, container
 // details and how long a clicky still has to cool down; then for each effect a "Spell Info for <kind>
 // effect: <name>" block with the spell's id and duration, recovery and recast, range, resist and one
@@ -175,20 +176,22 @@ const uint8_t* EffectSpell(const uint8_t* def, int idx) {
 	return id > 0 ? SpellInfoGetSpell(id) : nullptr;
 }
 
-// Spell names and descriptions, one pair per effect, before the item block.
-void AddSpellHeaders(TextBuf& t, const uint8_t* def) {
+// Spell name and description, one pair per effect, before the item block. The window itself prints each
+// effect's name and description after its "Effect:" lines for most items; the pair is added only for
+// effects whose description is missing from the client's text.
+void AddSpellHeaders(TextBuf& t, const uint8_t* def, const char* native) {
 	static char description[2048];
 	for (int idx = 0; idx < kEffectCount; ++idx) {
 		const uint8_t* spell = EffectSpell(def, idx);
 		if (!spell) continue;
-		t.Add("<BR>");
+		TextBuf d(description, sizeof(description));
+		if (!SpellInfoDescription(d, spell, I32(Effect(def, idx), kEffectCastLevel))) continue;   // the "Effect:" line already names it
+		if (StmlHasText(native, description)) continue;
+		t.Add("<BR><BR>");
 		ColourOpen(t, g_cfg.spellNameColour);
 		t.Add("%.63s", SpellInfoName(spell));
 		ColourClose(t, g_cfg.spellNameColour);
-		TextBuf d(description, sizeof(description));
-		if (SpellInfoDescription(d, spell, I32(Effect(def, idx), kEffectCastLevel)))
-			t.Add("<BR>Spell Effect: %s", description);
-		t.Add("<BR>");
+		t.Add("<BR>Spell Effect: %s", description);
 	}
 }
 
@@ -323,6 +326,7 @@ void AddSpellInfo(TextBuf& t, const uint8_t* def) {
 		style.indent = "";
 		style.labelColour = 0;
 		style.maxEffects = g_cfg.maxEffects;
+		style.gap = kStmlGap;
 		SpellInfoDetails(t, spell, I32(e, kEffectCastLevel), style);
 		ColourClose(t, g_cfg.spellInfoColour);
 	}
@@ -340,12 +344,14 @@ void AppendExtras(uint8_t* wnd) {
 	uint8_t* def = VCall<uint8_t*>(item, kItemVtblGetDef);
 	if (!def) return;
 
+	// The client's text ends in line breaks; after trimming them, every section below starts with one "<BR>"
+	// (a blank line) and every line with another, so sections are separated by exactly one blank line.
 	static char text[kTextMax];
-	size_t native = StmlCurrentText(stml, text, sizeof(text));
+	size_t native = StmlTrimBreaks(text, StmlCurrentText(stml, text, sizeof(text)));
 	TextBuf t(text + native, sizeof(text) - native);
-	t.Add("<BR>");
-	if (g_cfg.effects) AddSpellHeaders(t, def);
+	if (g_cfg.effects) AddSpellHeaders(t, def, text);
 	size_t blockStart = t.len;
+	t.Add("<BR>");
 	ColourOpen(t, g_cfg.colour);
 	size_t mark = t.len;
 	if (g_cfg.ids) AddIds(t, def);
@@ -366,7 +372,7 @@ void AppendExtras(uint8_t* wnd) {
 		ColourClose(t, g_cfg.colour);
 	}
 	if (g_cfg.effects) AddSpellInfo(t, def);
-	if (t.len <= 4) return;   // only the separating line break
+	if (!t.len) return;
 	StmlSetText(stml, text, g_cxstrFromCStr, g_setStmlText);
 }
 

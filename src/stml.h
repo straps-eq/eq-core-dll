@@ -21,3 +21,12 @@ using StmlSetTextFn = void (*)(void* stml, void** text, char flag, void* fmt);  
 size_t StmlCurrentText(void* stml, char* out, size_t cap);
 // Makes `text` the window's text (the client's constructor builds the CXStr, SetSTMLText consumes it).
 void StmlSetText(void* stml, const char* text, StmlCXStrCtorFn ctor, StmlSetTextFn setText);
+// Removes trailing line breaks and blanks from `text` (the client's text usually ends in a few <BR>s),
+// so that one "<BR>" added after it is exactly one blank line. Returns the new length.
+size_t StmlTrimBreaks(char* text, size_t len);
+// Whether `text` already contains the start of `needle` (its first 47 characters: enough to recognise a
+// spell description the client printed itself).
+bool StmlHasText(const char* text, const char* needle);
+// The parser collapses runs of spaces; "&...;" entities (FUN_1405c3560, '&' branch) go through its entity
+// table, and "&NBSP;" is what the client itself writes between columns ("&NBSP;&NBSP;&NBSP;master=%d").
+const char* const kStmlGap = "&NBSP;&NBSP;&NBSP;";
