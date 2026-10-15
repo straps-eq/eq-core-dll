@@ -9,9 +9,13 @@
 // the CXStr (FUN_140587670). Both functions and the globals are cross-checked against the calls inside
 // FUN_1401a4620 itself before anything is hooked.
 //
-// TargetDistance: distance to the current target (3D, like the client's own range checks), drawn
-// inside the Target window (CTargetWnd DAT_140db5230, screen rect from the CXWnd virtual at vtbl+0x218,
-// which is checked against GetScreenRect FUN_1405a7bb0 on every call) so it follows the window.
+// TargetDistance: one line inside the Target window (CTargetWnd DAT_140db5230, screen rect from the
+// CXWnd virtual at vtbl+0x218, which is checked against GetScreenRect FUN_1405a7bb0 on every call) below
+// the HP bar: "<level> <race> <class>" on the left in the target's con colour (GetConLevel FUN_1402d7fa0
+// -> colour index FUN_140661f70 -> user colour FUN_14050b6d0, the chain the window uses for its own HP
+// bar tint), the 3D distance (like the client's own range checks) right-aligned on the same line. Race
+// names come from the dbstr table (type 11, keyed by the race id the spawn's vtbl+0x110 returns), the
+// class name from a table of the client's class ids (spawn+0xfd4, the field the GM name tag prints).
 // Hud: a fixed block at [Hud] X,Y: /loc (Y, X, Z), zone long name (OP_NewZone data at DAT_140e6dad4),
 // target name and distance, FPS from frame deltas, local clock. One draw call per enabled line.
 // Text goes into fixed buffers; the only runtime allocation is the client's own CXStr, released on
@@ -32,6 +36,10 @@ const size_t kSpawnX = 0x78;
 const size_t kSpawnZ = 0x7c;
 const size_t kSpawnName = 0xb4;          // char[0x40]
 const size_t kSpawnDisplayedName = 0xf4; // char[0x40] cleaned name
+const size_t kSpawnLevel = 0x494;        // u8
+const size_t kSpawnClass = 0xfd4;        // int (GM name tag: FUN_1402772a0(class) -> eqstr)
+const size_t kVtblGetRace = 0x110;       // int GetRace()
+const int kDbstrRaceName = 11;
 
 // CEverQuest (DAT_140ee7010): game state written by SetGameState FUN_140291d60.
 const size_t kEverQuestGameState = 0x5e4;
@@ -58,6 +66,10 @@ using DrawWrappedTextFn = int (*)(uint8_t* font, void** str, int x, int y, int m
                                   uint32_t argb, uint16_t flags, int offset);
 using FontHeightFn = int (*)(uint8_t* font);
 using GetScreenRectFn = int* (*)(uint8_t* wnd, int* rect);
+using GetConLevelFn = int (*)(void* pLocalPC, uint8_t* spawn);
+using ConColourIndexFn = int (*)(int con);
+using UserColourFn = uint32_t (*)(int index);
+using DbStrFn = const char* (*)(void* table, unsigned id, unsigned type, bool* found);
 
 DrawWindowsFn g_origDrawWindows = nullptr; // trampoline into FUN_1405cc3a0
 CXStrCtorFn g_cxstrCtor = nullptr;         // FUN_1405853f0
@@ -65,6 +77,12 @@ CXStrReleaseFn g_cxstrRelease = nullptr;   // FUN_140587670
 DrawWrappedTextFn g_drawWrapped = nullptr; // FUN_1405d1990
 FontHeightFn g_fontHeight = nullptr;       // FUN_1405d1e30 (thunk to FUN_14059bdc0)
 GetScreenRectFn g_getScreenRect = nullptr; // FUN_1405a7bb0
+GetConLevelFn g_getConLevel = nullptr;     // FUN_1402d7fa0
+void* g_getConLevelCalled = nullptr;       // the call next to the pLocalPC load in CTargetWnd, for the cross-check
+ConColourIndexFn g_conColourIndex = nullptr; // FUN_140661f70
+UserColourFn g_userColour = nullptr;       // FUN_14050b6d0
+DbStrFn g_dbstr = nullptr;                 // FUN_14018b660
+void** g_dbstrTable = nullptr;             // &DAT_140db4de0
 void* g_cxstrCtorCalled = nullptr;         // the three calls inside FUN_1401a4620, for cross-checks
 void* g_drawWrappedCalled = nullptr;
 void* g_cxstrReleaseCalled = nullptr;
@@ -91,7 +109,9 @@ struct Config {
 	uint32_t distColour = 0xFFF0F0F0;
 	int distFont = 2;
 	int distOffsetX = -4;       // from the Target window's right edge (text is right-aligned)
-	int distOffsetY = 2;        // from the Target window's top edge
+	int distOffsetY = 32;       // from the Target window's top edge (below the HP bar of the default UI)
+	bool distConLine = true;    // "<level> <race> <class>" in con colour on the left of the same line
+	int distConOffsetX = 4;     // from the Target window's left edge
 };
 Config g_cfg;
 bool g_configLoaded = false;
@@ -131,6 +151,8 @@ void LoadConfig() {
 	c.distFont = Clamp(Int("TargetDistance", "Font", c.distFont), 0, 15);
 	c.distOffsetX = Clamp(Int("TargetDistance", "OffsetX", c.distOffsetX), -4096, 4096);
 	c.distOffsetY = Clamp(Int("TargetDistance", "OffsetY", c.distOffsetY), -4096, 4096);
+	c.distConLine = Int("TargetDistance", "ConLine", c.distConLine) != 0;
+	c.distConOffsetX = Clamp(Int("TargetDistance", "ConOffsetX", c.distConOffsetX), -4096, 4096);
 	g_cfg = c;
 }
 
@@ -204,6 +226,43 @@ const char* SpawnName(const uint8_t* spawn) {
 	return name[0] ? name : reinterpret_cast<const char*>(spawn + kSpawnName);
 }
 
+// Class ids as the client numbers them (player classes 1-16, then the NPC roles).
+const char* ClassName(int id) {
+	static const char* const kPlayer[] = {
+		"", "Warrior", "Cleric", "Paladin", "Ranger", "Shadow Knight", "Druid", "Monk", "Bard", "Rogue", "Shaman",
+		"Necromancer", "Wizard", "Magician", "Enchanter", "Beastlord", "Berserker",
+	};
+	if (id >= 1 && id <= 16) return kPlayer[id];
+	switch (id) {
+	case 20: return "GM Warrior"; case 21: return "GM Cleric"; case 22: return "GM Paladin"; case 23: return "GM Ranger";
+	case 24: return "GM Shadow Knight"; case 25: return "GM Druid"; case 26: return "GM Monk"; case 27: return "GM Bard";
+	case 28: return "GM Rogue"; case 29: return "GM Shaman"; case 30: return "GM Necromancer"; case 31: return "GM Wizard";
+	case 32: return "GM Magician"; case 33: return "GM Enchanter"; case 34: return "GM Beastlord"; case 35: return "GM Berserker";
+	case 40: return "Banker"; case 41: return "Merchant"; case 59: return "Discord Merchant"; case 60: return "Adventure Recruiter";
+	case 61: return "Adventure Merchant"; case 63: return "Tribute Master"; case 64: return "Guild Tribute Master";
+	case 66: return "Guild Bank"; case 67: return "Radiant Crystal Merchant"; case 68: return "Ebon Crystal Merchant";
+	case 69: return "Fellowship Registrar"; case 70: return "Alternate Currency Merchant"; case 71: return "Mercenary Liaison";
+	case 72: return "Real Estate"; case 73: return "Loyalty Merchant"; case 74: return "Tribute Master";
+	default: return nullptr;
+	}
+}
+
+const char* RaceName(uint8_t* spawn) {
+	void** vtbl = *reinterpret_cast<void***>(spawn);
+	if (!vtbl || !*g_dbstrTable) return nullptr;
+	int race = reinterpret_cast<int (*)(uint8_t*)>(vtbl[kVtblGetRace / sizeof(void*)])(spawn);
+	if (race <= 0) return nullptr;
+	bool found = false;
+	const char* name = g_dbstr(*g_dbstrTable, static_cast<unsigned>(race), kDbstrRaceName, &found);
+	return (found && name && name[0]) ? name : nullptr;
+}
+
+// The con colour the Target window itself uses for its HP bar tint.
+uint32_t ConColour(uint8_t* target) {
+	int con = g_getConLevel(*g_pLocalPC, target);
+	return g_userColour(g_conColourIndex(con)) | 0xFF000000u;
+}
+
 void DrawTargetDistance(uint8_t* mgr, uint8_t* me) {
 	uint8_t* target = *g_pTarget;
 	uint8_t* wnd = *g_targetWnd;
@@ -215,10 +274,17 @@ void DrawTargetDistance(uint8_t* mgr, uint8_t* me) {
 	if (!font) return;
 	int rect[4] = {};
 	g_getScreenRect(wnd, rect);
-	char text[32];
-	snprintf(text, sizeof(text), "%.1f", Distance(me, target));
-	int x = rect[2] + g_cfg.distOffsetX - g_lastDistWidth;
 	int y = rect[1] + g_cfg.distOffsetY;
+	char text[160];
+	if (g_cfg.distConLine) {
+		const char* race = RaceName(target);
+		const char* cls = ClassName(*reinterpret_cast<int*>(target + kSpawnClass));
+		snprintf(text, sizeof(text), "%d%s%.47s%s%.47s", target[kSpawnLevel], race ? " " : "", race ? race : "",
+		         cls ? " " : "", cls ? cls : "");
+		DrawString(mgr, font, text, rect[0] + g_cfg.distConOffsetX, y, ConColour(target));
+	}
+	snprintf(text, sizeof(text), "%.2f", Distance(me, target));
+	int x = rect[2] + g_cfg.distOffsetX - g_lastDistWidth;
 	if (x < rect[0]) x = rect[0];
 	g_lastDistWidth = DrawString(mgr, font, text, x, y, g_cfg.distColour);
 }
@@ -321,7 +387,7 @@ const HookSite kHudHooks[1] = {
 	{ kDrawWindowsSig, 5, reinterpret_cast<void*>(&DrawWindowsDetour), REF(g_origDrawWindows) },
 };
 
-const RefSite kHudRefs[15] = {
+const RefSite kHudRefs[21] = {
 	// CXStr::CXStr(CXStr*, const char*) FUN_1405853f0: strlen loop, alloc rep, copy to rep+0x18
 	{ "48 89 74 24 18 57 48 83 EC 20 48 8B F2 48 8B F9 48 85 D2 74 ?? 48 89 5C 24 30", 0, 0, REF(g_cxstrCtor) },
 	// CXStr release FUN_140587670: critical-section guarded FreeRep
@@ -339,6 +405,20 @@ const RefSite kHudRefs[15] = {
 	{ kGameStateSig, 3, 7, REF(g_pEverQuest) },
 	{ kTargetWndConSig, 13, 17, REF(g_pTarget) },
 	{ kTargetWndConSig, 20, 24, REF(g_pLocalPC) },
+	{ kTargetWndConSig, 25, 29, REF(g_getConLevelCalled) },
+	// GetConLevel FUN_1402d7fa0(pLocalPC, spawn): corpse test on +0x135, vtbl+0xa0 untargetable test
+	{ "48 89 5C 24 18 57 48 83 EC 20 80 BA 35 01 00 00 02 48 8B FA 48 8B D9 0F 83 ?? ?? ?? ?? "
+	  "48 8B 02 48 8B CA FF 90 A0 00 00 00 84 C0", 0, 0, REF(g_getConLevel) },
+	// FUN_140661f70(con): jump table returning 0x186..0x18c
+	{ "FF C9 83 F9 06 77 3A 48 63 C1 48 8D 15 ?? ?? ?? ?? 8B 8C 82 ?? ?? ?? ?? 48 03 CA FF E1 "
+	  "B8 86 01 00 00 C3 B8 87 01 00 00 C3", 0, 0, REF(g_conColourIndex) },
+	// FUN_14050b6d0(index): user colour table lookup, 0xf0f0f0 fallback, R/B swap
+	{ "48 83 EC 28 81 F9 FF 00 00 00 7E 32 E8 ?? ?? ?? ?? 85 C0 B9 F0 F0 F0 00 0F 44 C1 8B C8 C1 E9 10",
+	  0, 0, REF(g_userColour) },
+	// FUN_14018b660(table, id, type, bool* found): dbstr lookup
+	{ "48 89 5C 24 08 57 48 83 EC 20 44 8B DA", 0, 0, REF(g_dbstr) },
+	// dbstr table creation in FUN_14027cea0: mov [dbstrTable],rdi; mov ecx,20
+	{ "48 89 3D ?? ?? ?? ?? B9 20 00 00 00", 3, 7, REF(g_dbstrTable) },
 	{ kSpawnMgrSig, 36, 40, REF(g_pLocalPlayer) },
 	{ kZoneInfoSig, 2, 7, REF(g_zoneInfo) },
 	{ kTargetWndSig, 3, 7, REF(g_targetWnd) },
@@ -357,6 +437,8 @@ const char* CommonPrepare() {
 	static const uint8_t kThunk[4] = { 0x8B, 0x49, 0x08, 0xE9 };
 	if (memcmp(reinterpret_cast<const void*>(g_fontHeight), kThunk, sizeof(kThunk)) != 0)
 		return "the font height call inside DrawWindows is not the expected thunk";
+	if (g_getConLevelCalled != reinterpret_cast<void*>(g_getConLevel))
+		return "the target window's con call does not point at GetConLevel";
 	LoadConfig();
 	return nullptr;
 }

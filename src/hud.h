@@ -4,6 +4,6 @@
 #include "patches.h"
 
 extern const HookSite kHudHooks[1];
-extern const RefSite kHudRefs[15];
+extern const RefSite kHudRefs[21];
 const char* HudPrepare();
 const char* TargetDistancePrepare();
