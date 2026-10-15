@@ -9,11 +9,17 @@
 // the CXStr (FUN_140587670). Both functions and the globals are cross-checked against the calls inside
 // FUN_1401a4620 itself before anything is hooked.
 //
-// TargetDistance: one line inside the Target window (CTargetWnd DAT_140db5230, screen rect from the
-// CXWnd virtual at vtbl+0x218, which is checked against GetScreenRect FUN_1405a7bb0 on every call) below
-// the HP bar: "<level> <race> <class>" on the left in the target's con colour (GetConLevel FUN_1402d7fa0
-// -> colour index FUN_140661f70 -> user colour FUN_14050b6d0, the chain the window uses for its own HP
-// bar tint), the 3D distance (like the client's own range checks) right-aligned on the same line. Race
+// TargetDistance: one line inside the Target window, drawn from the window's own Draw virtual
+// (CTargetWnd vtbl+0x20 = FUN_14050db60, which paints the HP box animations; the window driver
+// FUN_1405a5190 calls +0x18, then +0x20, then the children, then +0x28), so windows above it in the
+// z-order paint over the line like over the rest of the window. Placement: the client rect (vtbl+0x210,
+// checked against GetClientRect FUN_1405a7ce0) plus OffsetY, pushed below any visible child (first child
+// +0x20, next sibling +0x10, visible +0x211; screen rect from vtbl+0x218 / GetScreenRect FUN_1405a7bb0)
+// that overlaps that row from above, i.e. the HP gauge and its labels; clipped to the client rect.
+// "<level> <race> <class>" on the left in the target's con colour (GetConLevel FUN_1402d7fa0 -> colour
+// index FUN_140661f70 -> user colour FUN_14050b6d0, the chain the window uses for its own HP bar tint),
+// the 3D distance (like the client's own range checks) right-aligned with the font's width function
+// (FUN_14059bf40(fontIndex, CXStr*), the target of the CTextureFont::GetWidth thunk FUN_1405d1e70). Race
 // names come from the dbstr table (type 11, keyed by the race id the spawn's vtbl+0x110 returns), the
 // class name from a table of the client's class ids (spawn+0xfd4, the field the GM name tag prints).
 // Hud: a fixed block at [Hud] X,Y: /loc (Y, X, Z), zone long name (OP_NewZone data at DAT_140e6dad4),
@@ -52,8 +58,14 @@ const size_t kWndMgrFontCount = 0x190;
 const size_t kWndMgrFonts = 0x198;       // CTextureFont** ; fonts[2] is the client's HUD font
 
 // CXWnd
+const size_t kWndFirstChild = 0x20;      // CXWnd*, the list FUN_1405a5190 walks after the window's Draw
+const size_t kWndNextSibling = 0x10;     // CXWnd*
+const size_t kWndScreenRectCache = 0x5c; // int[4], what GetScreenRect returns
 const size_t kWndVisible = 0x211;        // u8, the DrawWindows gate
+const size_t kVtblGetClientRect = 0x210; // (CXWnd*, int rect[4]) -> rect, screen coordinates
 const size_t kVtblGetScreenRect = 0x218; // (CXWnd*, int rect[4]) -> rect
+// CTextureFont
+const size_t kFontIndex = 0x08;          // int, what the GetWidth / GetHeight thunks pass on
 
 // Zone info (DAT_140e6dad4), filled from OP_NewZone by FUN_140203d30.
 const size_t kZoneShortName = 0x0;       // char[0x80]
@@ -65,7 +77,9 @@ using CXStrReleaseFn = void (*)(void** str);
 using DrawWrappedTextFn = int (*)(uint8_t* font, void** str, int x, int y, int maxWidth, int* clip,
                                   uint32_t argb, uint16_t flags, int offset);
 using FontHeightFn = int (*)(uint8_t* font);
+using TextWidthFn = int (*)(int fontIndex, void** str);
 using GetScreenRectFn = int* (*)(uint8_t* wnd, int* rect);
+using TargetDrawFn = int64_t (*)(uint8_t* wnd);
 using GetConLevelFn = int (*)(void* pLocalPC, uint8_t* spawn);
 using ConColourIndexFn = int (*)(int con);
 using UserColourFn = uint32_t (*)(int index);
@@ -76,7 +90,10 @@ CXStrCtorFn g_cxstrCtor = nullptr;         // FUN_1405853f0
 CXStrReleaseFn g_cxstrRelease = nullptr;   // FUN_140587670
 DrawWrappedTextFn g_drawWrapped = nullptr; // FUN_1405d1990
 FontHeightFn g_fontHeight = nullptr;       // FUN_1405d1e30 (thunk to FUN_14059bdc0)
+TextWidthFn g_textWidth = nullptr;         // FUN_14059bf40 (behind the GetWidth thunk FUN_1405d1e70)
 GetScreenRectFn g_getScreenRect = nullptr; // FUN_1405a7bb0
+GetScreenRectFn g_getClientRect = nullptr; // FUN_1405a7ce0
+TargetDrawFn g_origTargetDraw = nullptr;   // trampoline into FUN_14050db60
 GetConLevelFn g_getConLevel = nullptr;     // FUN_1402d7fa0
 void* g_getConLevelCalled = nullptr;       // the call next to the pLocalPC load in CTargetWnd, for the cross-check
 ConColourIndexFn g_conColourIndex = nullptr; // FUN_140661f70
@@ -92,7 +109,6 @@ uint8_t** g_pLocalPlayer = nullptr;        // &DAT_140e66228
 void** g_pLocalPC = nullptr;               // &DAT_140e65d90
 uint8_t** g_pTarget = nullptr;             // &DAT_140e662d0
 uint8_t* g_zoneInfo = nullptr;             // &DAT_140e6dad4
-uint8_t** g_targetWnd = nullptr;           // &DAT_140db5230
 
 // ---- configuration ([Hud] and [TargetDistance] in dinput8.ini) ----
 
@@ -108,10 +124,11 @@ struct Config {
 	bool clock = true;
 	uint32_t distColour = 0xFFF0F0F0;
 	int distFont = 2;
-	int distOffsetX = -4;       // from the Target window's right edge (text is right-aligned)
-	int distOffsetY = 32;       // from the Target window's top edge (below the HP bar of the default UI)
+	int distOffsetX = -2;       // from the client area's right edge (text is right-aligned)
+	int distOffsetY = 2;        // from the client area's top edge; the line is then pushed below the HP gauge
+	bool distAutoPlace = true;  // push the row below the gauge and labels that overlap it
 	bool distConLine = true;    // "<level> <race> <class>" in con colour on the left of the same line
-	int distConOffsetX = 4;     // from the Target window's left edge
+	int distConOffsetX = 2;     // from the client area's left edge
 };
 Config g_cfg;
 bool g_configLoaded = false;
@@ -151,16 +168,28 @@ void LoadConfig() {
 	c.distFont = Clamp(Int("TargetDistance", "Font", c.distFont), 0, 15);
 	c.distOffsetX = Clamp(Int("TargetDistance", "OffsetX", c.distOffsetX), -4096, 4096);
 	c.distOffsetY = Clamp(Int("TargetDistance", "OffsetY", c.distOffsetY), -4096, 4096);
+	c.distAutoPlace = Int("TargetDistance", "AutoPlace", c.distAutoPlace) != 0;
 	c.distConLine = Int("TargetDistance", "ConLine", c.distConLine) != 0;
 	c.distConOffsetX = Clamp(Int("TargetDistance", "ConOffsetX", c.distConOffsetX), -4096, 4096);
 	g_cfg = c;
+}
+
+// The target of the first RIP-relative `mov rcx,[global]` (48 8B 0D disp32) in a function body.
+const void* FirstGlobalLoad(const uint8_t* fn, size_t size) {
+	for (size_t i = 0; i + 7 <= size; ++i) {
+		if (fn[i] != 0x48 || fn[i + 1] != 0x8B || fn[i + 2] != 0x0D) continue;
+		int32_t rel;
+		memcpy(&rel, fn + i + 3, 4);
+		return fn + i + 7 + rel;
+	}
+	return nullptr;
 }
 
 // ---- drawing ----
 
 const int kTextMax = 192;
 bool g_inDraw = false;
-int g_lastDistWidth = 0;   // width drawn last frame, used to right-align the next one
+bool g_inTargetDraw = false;
 
 // FPS from frame deltas, refreshed twice a second.
 LARGE_INTEGER g_fpsStart = {};
@@ -187,18 +216,31 @@ uint8_t* Font(uint8_t* mgr, int index) {
 	return fonts ? fonts[index] : nullptr;
 }
 
-// The client's own text draw (FUN_1401a4620) with an ARGB colour and a font index. Returns the width.
-int DrawString(uint8_t* mgr, uint8_t* font, const char* text, int x, int y, uint32_t argb) {
-	int screenW = *reinterpret_cast<int*>(mgr + kWndMgrScreenW);
-	int screenH = *reinterpret_cast<int*>(mgr + kWndMgrScreenH);
-	if (x >= screenW || y >= screenH) return 0;
+// The client's own text draw (FUN_1401a4620) with an ARGB colour, a font and a clip rect. Returns the width.
+int DrawStringClipped(uint8_t* font, const char* text, int x, int y, const int* clip, uint32_t argb) {
+	if (x >= clip[2] || y >= clip[3]) return 0;
 	void* str = nullptr;
 	g_cxstrCtor(&str, text);
 	if (!str) return 0;
-	int clip[4] = { x, y, screenW, screenH };
-	int width = g_drawWrapped(font, &str, x, y, screenW - x, clip, argb, 1, 0);
+	int rect[4] = { clip[0], clip[1], clip[2], clip[3] };
+	int width = g_drawWrapped(font, &str, x, y, clip[2] - x, rect, argb, 1, 0);
 	if (str) g_cxstrRelease(&str);
 	return width;
+}
+
+int DrawString(uint8_t* mgr, uint8_t* font, const char* text, int x, int y, uint32_t argb) {
+	int clip[4] = { x, y, *reinterpret_cast<int*>(mgr + kWndMgrScreenW), *reinterpret_cast<int*>(mgr + kWndMgrScreenH) };
+	return DrawStringClipped(font, text, x, y, clip, argb);
+}
+
+// Width of `text` in `font`: the font's own measure, as the client's label layout calls it.
+int TextWidth(uint8_t* font, const char* text) {
+	void* str = nullptr;
+	g_cxstrCtor(&str, text);
+	if (!str) return 0;
+	int width = g_textWidth(*reinterpret_cast<int*>(font + kFontIndex), &str);
+	if (str) g_cxstrRelease(&str);
+	return (width > 0 && width < 4096) ? width : 0;
 }
 
 int LineHeight(uint8_t* font) {
@@ -263,30 +305,81 @@ uint32_t ConColour(uint8_t* target) {
 	return g_userColour(g_conColourIndex(con)) | 0xFF000000u;
 }
 
-void DrawTargetDistance(uint8_t* mgr, uint8_t* me) {
+// A child window's screen rect: the GetScreenRect virtual when its slot holds the one we resolved, else
+// the cached rect that function returns (fresh: the window was just laid out and drawn).
+void ChildScreenRect(uint8_t* child, int* rect) {
+	void** vtbl = *reinterpret_cast<void***>(child);
+	if (vtbl && vtbl[kVtblGetScreenRect / sizeof(void*)] == reinterpret_cast<void*>(g_getScreenRect)) {
+		g_getScreenRect(child, rect);
+		return;
+	}
+	memcpy(rect, child + kWndScreenRectCache, 4 * sizeof(int));
+}
+
+// The first row of `lineH` pixels at or below `y` inside `client` that no visible child of `wnd` starting
+// above the row overlaps (the HP gauge and its labels); a child that starts below the row (the buff box)
+// is left alone, since it is drawn after us.
+int FreeRow(uint8_t* wnd, const int* client, int y, int lineH) {
+	for (int pass = 0; pass < 16; ++pass) {
+		bool moved = false;
+		for (uint8_t* child = *reinterpret_cast<uint8_t**>(wnd + kWndFirstChild); child && !moved;
+		     child = *reinterpret_cast<uint8_t**>(child + kWndNextSibling)) {
+			if (!child[kWndVisible]) continue;
+			int r[4] = {};
+			ChildScreenRect(child, r);
+			if (r[2] <= r[0] || r[3] <= r[1]) continue;
+			if (r[2] <= client[0] || r[0] >= client[2]) continue;    // beside the client area
+			if (r[1] > y || r[3] <= y) continue;                      // starts below the row, or ends above it
+			y = r[3] + 1;
+			moved = true;
+		}
+		if (!moved) break;
+	}
+	return y + lineH <= client[3] ? y : client[1] + g_cfg.distOffsetY;
+}
+
+// Inside CTargetWnd::Draw, after the window painted its HP box.
+void DrawTargetLine(uint8_t* mgr, uint8_t* wnd) {
+	uint8_t* me = *g_pLocalPlayer;
 	uint8_t* target = *g_pTarget;
-	uint8_t* wnd = *g_targetWnd;
-	if (!target || target == me || !wnd || !wnd[kWndVisible]) return;
-	// Only call the rect virtual when the slot still holds the GetScreenRect we resolved.
+	if (!target || target == me || !wnd[kWndVisible]) return;
+	// Only call the rect virtuals when the slots still hold the functions we resolved.
 	void** vtbl = *reinterpret_cast<void***>(wnd);
 	if (!vtbl || vtbl[kVtblGetScreenRect / sizeof(void*)] != reinterpret_cast<void*>(g_getScreenRect)) return;
+	if (vtbl[kVtblGetClientRect / sizeof(void*)] != reinterpret_cast<void*>(g_getClientRect)) return;
 	uint8_t* font = Font(mgr, g_cfg.distFont);
 	if (!font) return;
-	int rect[4] = {};
-	g_getScreenRect(wnd, rect);
-	int y = rect[1] + g_cfg.distOffsetY;
+	int client[4] = {};
+	g_getClientRect(wnd, client);
+	if (client[2] - client[0] < 16 || client[3] - client[1] < 8) return;
+	int lineH = LineHeight(font);
+	int y = client[1] + g_cfg.distOffsetY;
+	if (g_cfg.distAutoPlace) y = FreeRow(wnd, client, y, lineH);
 	char text[160];
+	snprintf(text, sizeof(text), "%.2f", Distance(me, target));
+	int distWidth = TextWidth(font, text);
+	int distX = client[2] + g_cfg.distOffsetX - distWidth;
+	if (distX < client[0]) distX = client[0];
 	if (g_cfg.distConLine) {
 		const char* race = RaceName(target);
 		const char* cls = ClassName(*reinterpret_cast<int*>(target + kSpawnClass));
-		snprintf(text, sizeof(text), "%d%s%.47s%s%.47s", target[kSpawnLevel], race ? " " : "", race ? race : "",
+		char con[160];
+		snprintf(con, sizeof(con), "%d%s%.47s%s%.47s", target[kSpawnLevel], race ? " " : "", race ? race : "",
 		         cls ? " " : "", cls ? cls : "");
-		DrawString(mgr, font, text, rect[0] + g_cfg.distConOffsetX, y, ConColour(target));
+		int clip[4] = { client[0], client[1], distX - 4, client[3] };   // never under the distance
+		if (clip[2] > clip[0]) DrawStringClipped(font, con, client[0] + g_cfg.distConOffsetX, y, clip, ConColour(target));
 	}
-	snprintf(text, sizeof(text), "%.2f", Distance(me, target));
-	int x = rect[2] + g_cfg.distOffsetX - g_lastDistWidth;
-	if (x < rect[0]) x = rect[0];
-	g_lastDistWidth = DrawString(mgr, font, text, x, y, g_cfg.distColour);
+	DrawStringClipped(font, text, distX, y, client, g_cfg.distColour);
+}
+
+int64_t TargetDrawDetour(uint8_t* wnd) {
+	int64_t result = g_origTargetDraw(wnd);
+	if (g_inTargetDraw || !g_distOn) return result;
+	g_inTargetDraw = true;
+	uint8_t* mgr = *g_wndMgr;
+	if (InGame(mgr)) DrawTargetLine(mgr, wnd);
+	g_inTargetDraw = false;
+	return result;
 }
 
 void DrawHud(uint8_t* mgr, uint8_t* me) {
@@ -333,11 +426,7 @@ int DrawWindowsDetour(uint8_t* mgr) {
 	if (g_inDraw) return result;
 	g_inDraw = true;
 	TickFps();
-	if (InGame(mgr)) {
-		uint8_t* me = *g_pLocalPlayer;
-		if (g_distOn) DrawTargetDistance(mgr, me);
-		if (g_hudOn) DrawHud(mgr, me);
-	}
+	if (g_hudOn && InGame(mgr)) DrawHud(mgr, *g_pLocalPlayer);
 	g_inDraw = false;
 	return result;
 }
@@ -377,9 +466,9 @@ const char* kSpawnMgrSig =
 const char* kZoneInfoSig =
 	"C6 05 ?? ?? ?? ?? 00 C7 05 ?? ?? ?? ?? 00 00 80 3F 48 C7 05 ?? ?? ?? ?? 00 00 00 00";
 
-// FUN_1402f9720: mov rcx,[CTargetWnd]; call; mov rsi,rax; test rax,rax; je; lea rcx,[rbp-40].
-const char* kTargetWndSig =
-	"48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B F0 48 85 C0 0F 84 ?? ?? ?? ?? 48 8D 4D C0";
+// CTargetWnd::Draw FUN_14050db60 (vtbl+0x20): push rbx; sub rsp,20; cmp [pTarget],0; mov rbx,rcx;
+// mov rdx,[rcx+388] (the first HP box animation). Stolen (6 bytes, position independent): push rbx; sub rsp,20.
+const char* kTargetDrawSig = "40 53 48 83 EC 20 48 83 3D ?? ?? ?? ?? 00 48 8B D9 48 8B 91 88 03 00 00";
 
 } // namespace
 
@@ -387,7 +476,11 @@ const HookSite kHudHooks[1] = {
 	{ kDrawWindowsSig, 5, reinterpret_cast<void*>(&DrawWindowsDetour), REF(g_origDrawWindows) },
 };
 
-const RefSite kHudRefs[21] = {
+const HookSite kTargetDistanceHooks[1] = {
+	{ kTargetDrawSig, 6, reinterpret_cast<void*>(&TargetDrawDetour), REF(g_origTargetDraw) },
+};
+
+const RefSite kHudRefs[22] = {
 	// CXStr::CXStr(CXStr*, const char*) FUN_1405853f0: strlen loop, alloc rep, copy to rep+0x18
 	{ "48 89 74 24 18 57 48 83 EC 20 48 8B F2 48 8B F9 48 85 D2 74 ?? 48 89 5C 24 30", 0, 0, REF(g_cxstrCtor) },
 	// CXStr release FUN_140587670: critical-section guarded FreeRep
@@ -421,7 +514,11 @@ const RefSite kHudRefs[21] = {
 	{ "48 89 3D ?? ?? ?? ?? B9 20 00 00 00", 3, 7, REF(g_dbstrTable) },
 	{ kSpawnMgrSig, 36, 40, REF(g_pLocalPlayer) },
 	{ kZoneInfoSig, 2, 7, REF(g_zoneInfo) },
-	{ kTargetWndSig, 3, 7, REF(g_targetWnd) },
+	// CXWnd::GetClientRect FUN_1405a7ce0 (vtbl+0x210): cached at +0x1e8, recomputed when +0xe4 set
+	{ "48 89 5C 24 08 57 48 83 EC 30 80 B9 E4 00 00 00 00", 0, 0, REF(g_getClientRect) },
+	// FUN_14059bf40(fontIndex, CXStr*): text width through the font object the renderer hands out (the
+	// target of the 8-byte CTextureFont::GetWidth thunk FUN_1405d1e70, which is not signaturable itself)
+	{ "40 53 48 83 EC 20 48 8B DA 48 C7 44 24 40 00 00 00 00", 0, 0, REF(g_textWidth) },
 };
 
 namespace {
@@ -439,6 +536,16 @@ const char* CommonPrepare() {
 		return "the font height call inside DrawWindows is not the expected thunk";
 	if (g_getConLevelCalled != reinterpret_cast<void*>(g_getConLevel))
 		return "the target window's con call does not point at GetConLevel";
+	// The width function and the height function behind the thunk both start by loading the same
+	// renderer global (the object whose vtbl+0x140 hands out the font by index).
+	const uint8_t* heightFn = reinterpret_cast<const uint8_t*>(g_fontHeight);
+	int32_t rel;
+	memcpy(&rel, heightFn + 4, 4);
+	const uint8_t* heightTarget = heightFn + 8 + rel;
+	const void* a = FirstGlobalLoad(reinterpret_cast<const uint8_t*>(g_textWidth), 73);
+	const void* b = FirstGlobalLoad(heightTarget, 96);
+	if (!a || a != b)
+		return "the text width function does not read the renderer global the height function reads";
 	LoadConfig();
 	return nullptr;
 }

@@ -35,6 +35,28 @@ size_t StmlCurrentText(void* stml, char* out, size_t cap) {
 	return strlen(out);   // an embedded terminator ends the text early
 }
 
+size_t StmlTrimBreaks(char* text, size_t len) {
+	if (!text) return 0;
+	for (;;) {
+		while (len > 0 && (text[len - 1] == ' ' || text[len - 1] == '\t' || text[len - 1] == '\r' || text[len - 1] == '\n')) --len;
+		if (len >= 4 && _strnicmp(text + len - 4, "<BR>", 4) == 0) len -= 4;
+		else if (len >= 5 && _strnicmp(text + len - 5, "<BR/>", 5) == 0) len -= 5;
+		else break;
+	}
+	text[len] = '\0';
+	return len;
+}
+
+bool StmlHasText(const char* text, const char* needle) {
+	if (!text || !needle || !needle[0]) return false;
+	char probe[48];
+	size_t n = strlen(needle);
+	if (n > sizeof(probe) - 1) n = sizeof(probe) - 1;
+	memcpy(probe, needle, n);
+	probe[n] = '\0';
+	return strstr(text, probe) != nullptr;
+}
+
 void StmlSetText(void* stml, const char* text, StmlCXStrCtorFn ctor, StmlSetTextFn setText) {
 	if (!stml || !text || !ctor || !setText) return;
 	void* cxstr = nullptr;

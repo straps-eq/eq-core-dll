@@ -95,9 +95,10 @@ static const Feature kFeatures[] = {
 	// target (FUN_14050ec00) tooltip refresh, see buffs.cpp.
 	{ "BuffTooltips",     true, "Caster, effects and cures on buff tooltips",      nullptr,           0,
 	  kBuffTooltipsHooks, COUNT(kBuffTooltipsHooks), kBuffTooltipsRefs, COUNT(kBuffTooltipsRefs), BuffTooltipsPrepare },
-	// On-screen text: both share one hook on CXWndManager::DrawWindows (FUN_1405cc3a0), see hud.cpp.
+	// Level/race/class and distance line in the Target window: hook on CTargetWnd::Draw (FUN_14050db60);
+	// on-screen text: hook on CXWndManager::DrawWindows (FUN_1405cc3a0). Both in hud.cpp.
 	{ "TargetDistance",   false, "Distance to the target in the Target window",     nullptr,           0,
-	  kHudHooks, COUNT(kHudHooks), kHudRefs, COUNT(kHudRefs), TargetDistancePrepare },
+	  kTargetDistanceHooks, COUNT(kTargetDistanceHooks), kHudRefs, COUNT(kHudRefs), TargetDistancePrepare },
 	{ "Hud",              false, "On-screen loc, zone, target, FPS and clock",      nullptr,           0,
 	  kHudHooks, COUNT(kHudHooks), kHudRefs, COUNT(kHudRefs), HudPrepare },
 	// Lore, value, tribute, levels, clicky cooldown and spell details in the item window: hook on the

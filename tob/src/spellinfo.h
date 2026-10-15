@@ -41,6 +41,10 @@ struct SpellTextStyle {
 	bool skipCounters = false;       // leave disease/poison/curse/corruption counters to the caller
 	bool slotNumbers = false;        // effect lines start with "Slot N: " (the spell file's slot number)
 	bool classesBare = false;        // classes as "Warrior(1), Cleric(1)" without the "Classes:" label
+	const char* gap = "   ";         // between the two halves of a details line ("ID: n   Duration: d")
+	bool duration = true;            // SpellInfoDetails: the "Duration:" half of the ID line
+	bool range = true;               // SpellInfoDetails: the "Range:" line
+	bool resist = true;              // SpellInfoDetails: the "Resist:" line
 };
 
 // The spell for an id, or nullptr when the spell manager does not know it.
@@ -55,7 +59,8 @@ void SpellInfoCategory(const uint8_t* spell, const char** category, const char**
 void SpellInfoWrite(TextBuf& out, const uint8_t* spell, int castLevel, unsigned parts, const SpellTextStyle& style);
 // The detail block in the layout players know from other tools, each line starting with style.lineBreak:
 // "ID: n   Duration: d", "RecoveryTime: x   RecastTime: y", "Range: r [  AE Range: a]", for detrimental
-// spells "Resist: <type>  (Resist Adj.: n)", a blank line, then "Slot N: <effect>" lines.
+// spells "Resist: <type>  (Resist Adj.: n)", a blank line, then "Slot N: <effect>" lines. style.gap is the
+// column gap; style.duration / range / resist drop the lines a window already shows.
 void SpellInfoDetails(TextBuf& out, const uint8_t* spell, int castLevel, const SpellTextStyle& style);
 // The spell's description text (dbstr type 6 keyed by the spell's descnum), with the client's own macro
 // expansion (#1, @1, %z) when the expander resolved; false when the spell has none.

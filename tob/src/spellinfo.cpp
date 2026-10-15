@@ -764,34 +764,39 @@ void SpellInfoDetails(TextBuf& out, const uint8_t* spell, int castLevel, const S
 	if (!spell) return;
 	if (castLevel > kMaxLevel) castLevel = kMaxLevel;
 	// "ID: n   Duration: d"
-	out.Add("%s%sID: %d   Duration: ", s.lineBreak, s.indent, I32(spell, kOffId));
-	if (I32(spell, kOffDurationFormula) == 0) out.Add("Instant");
-	else {
-		int lo = castLevel > 0 ? castLevel : MinLevel(spell);
-		unsigned first = Ticks(spell, lo);
-		unsigned last = castLevel > 0 ? first : Ticks(spell, kMaxLevel);
-		if (!first && !last) out.Add("Unknown");
+	out.Add("%s%sID: %d", s.lineBreak, s.indent, I32(spell, kOffId));
+	if (s.duration) {
+		out.Add("%sDuration: ", s.gap);
+		if (I32(spell, kOffDurationFormula) == 0) out.Add("Instant");
 		else {
-			AddTicks(out, first);
-			if (first != last) {
-				out.Add(" (L%d) to ", lo);
-				AddTicks(out, last);
-				out.Add(" (L%d)", kMaxLevel);
+			int lo = castLevel > 0 ? castLevel : MinLevel(spell);
+			unsigned first = Ticks(spell, lo);
+			unsigned last = castLevel > 0 ? first : Ticks(spell, kMaxLevel);
+			if (!first && !last) out.Add("Unknown");
+			else {
+				AddTicks(out, first);
+				if (first != last) {
+					out.Add(" (L%d) to ", lo);
+					AddTicks(out, last);
+					out.Add(" (L%d)", kMaxLevel);
+				}
 			}
 		}
 	}
-	out.Add("%s%sRecoveryTime: %.2f   RecastTime: %.2f", s.lineBreak, s.indent,
-	        I32(spell, kOffRecoveryMs) / 1000.0, I32(spell, kOffRecastMs) / 1000.0);
-	float range = F32(spell, kOffRange), ae = F32(spell, kOffAERange);
-	out.Add("%s%sRange: %.0f", s.lineBreak, s.indent, range);
-	if (ae > 0) out.Add("   AE Range: %.0f", ae);
-	if (spell[kOffBeneficial] == 0) {
+	out.Add("%s%sRecoveryTime: %.2f%sRecastTime: %.2f", s.lineBreak, s.indent,
+	        I32(spell, kOffRecoveryMs) / 1000.0, s.gap, I32(spell, kOffRecastMs) / 1000.0);
+	if (s.range) {
+		float range = F32(spell, kOffRange), ae = F32(spell, kOffAERange);
+		out.Add("%s%sRange: %.0f", s.lineBreak, s.indent, range);
+		if (ae > 0) out.Add("%sAE Range: %.0f", s.gap, ae);
+	}
+	if (s.resist && spell[kOffBeneficial] == 0) {
 		const char* name = ResistName(spell[kOffResistType]);
 		out.Add("%s%sResist: ", s.lineBreak, s.indent);
 		if (name) out.Add("%s", name);
 		else out.Add("type %d", spell[kOffResistType]);
 		int adjust = I32(spell, kOffResistAdjust);
-		if (adjust) out.Add("  (Resist Adj.: %d)", adjust);
+		if (adjust) out.Add("%s(Resist Adj.: %d)", s.gap, adjust);
 	}
 	out.Add("%s", s.lineBreak);
 	SpellTextStyle slots = s;
