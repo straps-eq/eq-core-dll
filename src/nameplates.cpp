@@ -147,6 +147,7 @@ struct Config {
 	bool hpByCon = false;
 	bool occlude = true;           // no bar when the client did not draw the spawn (behind walls)
 	bool selfIgnoresOcclusion = false;
+	float depthBias = 0.0f;        // world units (x actor scale) the depth-tested bars sit toward the camera
 	uint32_t threatColour = 0;     // 0 = Legends pulse
 };
 Config g_cfg;
@@ -188,6 +189,7 @@ void LoadConfig() {
 	c.hpByCon = Int("HpByCon", c.hpByCon) != 0;
 	c.occlude = Int("Occlude", c.occlude) != 0;
 	c.selfIgnoresOcclusion = Int("SelfIgnoresOcclusion", c.selfIgnoresOcclusion) != 0;
+	c.depthBias = ClampF(Float("DepthBias", c.depthBias), 0.0f, 10.0f);
 	char buf[32] = {};
 	GetPrivateProfileStringA(kSection, "ThreatFrameColour", "", buf, sizeof(buf), ini);
 	char* end = nullptr;
@@ -452,14 +454,6 @@ void Quad(float x0, float y0, float x1, float y1, uint32_t argb) {
 	g_drawQuad(g_renderer, q, argb);
 }
 
-void Frame(float x0, float y0, float x1, float y1, uint32_t argb) {
-	const float a[3] = { x0, y0, 0 }, b[3] = { x1, y0, 0 }, c[3] = { x1, y1, 0 }, d[3] = { x0, y1, 0 };
-	g_drawLine(g_renderer, a, b, argb);
-	g_drawLine(g_renderer, b, c, argb);
-	g_drawLine(g_renderer, c, d, argb);
-	g_drawLine(g_renderer, d, a, argb);
-}
-
 // Legends' threat pulse: red, alpha 190, brightness 50..100 % on a 2 s triangle, fading beyond 80 units.
 uint32_t ThreatColour(float distance) {
 	float alpha = 190.0f * (distance > 80.0f ? 80.0f / distance : 1.0f);
@@ -469,13 +463,6 @@ uint32_t ThreatColour(float distance) {
 	const float tri = (t % 2000 < 1000) ? phase : 1.0f - phase;
 	const uint32_t red = static_cast<uint32_t>(255.0f * (1.0f - 0.5f * tri));
 	return (static_cast<uint32_t>(alpha) << 24) | (red << 16);
-}
-
-void DrawBar(float cx, float y, float w, float h, float pct, uint32_t fill, bool threat, uint32_t threatColour) {
-	const float x0 = floorf(cx - w * 0.5f);
-	Quad(x0 + 1, y - 1, x0 + w + 1, y + h + 1, kColourBacking);
-	if (pct > 0.0f) Quad(x0, y, x0 + w * ClampF(pct, 0.0f, 1.0f), y + h, fill);
-	if (threat) Frame(x0 - 1, y - 2, x0 + w + 2, y + h + 2, threatColour);
 }
 
 // Text the DLL draws next to the bars, with the FontShadow / FontOutline layers.
@@ -580,85 +567,373 @@ bool ThreatFlag(uint8_t* spawn, uint32_t id, bool isTarget, uint64_t now) {
 	return g_cfg.threatDisplay == 2 && t->lastHitGroup && now - t->lastHitGroup <= hold;
 }
 
-void DrawNameplates(uint8_t* mgr) {
+// ---- depth-tested bars (analysis\legends\nameplates-depth\dll-spec.md) ----
+//
+// Each bar rect is a DLL-owned CStringSprite holding one U+2588 FULL BLOCK, stretched over the rect, queued into the
+// engine's name-tag text list at the name's own depth and sort key, so the "Render Name Tags" pass Z-tests it per
+// pixel exactly like the name. Queued from the renderer's post-visibility callback (renderer vtbl +0x198 setter,
+// called inside +0x158 after this frame's names are queued and before their flush). A spawn gets depth bars only
+// when its name sprite is queued this frame (+0x70 != 0). Items still queued from a skipped flush are unlinked at
+// the start of each callback. Labels (HP %, spell name) stay 2D in the DrawWindows hook. When a check fails, the
+// block glyph looks wrong or no callback arrives, the 2D path (with the WasVisibleThisFrame gate) draws the bars.
+
+const size_t kRendererSetPostVis = 0x198;
+const size_t kRendererEndScene3D = 0x158;
+const size_t kRendererPostVisCb = 0xb8b0;        // the callback slot the setter writes
+const size_t kSetPostVisRva = 0xd9210, kPostVisCallSiteRva = 0xd7d35, kEndScene3DRva = 0xd7820;
+const size_t kSpriteCtorRva = 0xfcff0, kSpriteSetTextRva = 0xfd890, kGetBatchRva = 0xf2670;
+const size_t kBatchAddTextRva = 0xf1bb0, kBatchRemoveTextRva = 0xf2b20;
+const size_t kSpriteVtblRva = 0x2c5498, kSpriteTextItemVtblRva = 0x2c5240;
+const size_t kItemSize = 0xc0;
+const size_t kItemTextW = 0x84, kItemTextH = 0x88;   // font-10 metrics after SetText
+const size_t kItemArgb = 0x2c;
+const size_t kItemDirty = 0x48;
+const size_t kItemDepth = 0x58;
+const size_t kItemKey = 0x5c;
+const size_t kItemQueued = 0x70;                 // batch owner while queued
+const size_t kBatchCount = 0x40;                 // int, flush gate "count > 0"
+const size_t kSpawnUiOnly = 0x604;               // pLocalPlayer: non-zero = UI-only frames (no world)
+const int kMaxItems = 512;
+
+using SetPostVisFn = void* (*)(void* renderer, void (*cb)());
+using SpriteCtorFn = void* (*)(void* mem);
+using SpriteSetTextFn = void (*)(void* s, const char* text, const char* text2);
+using GetBatchFn = void* (*)();
+using BatchTextFn = void (*)(void* batch, void* item);
+
+SpriteCtorFn g_itemCtor = nullptr;
+SpriteSetTextFn g_itemSetText = nullptr;
+GetBatchFn g_getBatch = nullptr;
+BatchTextFn g_batchAdd = nullptr;
+BatchTextFn g_batchRemove = nullptr;
+void (*g_prevPostVis)() = nullptr;
+void* g_cbRenderer = nullptr;                    // renderer the callback was installed on
+
+struct alignas(16) Item {
+	uint8_t mem[kItemSize];
+};
+Item g_items[kMaxItems];
+int g_itemsBuilt = 0;
+int g_itemsUsed = 0;
+bool g_poolFullLogged = false;
+enum DepthState { kDepthUnchecked, kDepthReady, kDepthOff };
+DepthState g_depth = kDepthUnchecked;
+volatile uint64_t g_lastCallback = 0;            // GetTickCount64 of the last callback
+uint64_t g_depthSince = 0;                       // when the callback was installed
+
+struct NameRef {
+	float depth, key;
+	uint32_t alpha;                                  // the name's fade, 0..255
+};
+
+bool GfxBytes(uint8_t* gfx, size_t rva, const char* pattern) {
+	return StartsWith(gfx + rva, pattern);
+}
+
+void PostVisibleCallback();
+
+// Builds the pool and installs the callback once all checks pass (first in-game frame).
+void InstallDepthBars() {
+	if (g_depth != kDepthUnchecked) return;
+	g_depth = kDepthOff;
+	uint8_t* gfx = reinterpret_cast<uint8_t*>(GetModuleHandleA("EQGraphics.dll"));
+	void* renderer = FctRenderer();
+	if (!gfx || !renderer) {
+		LogOnce("2D bars: EQGraphics.dll or the renderer is missing");
+		return;
+	}
+	void** vt = *reinterpret_cast<void***>(renderer);
+	if (reinterpret_cast<uint8_t*>(vt) != gfx + kRendererVtblRva ||
+	    reinterpret_cast<uint8_t*>(vt[kRendererSetPostVis / sizeof(void*)]) != gfx + kSetPostVisRva ||
+	    reinterpret_cast<uint8_t*>(vt[kRendererEndScene3D / sizeof(void*)]) != gfx + kEndScene3DRva ||
+	    !GfxBytes(gfx, kSetPostVisRva, "48 8B 81 B0 B8 00 00 48 89 91 B0 B8 00 00 C3") ||
+	    !GfxBytes(gfx, kPostVisCallSiteRva, "48 8B 87 B0 B8 00 00 48 85 C0 74 02 FF D0") ||
+	    !GfxBytes(gfx, kEndScene3DRva, "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55") ||
+	    !GfxBytes(gfx, kSpriteCtorRva, "40 53 48 83 EC 20 48 8B D9 E8") ||
+	    !GfxBytes(gfx, kSpriteSetTextRva, "40 53 48 83 EC 20 48 8B D9 48 85 D2 74") ||
+	    !GfxBytes(gfx, kGetBatchRva, "40 53 48 83 EC 30 8B 0D") ||
+	    !GfxBytes(gfx, kBatchAddTextRva, "4C 8B D2 4C 8B C9 48 85 D2") ||
+	    !GfxBytes(gfx, kBatchRemoveTextRva, "48 85 D2 74 57 48 83 7A 68 00 74 50 48 83 C2 58")) {
+		LogOnce("2D bars: the engine's name pass does not match this EQGraphics.dll");
+		return;
+	}
+	g_itemCtor = reinterpret_cast<SpriteCtorFn>(gfx + kSpriteCtorRva);
+	g_itemSetText = reinterpret_cast<SpriteSetTextFn>(gfx + kSpriteSetTextRva);
+	g_getBatch = reinterpret_cast<GetBatchFn>(gfx + kGetBatchRva);
+	g_batchAdd = reinterpret_cast<BatchTextFn>(gfx + kBatchAddTextRva);
+	g_batchRemove = reinterpret_cast<BatchTextFn>(gfx + kBatchRemoveTextRva);
+	static const char kBlock[] = "\xE2\x96\x88";   // U+2588 FULL BLOCK
+	for (int i = 0; i < kMaxItems; ++i) {
+		uint8_t* s = g_items[i].mem;
+		g_itemCtor(s);
+		g_itemsBuilt = i + 1;
+		if (i == 0 && (*reinterpret_cast<uint8_t**>(s) != gfx + kSpriteVtblRva ||
+		               *reinterpret_cast<uint8_t**>(s + 8) != gfx + kSpriteTextItemVtblRva)) {
+			LogOnce("2D bars: the string sprite is not the expected class");
+			return;
+		}
+		g_itemSetText(s, kBlock, kBlock);
+		if (i == 0) {
+			const int w = *reinterpret_cast<int*>(s + kItemTextW), h = *reinterpret_cast<int*>(s + kItemTextH);
+			if (w < 10 || w > 60 || h < 30 || h > 60) {
+				LogOnce("2D bars: the name font has no usable block glyph");
+				return;
+			}
+		}
+	}
+	g_cbRenderer = renderer;
+	g_prevPostVis = reinterpret_cast<void (*)()>(
+		reinterpret_cast<SetPostVisFn>(vt[kRendererSetPostVis / sizeof(void*)])(renderer, &PostVisibleCallback));
+	if (g_prevPostVis) LogOnce("depth bars on (chained to an existing post-visibility callback)");
+	else LogOnce("depth bars on");
+	g_depth = kDepthReady;
+	g_depthSince = Now();
+}
+
+// Puts the previous callback back if ours is still installed; the items stay (they are reused if re-enabled).
+void UninstallDepthBars(const char* why) {
+	if (g_depth != kDepthReady) return;
+	g_depth = kDepthOff;
+	void* renderer = g_cbRenderer;
+	if (renderer && *reinterpret_cast<void**>(static_cast<uint8_t*>(renderer) + kRendererPostVisCb) ==
+	                    reinterpret_cast<void*>(&PostVisibleCallback))
+		reinterpret_cast<SetPostVisFn>((*reinterpret_cast<void***>(renderer))[kRendererSetPostVis / sizeof(void*)])(renderer, g_prevPostVis);
+	char text[160];
+	snprintf(text, sizeof(text), "2D bars: %s", why);
+	LogOnce(text);
+}
+
+// Depth bars are drawing: installed and called back within the last half second.
+bool DepthActive() {
+	return g_depth == kDepthReady && g_lastCallback && Now() - g_lastCallback < 500;
+}
+
+// The camera's view-space depth inverse (dll-spec 4.3): moves a vertex depth `bias` world units toward the camera.
+float BiasDepth(float z, float bias) {
 	uint8_t* cam = FctCamera();
-	if (!cam || !RendererReady()) return;
-	uint8_t* me = FctLocalPlayer();
-	if (!me) return;
+	if (!cam) return z;
+	const float c10 = *reinterpret_cast<float*>(cam + 0x10), c14 = *reinterpret_cast<float*>(cam + 0x14);
+	if (c14 == z) return z;
+	const float zc = c14 * c10 / (c14 - z);
+	const float zc2 = zc - bias;
+	return zc2 > 0.01f ? c14 - c14 * c10 / zc2 : z;
+}
+
+void QueueRect(const NameRef& n, int l, int t, int r, int b, uint32_t argb) {
+	if (r - l < 1 || b <= t) return;
+	if (g_itemsUsed >= g_itemsBuilt) {
+		if (!g_poolFullLogged) LogOnce("more bars than the item pool holds this frame; the rest are skipped");
+		g_poolFullLogged = true;
+		return;
+	}
+	uint8_t* s = g_items[g_itemsUsed++].mem;
+	int* rc = reinterpret_cast<int*>(s + kSpriteRect);
+	rc[0] = l;
+	rc[1] = t;
+	rc[2] = r;
+	rc[3] = b;
+	*reinterpret_cast<int*>(s + kSpriteFont) = kSpriteFontName;
+	const uint32_t a = ((argb >> 24) * n.alpha + 127) / 255;   // fade with the name
+	*reinterpret_cast<uint32_t*>(s + kItemArgb) = (a << 24) | (argb & 0x00FFFFFFu);
+	*reinterpret_cast<float*>(s + kItemDepth) = n.depth;
+	*reinterpret_cast<float*>(s + kItemKey) = n.key;           // equal keys draw in queue order
+	s[kItemDirty] = 1;
+	g_batchAdd(g_getBatch(), s + 8);
+}
+
+// ---- one spawn's bars, shared by both paths ----
+
+struct Plan {
+	uint8_t* spawn;
+	uint8_t type;
+	bool isMe, isTarget;
+	float dist;                 // XY from the camera
+	float hp, mana, castLeft;
+	int spell;
+	bool showHp, casting, flashing, showMana, threat;
+};
+
+// Everything but the occlusion gate and the name box. False = no bars for this spawn.
+bool PlanSpawn(uint8_t* spawn, uint8_t* me, uint8_t* target, float camX, float camY, uint64_t now, Plan* p) {
+	const uint8_t type = spawn[kSpawnType];
+	if (type >= 2) return false;   // corpse
+	const bool isMe = spawn == me, isTarget = spawn == target;
+	if (!isMe && (!g_mayShowName(spawn) || spawn[kSpawnUntargetable] || g_isInvisibleTo(me, spawn, 0))) return false;
+	const float dx = *reinterpret_cast<float*>(spawn + kSpawnY) - camX;
+	const float dy = *reinterpret_cast<float*>(spawn + kSpawnX) - camY;
+	if (!isTarget && dx * dx + dy * dy > g_cfg.drawDistance * g_cfg.drawDistance) return false;
+	const int64_t hpCur = *reinterpret_cast<int64_t*>(spawn + kSpawnHpCur);
+	const int64_t hpMax = *reinterpret_cast<int64_t*>(spawn + kSpawnHpMax);
+	if (hpCur < 2 || hpMax <= 0) return false;
+	Plan q = {};
+	q.spawn = spawn;
+	q.type = type;
+	q.isMe = isMe;
+	q.isTarget = isTarget;
+	q.dist = sqrtf(dx * dx + dy * dy);
+	q.hp = static_cast<float>(hpCur) / static_cast<float>(hpMax);
+	const uint32_t id = *reinterpret_cast<uint32_t*>(spawn + kSpawnId);
+	q.showHp = isMe ? g_cfg.selfHealth && (q.hp < 1.0f || isTarget) : g_cfg.targetHealth && (q.hp < 1.0f || isTarget);
+	const bool castOn = isMe ? g_cfg.selfCast : g_cfg.cast;
+	const bool manaOn = isMe ? g_cfg.selfMana : g_cfg.mana;
+	q.casting = castOn && CastProgress(id, now, &q.castLeft, &q.spell);
+	q.flashing = castOn && Flashing(id, now);
+	const int32_t manaCur = *reinterpret_cast<int32_t*>(spawn + kSpawnManaCur);
+	const int32_t manaMax = *reinterpret_cast<int32_t*>(spawn + kSpawnManaMax);
+	q.mana = manaMax > 0 ? static_cast<float>(manaCur) / static_cast<float>(manaMax) : 1.0f;
+	q.showMana = manaOn && !q.casting && manaCur >= 0 && (q.mana < 1.0f || isTarget) && (manaMax > 0 || isTarget) && q.mana > 0.0f;
+	q.threat = !isMe && type == 1 && ThreatFlag(spawn, id, isTarget, now);
+	if (!q.showHp && !q.casting && !q.flashing && !q.showMana && !q.threat) return false;
+	*p = q;
+	return true;
+}
+
+// Where rects go: 2D quads over everything, or name-pass items at the name's depth.
+struct Sink {
+	bool depth;
+	NameRef name;
+};
+
+void PutRect(const Sink& s, float l, float t, float r, float b, uint32_t argb) {
+	if (s.depth) QueueRect(s.name, static_cast<int>(l), static_cast<int>(t), static_cast<int>(r), static_cast<int>(b), argb);
+	else Quad(l, t, r, b, argb);
+}
+
+void PutFrame(const Sink& s, float x0, float y0, float x1, float y1, uint32_t argb) {
+	PutRect(s, x0, y0, x1, y0 + 1, argb);
+	PutRect(s, x0, y1 - 1, x1, y1, argb);
+	PutRect(s, x0, y0, x0 + 1, y1, argb);
+	PutRect(s, x1 - 1, y0, x1, y1, argb);
+}
+
+void PutBar(const Sink& s, float cx, float y, float w, float h, float pct, uint32_t fill, bool threat, uint32_t threatColour) {
+	const float x0 = floorf(cx - w * 0.5f);
+	w = floorf(w);
+	h = floorf(h);
+	y = floorf(y);
+	PutRect(s, x0 + 1, y - 1, x0 + w + 1, y + h + 1, kColourBacking);
+	if (pct > 0.0f) PutRect(s, x0, y, x0 + roundf(w * ClampF(pct, 0.0f, 1.0f)), y + h, fill);
+	if (threat) PutFrame(s, x0 - 1, y - 2, x0 + w + 2, y + h + 2, threatColour);
+}
+
+// Lays out a spawn's bars under the name box; `mgr` non-null draws the 2D labels too, `bars` false skips the rects.
+void Layout(const Sink& s, const Plan& p, const float* box, uint8_t* mgr, bool bars) {
+	const float nameH = box[3] - box[1];
+	const float viewportW = static_cast<float>(FctViewport()[2]);
+	const float h = ClampF(roundf(nameH / 9.0f * g_cfg.size), 2.0f, (6.0f * g_cfg.size > 2.0f ? 6.0f * g_cfg.size : 2.0f));
+	const float w = ClampF(roundf(nameH * 4.5f * g_cfg.size), 24.0f, viewportW / 4.0f > 24.0f ? viewportW / 4.0f : 24.0f);
+	const float cx = (box[0] + box[2]) * 0.5f;
+	float y = box[3];
+	const uint32_t threatColour = p.threat ? ThreatColour(p.dist) : 0;
+	if (p.showHp) {
+		const uint32_t fill = g_cfg.hpByCon && p.type == 1 ? HudConColour(p.spawn) : kColourHp;
+		if (bars) PutBar(s, cx, y, w, h, p.hp, fill, p.threat, threatColour);
+		if (mgr && g_cfg.hpText) {
+			char text[16];
+			snprintf(text, sizeof(text), "%d%%", static_cast<int>(p.hp * 100.0f + 0.5f));
+			DrawLabel(mgr, text, static_cast<int>(cx + w * 0.5f + 4.0f), static_cast<int>(y + h * 0.5f) - 6, 0xFFFFFFFFu, false);
+		}
+		y += h + 1.0f;
+	}
+	if (p.flashing) {
+		if (bars) PutBar(s, cx, y, w, h, 1.0f, kColourHp, p.threat, threatColour);
+		y += h + 1.0f;
+	}
+	else if (p.casting) {
+		if (bars) PutBar(s, cx, y, w, h, p.castLeft, kColourCast, p.threat, threatColour);
+		y += h + 1.0f;
+		if (mgr && g_cfg.castSpellName) {
+			if (const char* name = SpellName(p.spell))
+				DrawLabel(mgr, name, static_cast<int>(cx), static_cast<int>(y), 0xFFFFFFFFu, true);
+		}
+	}
+	if (p.showMana && bars) PutBar(s, cx, y, w, h, p.mana, kColourMana, p.threat, threatColour);
+	if (p.threat && bars && !p.showHp && !p.casting && !p.flashing && !p.showMana)
+		PutFrame(s, box[0] - 1, box[1] - 1, box[2] + 1, box[3] + 1, threatColour);
+}
+
+void TrackTarget() {
 	uint8_t* target = *g_pTarget;
 	if (target != g_lastTarget) {
 		g_lastTarget = target;
 		g_hottTarget = 0;
 		g_hottValid = false;
 	}
+}
+
+// Renderer post-visibility callback: this frame's names are queued, the flush has not run yet.
+void PostVisibleCallback() {
+	if (g_prevPostVis) g_prevPostVis();
+	g_lastCallback = Now();
+	void* batch = g_getBatch();
+	for (int i = 0; i < g_itemsUsed; ++i) {
+		uint8_t* s = g_items[i].mem;
+		if (*reinterpret_cast<void**>(s + kItemQueued)) g_batchRemove(batch, s + 8);   // the flush was skipped
+	}
+	g_itemsUsed = 0;
+	if (batch) {
+		int* count = reinterpret_cast<int*>(static_cast<uint8_t*>(batch) + kBatchCount);
+		if (*count > 0x40000000) *count = 0x100000;   // keep the flush gate positive, never let it wrap
+	}
+	if (!g_on || !g_cfg.occlude || !FctInGame()) return;
+	uint8_t* cam = FctCamera();
+	uint8_t* me = FctLocalPlayer();
+	if (!cam || !me) return;
+	TrackTarget();
+	uint8_t* target = *g_pTarget;
 	const uint64_t now = Now();
 	const float camX = *reinterpret_cast<float*>(cam + 0xc0), camY = *reinterpret_cast<float*>(cam + 0xc4);
-	const float drawDist2 = g_cfg.drawDistance * g_cfg.drawDistance;
-	const float viewportW = static_cast<float>(FctViewport()[2]);
 	int guard = 0;
 	for (uint8_t* spawn = FctFirstSpawn(); spawn && guard < 4096;
 	     spawn = *reinterpret_cast<uint8_t**>(spawn + kSpawnNext), ++guard) {
-		const uint8_t type = spawn[kSpawnType];
-		if (type >= 2) continue;   // corpse
-		const bool isMe = spawn == me, isTarget = spawn == target;
-		if (!isMe && (!g_mayShowName(spawn) || spawn[kSpawnUntargetable] || g_isInvisibleTo(me, spawn, 0))) continue;
-		if (g_cfg.occlude && !(isMe && g_cfg.selfIgnoresOcclusion)) {
-			if (g_gateBroken || !NameDrawnLastFrame(spawn, camX, camY)) continue;   // behind a wall, culled or no name
-		}
-		const float dx = *reinterpret_cast<float*>(spawn + kSpawnY) - camX;
-		const float dy = *reinterpret_cast<float*>(spawn + kSpawnX) - camY;
-		if (!isTarget && dx * dx + dy * dy > drawDist2) continue;
-		const int64_t hpCur = *reinterpret_cast<int64_t*>(spawn + kSpawnHpCur);
-		const int64_t hpMax = *reinterpret_cast<int64_t*>(spawn + kSpawnHpMax);
-		if (hpCur < 2 || hpMax <= 0) continue;
-		const float hp = static_cast<float>(hpCur) / static_cast<float>(hpMax);
-		const uint32_t id = *reinterpret_cast<uint32_t*>(spawn + kSpawnId);
-		const bool showHp = isMe ? g_cfg.selfHealth && (hp < 1.0f || isTarget) : g_cfg.targetHealth && (hp < 1.0f || isTarget);
-		const bool castOn = isMe ? g_cfg.selfCast : g_cfg.cast;
-		const bool manaOn = isMe ? g_cfg.selfMana : g_cfg.mana;
-		float castLeft = 0.0f;
-		int spell = 0;
-		const bool casting = castOn && CastProgress(id, now, &castLeft, &spell);
-		const bool flashing = castOn && Flashing(id, now);
-		const int32_t manaCur = *reinterpret_cast<int32_t*>(spawn + kSpawnManaCur);
-		const int32_t manaMax = *reinterpret_cast<int32_t*>(spawn + kSpawnManaMax);
-		const float mana = manaMax > 0 ? static_cast<float>(manaCur) / static_cast<float>(manaMax) : 1.0f;
-		const bool showMana = manaOn && !casting && manaCur >= 0 && (mana < 1.0f || isTarget) && (manaMax > 0 || isTarget) && mana > 0.0f;
-		const bool threat = !isMe && type == 1 && ThreatFlag(spawn, id, isTarget, now);
-		if (!showHp && !casting && !flashing && !showMana && !threat) continue;
+		Plan p;
+		if (!PlanSpawn(spawn, me, target, camX, camY, now, &p)) continue;
+		if (p.isMe && g_cfg.selfIgnoresOcclusion) continue;   // 2D path
+		uint8_t* actor = *reinterpret_cast<uint8_t**>(spawn + kSpawnActor);
+		uint8_t* name = actor ? *reinterpret_cast<uint8_t**>(actor + kActorNameSprite) : nullptr;
+		if (!name || !*reinterpret_cast<void**>(name + kItemQueued)) continue;   // the name is not drawn this frame
+		if (*reinterpret_cast<int*>(name + kSpriteFont) != kSpriteFontName) continue;
+		const int* r = reinterpret_cast<const int*>(name + kSpriteRect);
+		if (r[2] <= r[0] || r[3] <= r[1]) continue;
+		Sink s = { true, {} };
+		s.name.depth = *reinterpret_cast<float*>(name + kItemDepth);
+		s.name.key = *reinterpret_cast<float*>(name + kItemKey);
+		s.name.alpha = *reinterpret_cast<uint32_t*>(name + kItemArgb) >> 24;
+		if (g_cfg.depthBias > 0.0f) s.name.depth = BiasDepth(s.name.depth, g_cfg.depthBias * *reinterpret_cast<float*>(name + kSpriteScale));
+		const float box[4] = { static_cast<float>(r[0]), static_cast<float>(r[1]), static_cast<float>(r[2]), static_cast<float>(r[3]) };
+		Layout(s, p, box, nullptr, true);   // the name's rect is already in vertex pixel space
+	}
+}
+
+void DrawNameplates(uint8_t* mgr) {
+	uint8_t* cam = FctCamera();
+	if (!cam || !RendererReady()) return;
+	uint8_t* me = FctLocalPlayer();
+	if (!me) return;
+	if (g_cfg.occlude) InstallDepthBars();
+	// Callbacks stopped while world frames run: back to 2D.
+	if (g_depth == kDepthReady && !me[kSpawnUiOnly]) {
+		const uint64_t last = g_lastCallback ? g_lastCallback : g_depthSince;
+		if (Now() - last > 2000) UninstallDepthBars("no name-pass callback for two seconds");
+	}
+	TrackTarget();
+	uint8_t* target = *g_pTarget;
+	const bool depth = g_cfg.occlude && DepthActive();
+	const uint64_t now = Now();
+	const float camX = *reinterpret_cast<float*>(cam + 0xc0), camY = *reinterpret_cast<float*>(cam + 0xc4);
+	const Sink flat = { false, {} };
+	int guard = 0;
+	for (uint8_t* spawn = FctFirstSpawn(); spawn && guard < 4096;
+	     spawn = *reinterpret_cast<uint8_t**>(spawn + kSpawnNext), ++guard) {
+		Plan p;
+		if (!PlanSpawn(spawn, me, target, camX, camY, now, &p)) continue;
+		const bool gated = g_cfg.occlude && !(p.isMe && g_cfg.selfIgnoresOcclusion);
+		const bool bars = !(depth && gated);   // the callback draws these bars in the name pass
+		if (!bars && !(g_cfg.hpText || g_cfg.castSpellName)) continue;
+		if (gated && (g_gateBroken || !NameDrawnLastFrame(spawn, camX, camY))) continue;   // behind a wall, culled or no name
 		float box[4];
 		if (!NameBox(spawn, mgr, box)) continue;
-		const float nameH = box[3] - box[1];
-		const float h = ClampF(roundf(nameH / 9.0f * g_cfg.size), 2.0f, (6.0f * g_cfg.size > 2.0f ? 6.0f * g_cfg.size : 2.0f));
-		const float w = ClampF(roundf(nameH * 4.5f * g_cfg.size), 24.0f, viewportW / 4.0f > 24.0f ? viewportW / 4.0f : 24.0f);
-		const float cx = (box[0] + box[2]) * 0.5f;
-		float y = box[3];
-		const uint32_t threatColour = threat ? ThreatColour(sqrtf(dx * dx + dy * dy)) : 0;
-		if (showHp) {
-			const uint32_t fill = g_cfg.hpByCon && type == 1 ? HudConColour(spawn) : kColourHp;
-			DrawBar(cx, y, w, h, hp, fill, threat, threatColour);
-			if (g_cfg.hpText) {
-				char text[16];
-				snprintf(text, sizeof(text), "%d%%", static_cast<int>(hp * 100.0f + 0.5f));
-				DrawLabel(mgr, text, static_cast<int>(cx + w * 0.5f + 4.0f), static_cast<int>(y + h * 0.5f) - 6, 0xFFFFFFFFu, false);
-			}
-			y += h + 1.0f;
-		}
-		if (flashing) {
-			DrawBar(cx, y, w, h, 1.0f, kColourHp, threat, threatColour);
-			y += h + 1.0f;
-		}
-		else if (casting) {
-			DrawBar(cx, y, w, h, castLeft, kColourCast, threat, threatColour);
-			y += h + 1.0f;
-			if (g_cfg.castSpellName) {
-				if (const char* name = SpellName(spell))
-					DrawLabel(mgr, name, static_cast<int>(cx), static_cast<int>(y), 0xFFFFFFFFu, true);
-			}
-		}
-		if (showMana) DrawBar(cx, y, w, h, mana, kColourMana, threat, threatColour);
-		if (threat && !showHp && !casting && !flashing && !showMana)
-			Frame(box[0] - 1, box[1] - 1, box[2] + 1, box[3] + 1, threatColour);
+		Layout(flat, p, box, mgr, bars);
 	}
 }
 
