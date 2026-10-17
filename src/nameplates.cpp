@@ -116,8 +116,8 @@ struct Config {
 	bool targetHealth = true;
 	bool cast = true;
 	bool mana = true;
-	bool selfHealth = true;
-	bool selfMana = true;
+	bool selfHealth = false;   // Legends defaults both self bars on
+	bool selfMana = false;
 	bool selfCast = true;
 	bool fontShadow = true;
 	bool fontOutline = true;
