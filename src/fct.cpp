@@ -28,6 +28,8 @@
 // the point, with an optional 1 px black outline drawn first, and fades out over the last FadeMs.
 // Entries are dropped when their spawn is gone, and all are dropped when the client leaves the game
 // state or the display, camera or renderer is missing (zoning).
+// In-game toggle: ToggleKey (default Ctrl+Shift+F) while the game window has focus turns the numbers off
+// and on, shows "Floating combat text: on/off" for two seconds and saves the state as [FCT] Show.
 #include "fct.h"
 #include "hud.h"
 #include <windows.h>
@@ -36,6 +38,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <cctype>
 
 namespace {
 
@@ -91,7 +94,9 @@ int32_t* g_viewport = nullptr;        // &DAT_140e6d8f0: x, y, w, h
 uint8_t** g_pEverQuest = nullptr;     // &DAT_140ee7010 (from the Hud refs, via the game state site)
 
 size_t g_cameraOffset = 0;
-bool g_on = false;
+bool g_on = false;       // feature applied
+bool g_shown = true;     // in-game toggle ([FCT] Show, flipped by ToggleKey)
+char g_iniPath[MAX_PATH] = {};
 
 // ---- configuration ([FCT] in dinput8.ini) ----
 
@@ -123,11 +128,34 @@ struct Config {
 	int maxEntries = 32;
 	int dedupMs = 100;
 	bool outline = true;
+	int toggleKey = 'F';     // virtual key; 0 = no hotkey
+	bool toggleCtrl = true, toggleShift = true, toggleAlt = false;
 };
 Config g_cfg;
 
 float ClampF(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 int Clamp(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+// "Ctrl+Shift+F", "Alt+F9", "none": modifiers plus one key (A-Z, 0-9, F1-F24). Unknown text = no hotkey.
+void ParseHotkey(const char* text, Config* c) {
+	c->toggleKey = 0;
+	c->toggleCtrl = c->toggleShift = c->toggleAlt = false;
+	char buf[64];
+	strcpy_s(buf, text);
+	if (char* comment = strchr(buf, ';')) *comment = '\0';   // GetPrivateProfileString keeps inline comments
+	char* next = nullptr;
+	for (char* part = strtok_s(buf, "+ ", &next); part; part = strtok_s(nullptr, "+ ", &next)) {
+		if (_stricmp(part, "Ctrl") == 0) c->toggleCtrl = true;
+		else if (_stricmp(part, "Shift") == 0) c->toggleShift = true;
+		else if (_stricmp(part, "Alt") == 0) c->toggleAlt = true;
+		else if (strlen(part) == 1 && isalnum(static_cast<unsigned char>(part[0]))) c->toggleKey = toupper(static_cast<unsigned char>(part[0]));
+		else if ((part[0] == 'F' || part[0] == 'f') && atoi(part + 1) >= 1 && atoi(part + 1) <= 24) c->toggleKey = VK_F1 + atoi(part + 1) - 1;
+		else {
+			c->toggleKey = 0;
+			return;
+		}
+	}
+}
 
 void LoadConfig() {
 	char ini[MAX_PATH];
@@ -182,6 +210,11 @@ void LoadConfig() {
 	c.maxEntries = Clamp(Int("MaxEntries", c.maxEntries), 1, 64);
 	c.dedupMs = Clamp(Int("DedupMs", c.dedupMs), 0, 2000);
 	c.outline = Int("Outline", c.outline) != 0;
+	char key[64] = {};
+	GetPrivateProfileStringA(s, "ToggleKey", "Ctrl+Shift+F", key, sizeof(key), ini);
+	ParseHotkey(key, &c);
+	g_shown = Int("Show", 1) != 0;
+	strcpy_s(g_iniPath, ini);
 	g_cfg = c;
 }
 
@@ -344,7 +377,7 @@ void OnDamage(const uint8_t* pkt) {
 
 void DamageDetour(uint8_t* pkt) {
 	g_origDamage(pkt);
-	if (g_on && pkt) OnDamage(pkt);
+	if (g_on && g_shown && pkt) OnDamage(pkt);
 }
 
 // ---- projection ----
@@ -525,11 +558,65 @@ const char* FctPrepare() {
 	return nullptr;
 }
 
+namespace {
+
+bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
+
+// The toggle hotkey, edge-triggered and only while the game window has focus. The new state is saved
+// as [FCT] Show so it survives a restart.
+int64_t g_toggleMessageUntil = 0;
+bool g_toggleHeld = false;
+
+void PollToggle() {
+	if (!g_cfg.toggleKey) return;
+	DWORD pid = 0;
+	HWND fg = GetForegroundWindow();
+	if (!fg || !GetWindowThreadProcessId(fg, &pid) || pid != GetCurrentProcessId()) {
+		g_toggleHeld = false;
+		return;
+	}
+	bool down = KeyDown(g_cfg.toggleKey) && KeyDown(VK_CONTROL) == g_cfg.toggleCtrl &&
+	            KeyDown(VK_SHIFT) == g_cfg.toggleShift && KeyDown(VK_MENU) == g_cfg.toggleAlt;
+	if (down && !g_toggleHeld) {
+		g_shown = !g_shown;
+		g_count = 0;
+		g_toggleMessageUntil = Now() + Frequency() * 2;
+		if (g_iniPath[0]) WritePrivateProfileStringA("FCT", "Show", g_shown ? "1" : "0", g_iniPath);
+	}
+	g_toggleHeld = down;
+}
+
+// "Floating combat text: on/off" for two seconds after a toggle, centred near the top of the screen.
+void DrawToggleMessage(uint8_t* mgr) {
+	if (!g_toggleMessageUntil) return;
+	if (Now() >= g_toggleMessageUntil) {
+		g_toggleMessageUntil = 0;
+		return;
+	}
+	uint8_t* font = HudFont(mgr, 3);
+	if (!font) font = HudFont(mgr, 2);
+	if (!font) return;
+	int screenH = 0;
+	const int screenW = HudScreenSize(mgr, &screenH);
+	const int clip[4] = { 0, 0, screenW, screenH };
+	const char* text = g_shown ? "Floating combat text: on" : "Floating combat text: off";
+	const int x = (screenW - HudTextWidth(font, text)) / 2;
+	const int y = screenH / 6;
+	if (x < 1 || y < 1) return;
+	HudDrawText(font, text, x + 1, y + 1, clip, 0xFF000000u);
+	HudDrawText(font, text, x, y, clip, 0xFFFFFF80u);
+}
+
+} // namespace
+
 void FctFrame(uint8_t* mgr, bool inGame) {
 	if (!g_on) return;
 	if (!inGame) {
 		g_count = 0;
+		g_toggleHeld = false;
 		return;
 	}
-	DrawEntries(mgr);
+	PollToggle();
+	if (g_shown) DrawEntries(mgr);
+	DrawToggleMessage(mgr);
 }

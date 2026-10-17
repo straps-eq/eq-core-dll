@@ -104,7 +104,7 @@ static const Feature kFeatures[] = {
 	  kHudHooks, COUNT(kHudHooks), kHudRefs, COUNT(kHudRefs), HudPrepare },
 	// Damage numbers over spawns: hook on the OP_Damage handler (FUN_140216190) for the events and the Hud's
 	// DrawWindows hook for drawing; reuses the Hud's text refs. See fct.cpp.
-	{ "FloatingCombatText", false, "Damage numbers rising from spawns in the 3D world", nullptr, 0,
+	{ "FloatingCombatText", true, "Damage numbers rising from spawns in the 3D world", nullptr, 0,
 	  kFctHooks, COUNT(kFctHooks), kHudRefs, COUNT(kHudRefs), FctPrepare, kFctRefs, COUNT(kFctRefs) },
 	// Lore, value, tribute, levels, clicky cooldown and spell details in the item window: hook on the
 	// CItemDisplayWnd text finalise step (FUN_1404340d0), see itemdisplay.cpp.
