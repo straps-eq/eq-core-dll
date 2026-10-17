@@ -1,5 +1,5 @@
 // Hud and TargetDistance: screen-space text drawn once per frame on top of the client's windows.
-// FloatingCombatText (fct.cpp) shares the DrawWindows hook and these text helpers (hud.h).
+// FloatingCombatText (fct.cpp) and Nameplates (nameplates.cpp) share the DrawWindows hook and these text helpers (hud.h).
 //
 // Hook: CXWndManager::DrawWindows (FUN_1405cc3a0), called once per frame by every game-state loop
 // (char select, loading, in game). We run the original, then, only while the client is in game
@@ -29,6 +29,7 @@
 // the same call. Spawn pointers are read from the globals on every frame and never kept.
 #include "hud.h"
 #include "fct.h"
+#include "nameplates.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -464,13 +465,14 @@ DrawWindowsFn g_origDrawWindows = nullptr; // trampoline into FUN_1405cc3a0
 extern const char kDrawWindowsSig[] =
 	"48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8B EC 48 83 EC 50";
 
-// Floating combat text first, so the Hud block stays readable on top of it.
+// Nameplate bars, then floating combat text, so the Hud block stays readable on top of both.
 int DrawWindowsDetour(uint8_t* mgr) {
 	int result = g_origDrawWindows(mgr);
 	if (g_inDraw) return result;
 	g_inDraw = true;
 	TickFps();
 	bool inGame = InGame(mgr);
+	NameplatesFrame(mgr, inGame);
 	FctFrame(mgr, inGame);
 	if (g_hudOn && inGame) DrawHud(mgr, *g_pLocalPlayer);
 	g_inDraw = false;
@@ -596,6 +598,14 @@ void HudCXStr(void** str, const char* text) {
 
 void HudCXStrRelease(void** str) {
 	if (*str) g_cxstrRelease(str);
+}
+
+void* HudLocalPC() {
+	return *g_pLocalPC;
+}
+
+uint32_t HudConColour(uint8_t* spawn) {
+	return ConColour(spawn);
 }
 
 uint8_t** HudLocalPlayerRef() {

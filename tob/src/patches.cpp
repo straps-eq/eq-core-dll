@@ -6,6 +6,7 @@
 #include "itemdisplay.h"
 #include "spellwindow.h"
 #include "fct.h"
+#include "nameplates.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -106,11 +107,21 @@ static const Feature kFeatures[] = {
 	// DrawWindows hook for drawing; reuses the Hud's text refs. See fct.cpp.
 	{ "FloatingCombatText", true, "Damage numbers rising from spawns in the 3D world", nullptr, 0,
 	  kFctHooks, COUNT(kFctHooks), kHudRefs, COUNT(kHudRefs), FctPrepare, kFctRefs, COUNT(kFctRefs) },
-	// "Show Floating Combat Text" on Options > Display: hooks on the page refresh (FUN_14049db70) and its
-	// notification handler (FUN_140493690). Needs the patched EQUI_OptionsWindow.xml. See fct.cpp.
-	{ "FCTOptionsCheckbox", true, "Floating combat text checkbox on Options > Display", nullptr, 0,
-	  kFctCheckboxHooks, COUNT(kFctCheckboxHooks), kHudRefs, COUNT(kHudRefs), FctCheckboxPrepare,
-	  kFctCheckboxRefs, COUNT(kFctCheckboxRefs) },
+	// Legends' "Combat Text" tab in Options: hooks on COptionsWnd::RefreshDisplayPage (FUN_14049db70, UI load)
+	// and COptionsWnd::WndNotification (FUN_14049f110). Needs the patched EQUI_OptionsWindow.xml. See fct.cpp.
+	{ "FCTOptionsPage",   true, "Combat Text options page (Legends layout)",       nullptr,           0,
+	  kFctPageHooks, COUNT(kFctPageHooks), kHudRefs, COUNT(kHudRefs), FctPagePrepare,
+	  kFctPageRefs, COUNT(kFctPageRefs) },
+	// Legends-style HP / mana / cast bars and threat frame under names: hooks on StartCasting (FUN_140293100) and
+	// the packet dispatcher (FUN_1401e4010), plus the DrawWindows and OP_Damage hooks shared with Hud/FCT. See
+	// nameplates.cpp.
+	{ "Nameplates",       false, "HP, mana and cast bars and threat under names",  nullptr,           0,
+	  kNameplatesHooks, COUNT(kNameplatesHooks), kHudRefs, COUNT(kHudRefs), NameplatesPrepare,
+	  kFctRefs, COUNT(kFctRefs), kNameplatesRefs, COUNT(kNameplatesRefs) },
+	// Legends' "Nameplates" tab in Options, on the two COptionsWnd detours of the Combat Text tab.
+	{ "NameplateOptionsPage", false, "Nameplates options page (Legends layout)",   nullptr,           0,
+	  kNameplatePageHooks, COUNT(kNameplatePageHooks), kHudRefs, COUNT(kHudRefs), NameplatePagePrepare,
+	  kFctPageRefs, COUNT(kFctPageRefs), kNameplatePageRefs, COUNT(kNameplatePageRefs) },
 	// Lore, value, tribute, levels, clicky cooldown and spell details in the item window: hook on the
 	// CItemDisplayWnd text finalise step (FUN_1404340d0), see itemdisplay.cpp.
 	{ "ItemDisplayExtras", false, "Lore, value, levels and spell details in the item window", nullptr, 0,

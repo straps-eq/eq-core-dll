@@ -27,3 +27,5 @@ uint32_t HudUserColour(int index);                  // the client's user colour 
 uint8_t** HudLocalPlayerRef();                      // &pLocalPlayer as kHudRefs resolved it
 void HudCXStr(void** str, const char* text);        // CXStr::CXStr(const char*)
 void HudCXStrRelease(void** str);
+void* HudLocalPC();                                 // *pLocalPC
+uint32_t HudConColour(uint8_t* spawn);              // the con colour the Target window uses, opaque ARGB
