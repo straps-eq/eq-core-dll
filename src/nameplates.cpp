@@ -592,7 +592,6 @@ const size_t kItemDepth = 0x58;
 const size_t kItemKey = 0x5c;
 const size_t kItemQueued = 0x70;                 // batch owner while queued
 const size_t kBatchCount = 0x40;                 // int, flush gate "count > 0"
-const size_t kSpawnUiOnly = 0x604;               // pLocalPlayer: non-zero = UI-only frames (no world)
 const int kMaxItems = 512;
 
 using SetPostVisFn = void* (*)(void* renderer, void (*cb)());
@@ -620,6 +619,9 @@ enum DepthState { kDepthUnchecked, kDepthReady, kDepthWaiting, kDepthOff };   //
 DepthState g_depth = kDepthUnchecked;
 volatile uint64_t g_lastCallback = 0;            // GetTickCount64 of the last callback
 uint64_t g_depthSince = 0;                       // when the callback was installed
+uint32_t g_frameAtCallback = 0;                  // the renderer's frame number at our last callback (or install)
+const size_t kRendererFrame = 0xb8e0;            // u32, bumped by +0x158 for every world frame
+const uint32_t kMissedFrames = 120;              // world frames without our callback before we give up
 void* g_failedRenderer = nullptr;                // renderer that never called back (Waiting)
 
 struct NameRef {
@@ -669,6 +671,7 @@ bool AttachCallback(void* renderer) {
 	g_depth = kDepthReady;
 	g_depthSince = Now();
 	g_lastCallback = 0;
+	g_frameAtCallback = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(renderer) + kRendererFrame);
 	return true;
 }
 
@@ -744,7 +747,7 @@ void UninstallDepthBars(const char* why) {
 
 // Each frame: follow the world renderer across zones (re-attach on a new one, or when our slot was overwritten),
 // and give up on a renderer that never calls back.
-void KeepCallbackAttached(uint8_t* me) {
+void KeepCallbackAttached() {
 	if (g_depth != kDepthReady && g_depth != kDepthWaiting) return;
 	void* renderer = EngineRenderer(reinterpret_cast<uint8_t*>(GetModuleHandleA("EQGraphics.dll")));
 	if (!renderer) return;
@@ -756,9 +759,9 @@ void KeepCallbackAttached(uint8_t* me) {
 		AttachCallback(renderer);
 		return;
 	}
-	if (me[kSpawnUiOnly]) return;
-	const uint64_t last = g_lastCallback ? g_lastCallback : g_depthSince;
-	if (Now() - last > 2000) UninstallDepthBars("no name-pass callback for two seconds");
+	// Counted in world frames, not time: a zone load or UI-only frames render no world and call nothing.
+	const uint32_t frame = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(renderer) + kRendererFrame);
+	if (frame - g_frameAtCallback > kMissedFrames) UninstallDepthBars("no name-pass callback for 120 world frames");
 }
 
 // Depth bars are drawing: installed and called back within the last half second.
@@ -923,6 +926,7 @@ void TrackTarget() {
 void PostVisibleCallback() {
 	if (g_prevPostVis) g_prevPostVis();
 	g_lastCallback = Now();
+	if (g_cbRenderer) g_frameAtCallback = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(g_cbRenderer) + kRendererFrame);
 	void* batch = g_getBatch();
 	for (int i = 0; i < g_itemsUsed; ++i) {
 		uint8_t* s = g_items[i].mem;
@@ -969,7 +973,7 @@ void DrawNameplates(uint8_t* mgr) {
 	uint8_t* me = FctLocalPlayer();
 	if (!me) return;
 	if (g_cfg.occlude) InstallDepthBars();
-	if (g_cfg.occlude) KeepCallbackAttached(me);
+	if (g_cfg.occlude) KeepCallbackAttached();
 	TrackTarget();
 	uint8_t* target = *g_pTarget;
 	const bool depth = g_cfg.occlude && DepthActive();
