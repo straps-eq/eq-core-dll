@@ -1,4 +1,5 @@
 // Hud and TargetDistance: screen-space text drawn once per frame on top of the client's windows.
+// FloatingCombatText (fct.cpp) shares the DrawWindows hook and these text helpers (hud.h).
 //
 // Hook: CXWndManager::DrawWindows (FUN_1405cc3a0), called once per frame by every game-state loop
 // (char select, loading, in game). We run the original, then, only while the client is in game
@@ -27,6 +28,7 @@
 // Text goes into fixed buffers; the only runtime allocation is the client's own CXStr, released on
 // the same call. Spawn pointers are read from the globals on every frame and never kept.
 #include "hud.h"
+#include "fct.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -71,7 +73,6 @@ const size_t kFontIndex = 0x08;          // int, what the GetWidth / GetHeight t
 const size_t kZoneShortName = 0x0;       // char[0x80]
 const size_t kZoneLongName = 0x80;       // char[0x80]
 
-using DrawWindowsFn = int (*)(uint8_t* mgr);
 using CXStrCtorFn = void* (*)(void** str, const char* text);
 using CXStrReleaseFn = void (*)(void** str);
 using DrawWrappedTextFn = int (*)(uint8_t* font, void** str, int x, int y, int maxWidth, int* clip,
@@ -85,7 +86,6 @@ using ConColourIndexFn = int (*)(int con);
 using UserColourFn = uint32_t (*)(int index);
 using DbStrFn = const char* (*)(void* table, unsigned id, unsigned type, bool* found);
 
-DrawWindowsFn g_origDrawWindows = nullptr; // trampoline into FUN_1405cc3a0
 CXStrCtorFn g_cxstrCtor = nullptr;         // FUN_1405853f0
 CXStrReleaseFn g_cxstrRelease = nullptr;   // FUN_140587670
 DrawWrappedTextFn g_drawWrapped = nullptr; // FUN_1405d1990
@@ -421,21 +421,7 @@ void DrawHud(uint8_t* mgr, uint8_t* me) {
 	}
 }
 
-int DrawWindowsDetour(uint8_t* mgr) {
-	int result = g_origDrawWindows(mgr);
-	if (g_inDraw) return result;
-	g_inDraw = true;
-	TickFps();
-	if (g_hudOn && InGame(mgr)) DrawHud(mgr, *g_pLocalPlayer);
-	g_inDraw = false;
-	return result;
-}
-
 #define REF(var) reinterpret_cast<void**>(&var)
-
-// CXWndManager::DrawWindows FUN_1405cc3a0. Stolen (5 bytes, position independent): mov [rsp+18],rbx.
-const char* kDrawWindowsSig =
-	"48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8B EC 48 83 EC 50";
 
 // Inside FUN_1401a4620: mov rdx,r10; lea rcx,[rsp+50]; call CXStr::CXStr(const char*); nop;
 // mov rax,[CXWndManager]; lea rcx,[rax+190]; cmp [rcx],2; jle.
@@ -471,6 +457,25 @@ const char* kZoneInfoSig =
 const char* kTargetDrawSig = "40 53 48 83 EC 20 48 83 3D ?? ?? ?? ?? 00 48 8B D9 48 8B 91 88 03 00 00";
 
 } // namespace
+
+DrawWindowsFn g_origDrawWindows = nullptr; // trampoline into FUN_1405cc3a0
+
+// CXWndManager::DrawWindows FUN_1405cc3a0. Stolen (5 bytes, position independent): mov [rsp+18],rbx.
+extern const char kDrawWindowsSig[] =
+	"48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8B EC 48 83 EC 50";
+
+// Floating combat text first, so the Hud block stays readable on top of it.
+int DrawWindowsDetour(uint8_t* mgr) {
+	int result = g_origDrawWindows(mgr);
+	if (g_inDraw) return result;
+	g_inDraw = true;
+	TickFps();
+	bool inGame = InGame(mgr);
+	FctFrame(mgr, inGame);
+	if (g_hudOn && inGame) DrawHud(mgr, *g_pLocalPlayer);
+	g_inDraw = false;
+	return result;
+}
 
 const HookSite kHudHooks[1] = {
 	{ kDrawWindowsSig, 5, reinterpret_cast<void*>(&DrawWindowsDetour), REF(g_origDrawWindows) },
@@ -551,6 +556,51 @@ const char* CommonPrepare() {
 }
 
 } // namespace
+
+const char* HudTextPrepare() {
+	return CommonPrepare();
+}
+
+uint8_t* HudFont(uint8_t* mgr, int index) {
+	return index >= 0 ? Font(mgr, index) : nullptr;
+}
+
+int HudFontCount(uint8_t* mgr) {
+	return *reinterpret_cast<int*>(mgr + kWndMgrFontCount);
+}
+
+int HudScreenSize(uint8_t* mgr, int* height) {
+	*height = *reinterpret_cast<int*>(mgr + kWndMgrScreenH);
+	return *reinterpret_cast<int*>(mgr + kWndMgrScreenW);
+}
+
+int HudDrawText(uint8_t* font, const char* text, int x, int y, const int* clip, uint32_t argb) {
+	return DrawStringClipped(font, text, x, y, clip, argb);
+}
+
+int HudTextWidth(uint8_t* font, const char* text) {
+	return TextWidth(font, text);
+}
+
+int HudLineHeight(uint8_t* font) {
+	return LineHeight(font);
+}
+
+uint32_t HudUserColour(int index) {
+	return g_userColour(index) | 0xFF000000u;
+}
+
+void HudCXStr(void** str, const char* text) {
+	g_cxstrCtor(str, text);
+}
+
+void HudCXStrRelease(void** str) {
+	if (*str) g_cxstrRelease(str);
+}
+
+uint8_t** HudLocalPlayerRef() {
+	return g_pLocalPlayer;
+}
 
 const char* HudPrepare() {
 	const char* e = CommonPrepare();

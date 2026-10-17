@@ -22,6 +22,8 @@
 //     eqcore_check prints OK with the expected hook offset and ref addresses.
 //  Two features may share one hook (same tables, detour and `original`; hud.cpp): the first one
 //  applied installs it, the second finds the trampoline already set and only runs its prepare.
+//  A feature can likewise reuse another feature's ref table as `refs` and add its own as `moreRefs`
+//  (fct.cpp uses the Hud's text refs).
 
 #include <cstddef>
 
@@ -68,6 +70,8 @@ struct Feature {
 	const RefSite* refs;     // optional; resolved before `prepare` and before anything is written
 	size_t refCount;
 	const char* (*prepare)(); // optional cross-checks on the resolved refs; returns an error or nullptr
+	const RefSite* moreRefs; // optional second ref table, resolved after `refs` (a feature that reuses
+	size_t moreRefCount;     // another feature's table as `refs` keeps its own refs here)
 };
 
 const Feature* GetFeatures(size_t* count);
