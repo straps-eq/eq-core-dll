@@ -616,10 +616,11 @@ Item g_items[kMaxItems];
 int g_itemsBuilt = 0;
 int g_itemsUsed = 0;
 bool g_poolFullLogged = false;
-enum DepthState { kDepthUnchecked, kDepthReady, kDepthOff };
+enum DepthState { kDepthUnchecked, kDepthReady, kDepthWaiting, kDepthOff };   // Waiting: no callbacks, retry on a new renderer
 DepthState g_depth = kDepthUnchecked;
 volatile uint64_t g_lastCallback = 0;            // GetTickCount64 of the last callback
 uint64_t g_depthSince = 0;                       // when the callback was installed
+void* g_failedRenderer = nullptr;                // renderer that never called back (Waiting)
 
 struct NameRef {
 	float depth, key;
@@ -642,8 +643,33 @@ void* EngineRenderer(uint8_t* gfx) {
 	memcpy(&disp, gfx + kWasVisibleRva + 3, 4);
 	void* engine = *reinterpret_cast<void**>(gfx + kWasVisibleRva + 7 + disp);
 	if (!engine || *reinterpret_cast<uint8_t**>(engine) != gfx + kRendererVtblRva) return fallback;
-	if (engine != fallback) LogOnce("the engine's world renderer is not eqgame's renderer global; using the engine's");
+	static bool logged = false;
+	if (engine != fallback && !logged) {
+		logged = true;
+		LogOnce("the engine's world renderer is not eqgame's renderer global; using the engine's");
+	}
 	return engine;
+}
+
+void* PostVisSlot(void* renderer) {
+	return *reinterpret_cast<void**>(static_cast<uint8_t*>(renderer) + kRendererPostVisCb);
+}
+
+// Puts our callback on `renderer` (chaining whatever was there). Zoning builds a new world renderer, so this runs
+// again then; the old renderer is never touched (it may already be freed).
+bool AttachCallback(void* renderer) {
+	uint8_t* gfx = reinterpret_cast<uint8_t*>(GetModuleHandleA("EQGraphics.dll"));
+	void** vt = *reinterpret_cast<void***>(renderer);
+	if (!gfx || reinterpret_cast<uint8_t*>(vt) != gfx + kRendererVtblRva ||
+	    reinterpret_cast<uint8_t*>(vt[kRendererSetPostVis / sizeof(void*)]) != gfx + kSetPostVisRva)
+		return false;
+	void* prev = reinterpret_cast<SetPostVisFn>(vt[kRendererSetPostVis / sizeof(void*)])(renderer, &PostVisibleCallback);
+	g_prevPostVis = prev == reinterpret_cast<void*>(&PostVisibleCallback) ? nullptr : reinterpret_cast<void (*)()>(prev);
+	g_cbRenderer = renderer;
+	g_depth = kDepthReady;
+	g_depthSince = Now();
+	g_lastCallback = 0;
+	return true;
 }
 
 // Builds the pool and installs the callback once all checks pass (first in-game frame).
@@ -695,20 +721,17 @@ void InstallDepthBars() {
 			}
 		}
 	}
-	g_cbRenderer = renderer;
-	g_prevPostVis = reinterpret_cast<void (*)()>(
-		reinterpret_cast<SetPostVisFn>(vt[kRendererSetPostVis / sizeof(void*)])(renderer, &PostVisibleCallback));
-	if (g_prevPostVis) LogOnce("depth bars on (chained to an existing post-visibility callback)");
-	else LogOnce("depth bars on");
-	g_depth = kDepthReady;
-	g_depthSince = Now();
+	AttachCallback(renderer);
+	LogOnce(g_prevPostVis ? "depth bars on (chained to an existing post-visibility callback)" : "depth bars on");
 }
 
-// Puts the previous callback back if ours is still installed; the items stay (they are reused if re-enabled).
+// Puts the previous callback back if ours is still installed and waits for a new world renderer to try again;
+// the items stay (they are reused).
 void UninstallDepthBars(const char* why) {
 	if (g_depth != kDepthReady) return;
-	g_depth = kDepthOff;
+	g_depth = kDepthWaiting;
 	void* renderer = g_cbRenderer;
+	g_failedRenderer = renderer;
 	const bool ours = renderer && *reinterpret_cast<void**>(static_cast<uint8_t*>(renderer) + kRendererPostVisCb) ==
 	                                  reinterpret_cast<void*>(&PostVisibleCallback);
 	if (ours)
@@ -717,6 +740,25 @@ void UninstallDepthBars(const char* why) {
 	snprintf(text, sizeof(text), "2D bars: %s (renderer %p, eqgame renderer %p, callback slot %s, frame %u)", why, renderer,
 	         FctRenderer(), ours ? "still ours" : "replaced", renderer ? *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(renderer) + 0xb8e0) : 0u);
 	LogOnce(text);
+}
+
+// Each frame: follow the world renderer across zones (re-attach on a new one, or when our slot was overwritten),
+// and give up on a renderer that never calls back.
+void KeepCallbackAttached(uint8_t* me) {
+	if (g_depth != kDepthReady && g_depth != kDepthWaiting) return;
+	void* renderer = EngineRenderer(reinterpret_cast<uint8_t*>(GetModuleHandleA("EQGraphics.dll")));
+	if (!renderer) return;
+	if (g_depth == kDepthWaiting) {
+		if (renderer != g_failedRenderer && AttachCallback(renderer)) LogOnce("depth bars on (new world renderer)");
+		return;
+	}
+	if (renderer != g_cbRenderer || PostVisSlot(renderer) != reinterpret_cast<void*>(&PostVisibleCallback)) {
+		AttachCallback(renderer);
+		return;
+	}
+	if (me[kSpawnUiOnly]) return;
+	const uint64_t last = g_lastCallback ? g_lastCallback : g_depthSince;
+	if (Now() - last > 2000) UninstallDepthBars("no name-pass callback for two seconds");
 }
 
 // Depth bars are drawing: installed and called back within the last half second.
@@ -927,11 +969,7 @@ void DrawNameplates(uint8_t* mgr) {
 	uint8_t* me = FctLocalPlayer();
 	if (!me) return;
 	if (g_cfg.occlude) InstallDepthBars();
-	// Callbacks stopped while world frames run: back to 2D.
-	if (g_depth == kDepthReady && !me[kSpawnUiOnly]) {
-		const uint64_t last = g_lastCallback ? g_lastCallback : g_depthSince;
-		if (Now() - last > 2000) UninstallDepthBars("no name-pass callback for two seconds");
-	}
+	if (g_cfg.occlude) KeepCallbackAttached(me);
 	TrackTarget();
 	uint8_t* target = *g_pTarget;
 	const bool depth = g_cfg.occlude && DepthActive();
