@@ -48,6 +48,7 @@ uint64_t* g_gmModeFlag = nullptr;          // &DAT_140db4f38
 uint8_t** g_gameStateOwner = nullptr;      // &DAT_140ee7010
 uint8_t** g_pLocalPlayer = nullptr;        // &DAT_140e66228
 uint8_t** g_spawnManager = nullptr;        // &DAT_140ee4b40
+uint8_t** g_pTarget = nullptr;             // &DAT_140e662d0
 
 template <typename R, typename... A>
 R VCall(void* obj, size_t slot, A... args) {
@@ -63,11 +64,13 @@ bool InGame() {
 }
 
 // Overrides the tint of a plain NPC with its con colour. Leaves PCs, corpses, pets, mercenaries,
-// objects and GM mode to the original. The target gets the plain con colour (no blink brightening).
+// objects and GM mode to the original. The current target is left to the original too, so its name keeps
+// the client's blink (the original brightens the target's tint by time, per the "target name blink" option).
 void ApplyConColour(uint8_t* spawn) {
 	if (!InGame()) return;
 	void* actor = *reinterpret_cast<void**>(spawn + kSpawnActor);
 	if (!actor || spawn[kSpawnType] != 1) return;
+	if (spawn == *g_pTarget) return;
 	if (*reinterpret_cast<int*>(spawn + kSpawnPetOwnerType) != 0) return;
 	if (VCall<int>(spawn, kVtblGetRace) >= 0x8cd) return;
 	uint8_t* actorDef = VCall<uint8_t*>(spawn, kVtblGetActorDef);
@@ -135,7 +138,7 @@ const HookSite kConNameTagsHooks[1] = {
 	{ kTintSig, 20, reinterpret_cast<void*>(&SetNameSpriteTintDetour), REF(g_origTint) },
 };
 
-const RefSite kConNameTagsRefs[9] = {
+const RefSite kConNameTagsRefs[10] = {
 	// GetConLevel FUN_1402d7fa0(pEverQuest, spawn): corpse test on +0x135, vtbl+0xa0 untargetable test
 	{ "48 89 5C 24 18 57 48 83 EC 20 80 BA 35 01 00 00 02 48 8B FA 48 8B D9 0F 83 ?? ?? ?? ?? "
 	  "48 8B 02 48 8B CA FF 90 A0 00 00 00 84 C0", 0, 0, REF(g_getConLevel) },
@@ -145,6 +148,7 @@ const RefSite kConNameTagsRefs[9] = {
 	// FUN_14050b6d0(index): user colour table lookup, 0xf0f0f0 fallback, R/B swap
 	{ "48 83 EC 28 81 F9 FF 00 00 00 7E 32 E8 ?? ?? ?? ?? 85 C0 B9 F0 F0 F0 00 0F 44 C1 8B C8 C1 E9 10",
 	  0, 0, REF(g_userColour) },
+	{ kTargetWndConSig, 13, 17, REF(g_pTarget) },
 	{ kTargetWndConSig, 20, 24, REF(g_pEverQuest) },
 	{ kTargetWndConSig, 25, 29, REF(g_getConLevelCalled) },
 	{ kTintSig, 32, 37, REF(g_gmModeFlag) },

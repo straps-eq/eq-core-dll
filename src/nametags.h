@@ -3,5 +3,5 @@
 #include "patches.h"
 
 extern const HookSite kConNameTagsHooks[1];
-extern const RefSite kConNameTagsRefs[9];
+extern const RefSite kConNameTagsRefs[10];
 const char* ConNameTagsPrepare();
