@@ -39,7 +39,7 @@
 // are checked against the EQGraphics.dll this was mapped on (vtable at +0x2b2138); otherwise the camera's
 // own matrices are used (the same arithmetic as the slot) when the camera's viewport width matches, else
 // nothing is drawn. Text goes through the Hud's helpers (CTextureFont::DrawWrappedText FUN_1405d1990),
-// centred on the point; the UI font is 2 x scale rounded. Entries are dropped when their spawn is gone,
+// centred on the point; the UI font is FontStep x scale rounded (capped at the largest). Entries are dropped when their spawn is gone,
 // and all are dropped when the client leaves the game state or the display, camera or renderer is missing.
 // Settings: Legends' keys under [FloatingCombat] in dinput8.ini, the DLL extras under [FCT]. ToggleKey
 // (default Ctrl+Shift+F, game window focused) flips Enabled and shows the new state for two seconds.
@@ -173,6 +173,7 @@ struct Config {
 	uint32_t colour[kCategoryCount] = {};   // 0 = the client's chat colour
 	int fadeMs = 0;
 	float headHeight = 1.0f;
+	float fontStep = 4.0f;                  // UI font index per unit of font scale
 	float otherRange = 200.0f;
 	int maxEntries = 32;
 	int dedupMs = 100;
@@ -243,6 +244,7 @@ void LoadConfig() {
 	c.maxEntries = Clamp(Int(kExtras, "MaxEntries", c.maxEntries), 1, 64);
 	c.dedupMs = Clamp(Int(kExtras, "DedupMs", c.dedupMs), 0, 2000);
 	c.outline = Int(kExtras, "Outline", c.outline) != 0;
+	c.fontStep = ClampF(Float(kExtras, "FontStep", c.fontStep), 0.5f, 16.0f);
 	char key[64] = {};
 	GetPrivateProfileStringA(kExtras, "ToggleKey", "Ctrl+Shift+F", key, sizeof(key), ini);
 	ParseHotkey(key, &c);
@@ -533,12 +535,33 @@ bool Project(uint8_t* cam, Projection proj, const float* world, float* sx, float
 
 // ---- drawing ----
 
-// Font for a scale: 2 x scale rounded (1.0 = font 2, the Hud's font; each +0.5 one size up), capped at the
-// largest UI font.
+// Font for a scale: FontStep x scale rounded, capped at the largest UI font. The UI fonts have fixed sizes, so
+// this stands in for Legends' perspective text. The first time, the font count and heights go to dinput8.log.
+void LogFonts(uint8_t* mgr) {
+	static bool logged = false;
+	if (logged || !g_iniPath[0]) return;
+	logged = true;
+	char path[MAX_PATH];
+	strcpy_s(path, g_iniPath);
+	char* slash = strrchr(path, '\\');
+	if (!slash) return;
+	strcpy_s(slash + 1, static_cast<size_t>(path + sizeof(path) - (slash + 1)), "dinput8.log");
+	FILE* f = nullptr;
+	if (fopen_s(&f, path, "a") != 0 || !f) return;
+	const int count = HudFontCount(mgr);
+	fprintf(f, "FloatingCombatText: %d UI fonts, line heights:", count);
+	for (int i = 0; i < count && i < 32; ++i) {
+		uint8_t* font = HudFont(mgr, i);
+		fprintf(f, " %d=%d", i, font ? HudLineHeight(font) : 0);
+	}
+	fputc('\n', f);
+	fclose(f);
+}
+
 uint8_t* FontForScale(uint8_t* mgr, float scale) {
 	int count = HudFontCount(mgr);
 	if (count <= 0) return nullptr;
-	int index = Clamp(static_cast<int>(lroundf(scale * 2.0f)), 0, count - 1);
+	int index = Clamp(static_cast<int>(lroundf(scale * g_cfg.fontStep)), 0, count - 1);
 	return HudFont(mgr, index);
 }
 
@@ -569,6 +592,7 @@ void DrawEntries(uint8_t* mgr) {
 	}
 	if (!g_count) return;
 	const Projection proj = CheckCamera(cam);
+	LogFonts(mgr);
 	int screenH = 0;
 	const int screenW = HudScreenSize(mgr, &screenH);
 	const int clip[4] = { 0, 0, screenW, screenH };
