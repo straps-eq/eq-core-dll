@@ -5,6 +5,7 @@
 #include "hud.h"
 #include "itemdisplay.h"
 #include "spellwindow.h"
+#include "fct.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -101,6 +102,10 @@ static const Feature kFeatures[] = {
 	  kTargetDistanceHooks, COUNT(kTargetDistanceHooks), kHudRefs, COUNT(kHudRefs), TargetDistancePrepare },
 	{ "Hud",              false, "On-screen loc, zone, target, FPS and clock",      nullptr,           0,
 	  kHudHooks, COUNT(kHudHooks), kHudRefs, COUNT(kHudRefs), HudPrepare },
+	// Damage numbers over spawns: hook on the OP_Damage handler (FUN_140216190) for the events and the Hud's
+	// DrawWindows hook for drawing; reuses the Hud's text refs. See fct.cpp.
+	{ "FloatingCombatText", false, "Damage numbers rising from spawns in the 3D world", nullptr, 0,
+	  kFctHooks, COUNT(kFctHooks), kHudRefs, COUNT(kHudRefs), FctPrepare, kFctRefs, COUNT(kFctRefs) },
 	// Lore, value, tribute, levels, clicky cooldown and spell details in the item window: hook on the
 	// CItemDisplayWnd text finalise step (FUN_1404340d0), see itemdisplay.cpp.
 	{ "ItemDisplayExtras", false, "Lore, value, levels and spell details in the item window", nullptr, 0,
