@@ -286,9 +286,11 @@ bool ResolveFeature(const CodeRegion& text, const Feature& f, Resolved* out, std
 		}
 		out->hookAddrs.push_back(at);
 	}
-	const size_t refTotal = f.refCount + f.moreRefCount;
+	const size_t refTotal = f.refCount + f.moreRefCount + f.extraRefCount;
 	for (size_t i = 0; i < refTotal; ++i) {
-		const RefSite& ref = i < f.refCount ? f.refs[i] : f.moreRefs[i - f.refCount];
+		const RefSite& ref = i < f.refCount ? f.refs[i]
+		                   : i < f.refCount + f.moreRefCount ? f.moreRefs[i - f.refCount]
+		                   : f.extraRefs[i - f.refCount - f.moreRefCount];
 		std::vector<bool> mask;
 		std::string e;
 		uint64_t addr = 0;
@@ -323,6 +325,8 @@ bool ApplyFeature(const Feature& f, const Resolved& r, std::string* error) {
 		*f.refs[i].target = reinterpret_cast<void*>(r.refAddrs[i]);
 	for (size_t i = 0; i < f.moreRefCount; ++i)
 		*f.moreRefs[i].target = reinterpret_cast<void*>(r.refAddrs[f.refCount + i]);
+	for (size_t i = 0; i < f.extraRefCount; ++i)
+		*f.extraRefs[i].target = reinterpret_cast<void*>(r.refAddrs[f.refCount + f.moreRefCount + i]);
 	if (f.prepare) {
 		const char* e = f.prepare();
 		if (e) {

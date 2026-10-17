@@ -6,6 +6,7 @@
 #include "itemdisplay.h"
 #include "spellwindow.h"
 #include "fct.h"
+#include "nameplates.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -111,6 +112,16 @@ static const Feature kFeatures[] = {
 	{ "FCTOptionsPage",   true, "Combat Text options page (Legends layout)",       nullptr,           0,
 	  kFctPageHooks, COUNT(kFctPageHooks), kHudRefs, COUNT(kHudRefs), FctPagePrepare,
 	  kFctPageRefs, COUNT(kFctPageRefs) },
+	// Legends-style HP / mana / cast bars and threat frame under names: hooks on StartCasting (FUN_140293100) and
+	// the packet dispatcher (FUN_1401e4010), plus the DrawWindows and OP_Damage hooks shared with Hud/FCT. See
+	// nameplates.cpp.
+	{ "Nameplates",       false, "HP, mana and cast bars and threat under names",  nullptr,           0,
+	  kNameplatesHooks, COUNT(kNameplatesHooks), kHudRefs, COUNT(kHudRefs), NameplatesPrepare,
+	  kFctRefs, COUNT(kFctRefs), kNameplatesRefs, COUNT(kNameplatesRefs) },
+	// Legends' "Nameplates" tab in Options, on the two COptionsWnd detours of the Combat Text tab.
+	{ "NameplateOptionsPage", false, "Nameplates options page (Legends layout)",   nullptr,           0,
+	  kNameplatePageHooks, COUNT(kNameplatePageHooks), kHudRefs, COUNT(kHudRefs), NameplatePagePrepare,
+	  kFctPageRefs, COUNT(kFctPageRefs), kNameplatePageRefs, COUNT(kNameplatePageRefs) },
 	// Lore, value, tribute, levels, clicky cooldown and spell details in the item window: hook on the
 	// CItemDisplayWnd text finalise step (FUN_1404340d0), see itemdisplay.cpp.
 	{ "ItemDisplayExtras", false, "Lore, value, levels and spell details in the item window", nullptr, 0,

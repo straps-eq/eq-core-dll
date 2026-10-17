@@ -62,6 +62,7 @@
 // value labels via SetWindowText (vtbl +0x280). Comboboxes: SetChoice FUN_1405ae150.
 #include "fct.h"
 #include "hud.h"
+#include "nameplates.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -659,6 +660,7 @@ void OnDamage(const uint8_t* pkt) {
 void DamageDetour(uint8_t* pkt) {
 	g_origDamage(pkt);
 	if (g_on && pkt) OnDamage(pkt);
+	if (pkt) NameplatesOnDamage(pkt);
 }
 
 // ---- projection ----
@@ -888,8 +890,6 @@ void DrawToggleMessage(uint8_t* mgr) {
 // OP_Damage handler FUN_140216190(pkt): mov [rsp+8],rsi; push rdi; sub rsp,30; movzx edx,[rcx+2];
 // mov rdi,rcx; mov rax,[pLocalPlayer]; mov sil,1; mov ecx,[rax+168]; cmp edx,ecx; je.
 // Stolen (5 bytes, position independent): mov [rsp+8],rsi.
-const char* kDamageSig =
-	"48 89 74 24 08 57 48 83 EC 30 0F B7 51 02 48 8B F9 48 8B 05 ?? ?? ?? ?? 40 B6 01 8B 88 68 01 00 00 3B D1 74 4C";
 
 // Same function, the 200-unit gate for other people's hits: mov rcx,[spawnMgr]; mov edx,r8d; mov rax,[rcx];
 // call [rax+10] (GetSpawnByID); movss xmm3,[1.0f]; mov r8,rax; mov rdx,[pLocalPlayer]; mov rcx,[pDisplay];
@@ -900,10 +900,17 @@ const char* kDamageGateSig =
 
 } // namespace
 
+extern const char kFctDamageSig[] =
+	"48 89 74 24 08 57 48 83 EC 30 0F B7 51 02 48 8B F9 48 8B 05 ?? ?? ?? ?? 40 B6 01 8B 88 68 01 00 00 3B D1 74 4C";
+
+// Shared with Nameplates (same signature, detour and trampoline as kFctHooks[1]).
+void (*const g_fctDamageDetour)(uint8_t* pkt) = &DamageDetour;
+void (**const g_fctOrigDamageSlot)(uint8_t* pkt) = &g_origDamage;
+
 const HookSite kFctHooks[2] = {
 	// Shared with the Hud (same signature, detour and trampoline): whichever feature is applied first installs it.
 	{ kDrawWindowsSig, 5, reinterpret_cast<void*>(&DrawWindowsDetour), reinterpret_cast<void**>(&g_origDrawWindows) },
-	{ kDamageSig, 5, reinterpret_cast<void*>(&DamageDetour), REF(g_origDamage) },
+	{ kFctDamageSig, 5, reinterpret_cast<void*>(&DamageDetour), REF(g_origDamage) },
 };
 
 const RefSite kFctRefs[9] = {
@@ -923,7 +930,7 @@ const RefSite kFctRefs[9] = {
 	{ "48 8B 0D ?? ?? ?? ?? 83 B9 E4 05 00 00 05", 3, 7, REF(g_pEverQuest) },
 };
 
-const char* FctPrepare() {
+const char* FctSharedPrepare() {
 	if (const char* e = HudTextPrepare()) return e;
 	if (g_pLocalPlayer != HudLocalPlayerRef())
 		return "the damage handler's local player is not the one the Hud refs resolved";
@@ -935,9 +942,58 @@ const char* FctPrepare() {
 		return "the damage handler's distance call is not the expected function";
 	if (*g_cameraOffsetAt != 0x118) return "the camera is not at CDisplay+0x118";
 	g_cameraOffset = static_cast<size_t>(*g_cameraOffsetAt);
+	return nullptr;
+}
+
+const char* FctPrepare() {
+	if (const char* e = FctSharedPrepare()) return e;
 	LoadConfig();
 	g_on = true;
 	return nullptr;
+}
+
+// ---- shared with Nameplates (valid after FctSharedPrepare) ----
+
+uint8_t* FctDisplay() {
+	return *g_pDisplay;
+}
+
+uint8_t* FctCamera() {
+	return CurrentCamera();
+}
+
+void* FctRenderer() {
+	return *g_pRenderer;
+}
+
+const int32_t* FctViewport() {
+	return g_viewport;
+}
+
+uint8_t* FctLocalPlayer() {
+	return *g_pLocalPlayer;
+}
+
+bool FctInGame() {
+	return InGame();
+}
+
+uint8_t* FctSpawnById(uint32_t id) {
+	return SpawnById(id);
+}
+
+uint8_t* FctFirstSpawn() {
+	uint8_t* mgr = *g_spawnMgr;
+	if (!mgr) return nullptr;
+	auto first = reinterpret_cast<uint8_t* (*)(uint8_t*)>((*reinterpret_cast<void***>(mgr))[0x8 / sizeof(void*)]);
+	return first(mgr);
+}
+
+bool FctProject(const float* world, float* sx, float* sy) {
+	uint8_t* cam = CurrentCamera();
+	if (!cam) return false;
+	const Projection proj = CheckCamera(cam);
+	return proj != kProjNone && Project(cam, proj, world, sx, sy);
 }
 
 void FctFrame(uint8_t* mgr, bool inGame) {
@@ -1244,9 +1300,11 @@ bool Resolve() {
 void RefreshDetour(uint8_t* opt) {
 	g_origRefresh(opt);
 	if (g_pageOn) Resolve();
+	NameplatePageRefresh(opt);
 }
 
 uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, void* data) {
+	if (sender && NameplatePageNotify(opt, sender, msg, data)) return 0;
 	if (!g_pageOn || !sender || opt != *g_pOptionsWnd || !Resolve()) return g_origNotify(opt, sender, msg, data);
 	if (msg == kMsgClick && sender == *reinterpret_cast<uint8_t**>(opt + kOptTabBox)) {
 		if (data && *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(data) + kTabNotifyNewPage) == g_page.page) Fill();
@@ -1339,15 +1397,22 @@ const char* kOptionsWndSig = "48 83 3D ?? ?? ?? ?? 00 75 ?? B9 D0 28 00 00";
 
 } // namespace
 
+extern const char kFctRefreshSig[] = "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 56 41 57 48 8B EC";
+extern const char kFctNotifySig[] =
+	"48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 30 49 8B E9 45 8B F0";
+// Shared with NameplateOptionsPage (same signatures, detours and trampolines as kFctPageHooks).
+void (*const g_fctRefreshDetour)(uint8_t* opt) = &RefreshDetour;
+void (**const g_fctOrigRefreshSlot)(uint8_t* opt) = &g_origRefresh;
+uint64_t (*const g_fctNotifyDetour)(uint8_t* opt, uint8_t* sender, int msg, void* data) = &NotifyDetour;
+uint64_t (**const g_fctOrigNotifySlot)(uint8_t* opt, uint8_t* sender, int msg, void* data) = &g_origNotify;
+
 const HookSite kFctPageHooks[2] = {
 	// COptionsWnd::RefreshDisplayPage FUN_14049db70 (end of the constructor = UI load). Stolen (7 bytes,
 	// position independent): mov rax,rsp; mov [rax+10],rbx.
-	{ "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 56 41 57 48 8B EC",
-	  7, reinterpret_cast<void*>(&RefreshDetour), REF(g_origRefresh) },
+	{ kFctRefreshSig, 7, reinterpret_cast<void*>(&RefreshDetour), REF(g_origRefresh) },
 	// COptionsWnd::WndNotification FUN_14049f110(opt, sender, msg, data), vtbl +0x120. Stolen (5 bytes,
 	// position independent): mov [rsp+8],rbx.
-	{ "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 30 49 8B E9 45 8B F0",
-	  5, reinterpret_cast<void*>(&NotifyDetour), REF(g_origNotify) },
+	{ kFctNotifySig, 5, reinterpret_cast<void*>(&NotifyDetour), REF(g_origNotify) },
 };
 
 const RefSite kFctPageRefs[6] = {
@@ -1364,10 +1429,58 @@ const RefSite kFctPageRefs[6] = {
 	{ "48 8B 89 60 02 00 00 8B 81 68 02 00 00", 0, 0, REF(g_comboSetChoice) },
 };
 
-const char* FctPagePrepare() {
-	if (!g_on) return "needs FloatingCombatText";
+const char* FctPageSharedPrepare() {
 	if (const char* e = HudTextPrepare()) return e;
 	if (*g_optionsWndSizeAt != kOptionsWndSize) return "the options window is not the expected size (0x28d0)";
+	return nullptr;
+}
+
+const char* FctPagePrepare() {
+	if (!g_on) return "needs FloatingCombatText";
+	if (const char* e = FctPageSharedPrepare()) return e;
 	g_pageOn = true;
 	return nullptr;
+}
+
+// ---- options page helpers shared with NameplateOptionsPage (valid after FctPageSharedPrepare) ----
+
+uint8_t* OptOptionsWnd() {
+	return *g_pOptionsWnd;
+}
+
+uint8_t* OptChild(uint8_t* parent, const char* id) {
+	return Child(parent, id);
+}
+
+bool OptLooksLikeCheckbox(uint8_t* opt, uint8_t* box) {
+	return LooksLikeCheckbox(opt, box);
+}
+
+void OptSetBox(uint8_t* box, bool on) {
+	SetBox(box, on);
+}
+
+bool OptIsChecked(uint8_t* box) {
+	return IsChecked(box);
+}
+
+void OptSetText(uint8_t* wnd, const char* text) {
+	SetText(wnd, text);
+}
+
+void OptSliderSetValue(uint8_t* slider, int position) {
+	if (slider) g_sliderSetValue(slider, position);
+}
+
+void OptSliderSetTicks(uint8_t* slider, int ticks) {
+	if (slider) g_sliderSetTicks(slider, ticks);
+}
+
+void OptComboSetChoice(uint8_t* combo, int row) {
+	if (combo) g_comboSetChoice(combo, row);
+}
+
+bool OptIsTabSwitchTo(uint8_t* opt, uint8_t* sender, int msg, void* data, uint8_t* page) {
+	return msg == kMsgClick && page && sender == *reinterpret_cast<uint8_t**>(opt + kOptTabBox) && data &&
+	       *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(data) + kTabNotifyNewPage) == page;
 }

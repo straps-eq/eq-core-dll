@@ -66,8 +66,11 @@ bool InGame() {
 // Overrides the tint of a plain NPC with its con colour. Leaves PCs, corpses, pets, mercenaries,
 // objects and GM mode to the original. The current target is left to the original too, so its name keeps
 // the client's blink (the original brightens the target's tint by time, per the "target name blink" option).
+bool g_applied = false;
+bool g_enabled = true;
+
 void ApplyConColour(uint8_t* spawn) {
-	if (!InGame()) return;
+	if (!g_enabled || !InGame()) return;
 	void* actor = *reinterpret_cast<void**>(spawn + kSpawnActor);
 	if (!actor || spawn[kSpawnType] != 1) return;
 	if (spawn == *g_pTarget) return;
@@ -160,5 +163,26 @@ const RefSite kConNameTagsRefs[10] = {
 const char* ConNameTagsPrepare() {
 	if (g_getConLevelCalled != reinterpret_cast<void*>(g_getConLevel))
 		return "the target window's con call does not point at GetConLevel";
+	g_applied = true;
 	return nullptr;
+}
+
+bool ConNameTagsApplied() {
+	return g_applied;
+}
+
+bool ConNameTagsEnabled() {
+	return g_applied && g_enabled;
+}
+
+void ConNameTagsSetEnabled(bool on) {
+	g_enabled = on;
+	if (!g_applied || !InGame()) return;
+	uint8_t* mgr = *g_spawnManager;
+	uint8_t* spawn = mgr ? VCall<uint8_t*>(mgr, kSpawnMgrVtblFirst) : nullptr;
+	while (spawn) {
+		if (spawn[kSpawnType] == 1) SetNameSpriteTintDetour(spawn);
+		void* node = *reinterpret_cast<void**>(spawn + kSpawnListNode);
+		spawn = node ? VCall<uint8_t*>(node, kSpawnNodeVtblNext) : nullptr;
+	}
 }
