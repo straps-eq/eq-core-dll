@@ -590,6 +590,14 @@ uint32_t HudUserColour(int index) {
 	return g_userColour(index) | 0xFF000000u;
 }
 
+void HudCXStr(void** str, const char* text) {
+	g_cxstrCtor(str, text);
+}
+
+void HudCXStrRelease(void** str) {
+	if (*str) g_cxstrRelease(str);
+}
+
 uint8_t** HudLocalPlayerRef() {
 	return g_pLocalPlayer;
 }

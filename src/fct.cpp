@@ -30,6 +30,17 @@
 // state or the display, camera or renderer is missing (zoning).
 // In-game toggle: ToggleKey (default Ctrl+Shift+F) while the game window has focus turns the numbers off
 // and on, shows "Floating combat text: on/off" for two seconds and saves the state as [FCT] Show.
+//
+// FCTOptionsCheckbox: a "Show Floating Combat Text" checkbox on Options > Display, bound to the same state.
+// The control (ODP_FloatingCombatTextCheckbox) comes from the patched EQUI_OptionsWindow.xml; without it
+// nothing happens. COptionsWnd (g_pOptionsWnd DAT_140db5348, 0x28d0 bytes) keeps the Display page at +0x4d8;
+// we find our box on it with CXWnd::GetChildItem (FUN_14059f8a0, log = 0, silent when missing), once per
+// COptionsWnd instance (a UI reload builds a new one). Its checked state goes through the box's own vtable
+// (+0x348 IsChecked, +0x380 SetCheck), used only when that vtable is the one ODP_NPCNamesCheckbox (+0x508)
+// has, or the two slots start with the expected bytes. Hooks: RefreshDisplayPage FUN_14049db70 (end of the
+// constructor and every 2 s while the Display tab is open; we set our box after the client sets its own) and
+// the Display page's WndNotification FUN_140493690 (msg 1 = click, the box has already toggled: we read it,
+// save [FCT] Show and return 0 as the handler does; everything else goes to the original).
 #include "fct.h"
 #include "hud.h"
 #include <windows.h>
@@ -560,6 +571,13 @@ const char* FctPrepare() {
 
 namespace {
 
+// Turns the numbers on or off and saves the state as [FCT] Show (the toggle key and the options checkbox).
+void SetShown(bool on) {
+	g_shown = on;
+	g_count = 0;
+	if (g_iniPath[0]) WritePrivateProfileStringA("FCT", "Show", on ? "1" : "0", g_iniPath);
+}
+
 bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
 // The toggle hotkey, edge-triggered and only while the game window has focus. The new state is saved
@@ -578,10 +596,8 @@ void PollToggle() {
 	bool down = KeyDown(g_cfg.toggleKey) && KeyDown(VK_CONTROL) == g_cfg.toggleCtrl &&
 	            KeyDown(VK_SHIFT) == g_cfg.toggleShift && KeyDown(VK_MENU) == g_cfg.toggleAlt;
 	if (down && !g_toggleHeld) {
-		g_shown = !g_shown;
-		g_count = 0;
+		SetShown(!g_shown);
 		g_toggleMessageUntil = Now() + Frequency() * 2;
-		if (g_iniPath[0]) WritePrivateProfileStringA("FCT", "Show", g_shown ? "1" : "0", g_iniPath);
 	}
 	g_toggleHeld = down;
 }
@@ -619,4 +635,114 @@ void FctFrame(uint8_t* mgr, bool inGame) {
 	PollToggle();
 	if (g_shown) DrawEntries(mgr);
 	DrawToggleMessage(mgr);
+}
+
+// ---- FCTOptionsCheckbox ----
+
+namespace {
+
+// COptionsWnd
+const size_t kOptDisplayPage = 0x4d8;    // CXWnd*
+const size_t kOptNpcNamesBox = 0x508;    // CCheckBoxWnd*, ODP_NPCNamesCheckbox (same class as ours)
+const int32_t kOptionsWndSize = 0x28d0;
+const size_t kVtblIsChecked = 0x348;
+const size_t kVtblSetCheck = 0x380;
+const uint8_t kIsCheckedStart[] = { 0x0F, 0xB6, 0x81, 0x70, 0x02, 0x00, 0x00, 0xC3 };   // movzx eax,[rcx+270]; ret
+const uint8_t kSetCheckStart[] = { 0x38, 0x91, 0x70, 0x02, 0x00, 0x00, 0x74 };          // cmp [rcx+270],dl; je
+const int kMsgClick = 1;
+
+using RefreshFn = void (*)(uint8_t* opt);
+using NotifyFn = uint64_t (*)(uint8_t* opt, uint8_t* sender, int msg, uint64_t data);
+using GetChildFn = uint8_t* (*)(uint8_t* parent, void** name, char log);
+using IsCheckedFn = uint8_t (*)(uint8_t* box);
+using SetCheckFn = void (*)(uint8_t* box, uint8_t on, uint8_t unused);
+
+RefreshFn g_origRefresh = nullptr;       // trampoline into FUN_14049db70
+NotifyFn g_origNotify = nullptr;         // trampoline into FUN_140493690
+uint8_t** g_pOptionsWnd = nullptr;       // &DAT_140db5348
+int32_t* g_optionsWndSizeAt = nullptr;   // imm32 of `mov ecx,28d0` next to the global's null test
+GetChildFn g_getChild = nullptr;         // FUN_14059f8a0
+bool g_boxOn = false;
+
+uint8_t* g_box = nullptr;
+uint8_t* g_boxOwner = nullptr;           // the COptionsWnd g_box was looked up on
+
+bool LooksLikeCheckbox(uint8_t* opt, uint8_t* box) {
+	void** vt = *reinterpret_cast<void***>(box);
+	if (!vt) return false;
+	uint8_t* npc = *reinterpret_cast<uint8_t**>(opt + kOptNpcNamesBox);
+	if (npc && *reinterpret_cast<void***>(npc) == vt) return true;
+	return memcmp(vt[kVtblIsChecked / sizeof(void*)], kIsCheckedStart, sizeof(kIsCheckedStart)) == 0 &&
+	       memcmp(vt[kVtblSetCheck / sizeof(void*)], kSetCheckStart, sizeof(kSetCheckStart)) == 0;
+}
+
+void SetBox(uint8_t* box, bool on) {
+	auto set = reinterpret_cast<SetCheckFn>((*reinterpret_cast<void***>(box))[kVtblSetCheck / sizeof(void*)]);
+	set(box, on ? 1 : 0, 0);
+}
+
+uint8_t* ResolveBox() {
+	uint8_t* opt = *g_pOptionsWnd;
+	if (!opt) {
+		g_box = g_boxOwner = nullptr;
+		return nullptr;
+	}
+	if (g_boxOwner == opt) return g_box;
+	uint8_t* page = *reinterpret_cast<uint8_t**>(opt + kOptDisplayPage);
+	if (!page) return nullptr;
+	void* name = nullptr;
+	HudCXStr(&name, "ODP_FloatingCombatTextCheckbox");
+	if (!name) return nullptr;
+	uint8_t* box = g_getChild(page, &name, 0);
+	HudCXStrRelease(&name);
+	if (box && !LooksLikeCheckbox(opt, box)) box = nullptr;
+	g_box = box;
+	g_boxOwner = opt;
+	return box;
+}
+
+void RefreshDetour(uint8_t* opt) {
+	g_origRefresh(opt);
+	if (!g_boxOn) return;
+	if (uint8_t* box = ResolveBox()) SetBox(box, g_shown);
+}
+
+uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, uint64_t data) {
+	if (g_boxOn && msg == kMsgClick && sender && sender == ResolveBox()) {
+		auto isChecked = reinterpret_cast<IsCheckedFn>((*reinterpret_cast<void***>(sender))[kVtblIsChecked / sizeof(void*)]);
+		SetShown(isChecked(sender) != 0);
+		return 0;
+	}
+	return g_origNotify(opt, sender, msg, data);
+}
+
+const char* kOptionsWndSig = "48 83 3D ?? ?? ?? ?? 00 75 ?? B9 D0 28 00 00";
+
+} // namespace
+
+const HookSite kFctCheckboxHooks[2] = {
+	// COptionsWnd::RefreshDisplayPage FUN_14049db70. Stolen (7 bytes, position independent): mov rax,rsp;
+	// mov [rax+10],rbx.
+	{ "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 56 41 57 48 8B EC",
+	  7, reinterpret_cast<void*>(&RefreshDetour), REF(g_origRefresh) },
+	// COptionsWnd::DisplayPageNotification FUN_140493690(opt, sender, msg, data). Stolen (7 bytes, position
+	// independent): mov rax,rsp; mov [rax+8],rbx.
+	{ "48 8B C4 48 89 58 08 48 89 78 10 4C 89 70 18",
+	  7, reinterpret_cast<void*>(&NotifyDetour), REF(g_origNotify) },
+};
+
+const RefSite kFctCheckboxRefs[3] = {
+	// Options window factory FUN_140193360: cmp qword [pOptionsWnd],0; jne; mov ecx,28d0 (sizeof COptionsWnd)
+	{ kOptionsWndSig, 3, 8, REF(g_pOptionsWnd) },
+	{ kOptionsWndSig, 11, 0, REF(g_optionsWndSizeAt) },
+	// CXWnd::GetChildItem FUN_14059f8a0(parent, CXStr*, char log)
+	{ "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 81 EC 20 02 00 00", 0, 0, REF(g_getChild) },
+};
+
+const char* FctCheckboxPrepare() {
+	if (!g_on) return "needs FloatingCombatText";
+	if (const char* e = HudTextPrepare()) return e;
+	if (*g_optionsWndSizeAt != kOptionsWndSize) return "the options window is not the expected size (0x28d0)";
+	g_boxOn = true;
+	return nullptr;
 }
