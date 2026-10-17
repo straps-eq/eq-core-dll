@@ -969,7 +969,7 @@ const uint8_t kIsCheckedStart[] = { 0x0F, 0xB6, 0x81, 0x70, 0x02, 0x00, 0x00, 0x
 const uint8_t kSetCheckStart[] = { 0x38, 0x91, 0x70, 0x02, 0x00, 0x00, 0x74 };          // cmp [rcx+270],dl; je
 const int kMsgClick = 1;                 // checkbox click (already toggled), combobox pick (data = row), tab change
 const int kMsgSliderMoved = 0xe;         // data = new position
-const int kSliderTicks = 100;            // Legends: value = min + pos / 100 x (max - min)
+const int kSliderSteps = 100;            // Legends: value = min + pos / 100 x (max - min); 101 ticks reach the max
 
 using RefreshFn = void (*)(uint8_t* opt);
 using NotifyFn = uint64_t (*)(uint8_t* opt, uint8_t* sender, int msg, void* data);
@@ -1000,6 +1000,33 @@ const char* const kValueIds[kFloatCount] = {
 };
 const char* const kComboIds[kCategoryCount] = { "FCT_YourTextCombobox", "FCT_SelfTextCombobox", "FCT_OtherTextCombobox" };
 
+// DLL extras on the same page ([FCT]): sliders with N positions, value = min + pos x step.
+enum ExtraSlider { kXFadeMs, kXDedupMs, kXMaxEntries, kXOtherRange, kXFontStep, kXHeadHeight, kXCount };
+struct ExtraSliderInfo {
+	const char* id;
+	const char* valueId;
+	const char* key;
+	float min, step;
+	int ticks;
+	const char* fmt;
+};
+const ExtraSliderInfo kExtraSliders[kXCount] = {
+	{ "FCT_FadeMsSlider", "FCT_FadeMsValueLabel", "FadeMs", 0.0f, 50.0f, 101, "%.0f" },
+	{ "FCT_DedupMsSlider", "FCT_DedupMsValueLabel", "DedupMs", 0.0f, 20.0f, 101, "%.0f" },
+	{ "FCT_MaxEntriesSlider", "FCT_MaxEntriesValueLabel", "MaxEntries", 1.0f, 1.0f, 64, "%.0f" },
+	{ "FCT_OtherRangeSlider", "FCT_OtherRangeValueLabel", "OtherRange", 0.0f, 10.0f, 101, "%.0f" },
+	{ "FCT_FontStepSlider", "FCT_FontStepValueLabel", "FontStep", 0.5f, 0.25f, 63, "%.2f" },
+	{ "FCT_HeadHeightSlider", "FCT_HeadHeightValueLabel", "HeadHeight", -5.0f, 0.1f, 101, "%.1f" },
+};
+const char* const kColourComboIds[kCategoryCount] = { "FCT_YourColourCombobox", "FCT_SelfColourCombobox", "FCT_OtherColourCombobox" };
+const char* const kColourKeys[kCategoryCount] = { "YouColour", "SelfColour", "OtherColour" };
+// Colour combobox rows (the XML's order): 0 = the client's chat colour, then presets, last = Custom (ini).
+const uint32_t kColourPresets[] = { 0, 0xF0F0F0, 0xF00000, 0xFF8000, 0xF0F000, 0x00F000, 0x00F0F0, 0x0080FF, 0xC000FF, 0xFF80C0 };
+const int kColourPresetCount = static_cast<int>(sizeof(kColourPresets) / sizeof(kColourPresets[0]));   // Custom = this row
+// Toggle key combobox rows; the last one is Custom (ini).
+const char* const kKeyPresets[] = { "none", "Ctrl+Shift+F", "Ctrl+Shift+C", "Ctrl+Shift+T", "Ctrl+Alt+F", "Shift+F12" };
+const int kKeyPresetCount = static_cast<int>(sizeof(kKeyPresets) / sizeof(kKeyPresets[0]));
+
 struct Page {
 	uint8_t* owner;                      // the COptionsWnd these were looked up on
 	uint8_t* page;
@@ -1009,6 +1036,12 @@ struct Page {
 	uint8_t* slider[kFloatCount];
 	uint8_t* value[kFloatCount];
 	uint8_t* combo[kCategoryCount];
+	uint8_t* outline;
+	uint8_t* xslider[kXCount];
+	uint8_t* xvalue[kXCount];
+	uint8_t* keyCombo;
+	uint8_t* keyValue;
+	uint8_t* colourCombo[kCategoryCount];
 };
 Page g_page = {};
 
@@ -1042,25 +1075,105 @@ bool IsChecked(uint8_t* box) {
 	return reinterpret_cast<IsCheckedFn>(Virtual(box, kVtblIsChecked))(box) != 0;
 }
 
-void SetLabel(uint8_t* label, int option) {
-	if (!label) return;
-	char text[32];
-	snprintf(text, sizeof(text), option == kMinAngle || option == kMaxAngle ? "%.0f" : "%.2f", g_cfg.f[option]);
+void SetText(uint8_t* wnd, const char* text) {
+	if (!wnd) return;
 	void* str = nullptr;
 	HudCXStr(&str, text);
 	if (!str) return;
-	reinterpret_cast<SetWindowTextFn>(Virtual(label, kVtblSetWindowText))(label, &str);
+	reinterpret_cast<SetWindowTextFn>(Virtual(wnd, kVtblSetWindowText))(wnd, &str);
 	HudCXStrRelease(&str);
+}
+
+void SetLabel(uint8_t* label, int option) {
+	char text[32];
+	snprintf(text, sizeof(text), option == kMinAngle || option == kMaxAngle ? "%.0f" : "%.2f", g_cfg.f[option]);
+	SetText(label, text);
 }
 
 int PositionOf(int option) {
 	const FloatInfo& fi = kFloats[option];
-	return Clamp(static_cast<int>((g_cfg.f[option] - fi.min) / (fi.max - fi.min) * kSliderTicks + 0.5f), 0, kSliderTicks);
+	return Clamp(static_cast<int>((g_cfg.f[option] - fi.min) / (fi.max - fi.min) * kSliderSteps + 0.5f), 0, kSliderSteps);
 }
 
 float ValueOf(int option, int position) {
 	const FloatInfo& fi = kFloats[option];
-	return fi.min + static_cast<float>(Clamp(position, 0, kSliderTicks)) / kSliderTicks * (fi.max - fi.min);
+	return fi.min + static_cast<float>(Clamp(position, 0, kSliderSteps)) / kSliderSteps * (fi.max - fi.min);
+}
+
+float ExtraValue(int i) {
+	switch (i) {
+	case kXFadeMs: return static_cast<float>(g_cfg.fadeMs);
+	case kXDedupMs: return static_cast<float>(g_cfg.dedupMs);
+	case kXMaxEntries: return static_cast<float>(g_cfg.maxEntries);
+	case kXOtherRange: return g_cfg.otherRange;
+	case kXFontStep: return g_cfg.fontStep;
+	default: return g_cfg.headHeight;
+	}
+}
+
+void SetExtraValue(int i, float v) {
+	switch (i) {
+	case kXFadeMs: g_cfg.fadeMs = static_cast<int>(lroundf(v)); break;
+	case kXDedupMs: g_cfg.dedupMs = static_cast<int>(lroundf(v)); break;
+	case kXMaxEntries: g_cfg.maxEntries = Clamp(static_cast<int>(lroundf(v)), 1, kMaxEntries); break;
+	case kXOtherRange: g_cfg.otherRange = v; break;
+	case kXFontStep: g_cfg.fontStep = v; break;
+	default: g_cfg.headHeight = v; break;
+	}
+}
+
+void SetExtraLabel(int i) {
+	char text[32];
+	snprintf(text, sizeof(text), kExtraSliders[i].fmt, ExtraValue(i));
+	SetText(g_page.xvalue[i], text);
+}
+
+int ExtraPosition(int i) {
+	const ExtraSliderInfo& x = kExtraSliders[i];
+	return Clamp(static_cast<int>(lroundf((ExtraValue(i) - x.min) / x.step)), 0, x.ticks - 1);
+}
+
+// One [FCT] key, written only when the player changed it (the line's ini comment goes with it).
+void SaveExtra(const char* key, const char* text) {
+	if (g_iniPath[0]) WritePrivateProfileStringA(kExtras, key, text, g_iniPath);
+}
+
+// "Ctrl+Shift+F", "F9", "none": the inverse of ParseHotkey.
+void FormatHotkey(const Config& c, char* out, size_t size) {
+	if (!c.toggleKey) {
+		strcpy_s(out, size, "none");
+		return;
+	}
+	char key[8];
+	if (c.toggleKey >= VK_F1 && c.toggleKey <= VK_F24) snprintf(key, sizeof(key), "F%d", c.toggleKey - VK_F1 + 1);
+	else snprintf(key, sizeof(key), "%c", static_cast<char>(c.toggleKey));
+	snprintf(out, size, "%s%s%s%s", c.toggleCtrl ? "Ctrl+" : "", c.toggleAlt ? "Alt+" : "", c.toggleShift ? "Shift+" : "", key);
+}
+
+int KeyRow() {
+	for (int i = 0; i < kKeyPresetCount; ++i) {
+		Config c;
+		ParseHotkey(kKeyPresets[i], &c);
+		if (c.toggleKey == g_cfg.toggleKey && (!c.toggleKey || (c.toggleCtrl == g_cfg.toggleCtrl &&
+		    c.toggleShift == g_cfg.toggleShift && c.toggleAlt == g_cfg.toggleAlt)))
+			return i;
+	}
+	return kKeyPresetCount;   // Custom (ini)
+}
+
+void SetKeyLabel() {
+	char key[48], text[64];
+	FormatHotkey(g_cfg, key, sizeof(key));
+	snprintf(text, sizeof(text), "Current: %s", key);
+	SetText(g_page.keyValue, text);
+}
+
+int ColourRow(uint32_t colour) {
+	const uint32_t rgb = colour & 0x00FFFFFFu;
+	if (!colour) return 0;
+	for (int i = 1; i < kColourPresetCount; ++i)
+		if (kColourPresets[i] == rgb) return i;
+	return kColourPresetCount;   // Custom (ini)
 }
 
 // Settings -> controls (what Legends' page refresh does).
@@ -1074,6 +1187,15 @@ void Fill() {
 	}
 	for (int i = 0; i < kCategoryCount; ++i)
 		if (g_page.combo[i]) g_comboSetChoice(g_page.combo[i], g_cfg.hitText[i]);
+	SetBox(g_page.outline, g_cfg.outline);
+	for (int i = 0; i < kXCount; ++i) {
+		if (g_page.xslider[i]) g_sliderSetValue(g_page.xslider[i], ExtraPosition(i));
+		SetExtraLabel(i);
+	}
+	if (g_page.keyCombo) g_comboSetChoice(g_page.keyCombo, KeyRow());
+	SetKeyLabel();
+	for (int i = 0; i < kCategoryCount; ++i)
+		if (g_page.colourCombo[i]) g_comboSetChoice(g_page.colourCombo[i], ColourRow(g_cfg.colour[i]));
 }
 
 // Looks the page and its controls up once per COptionsWnd; false when the skin has no page.
@@ -1094,15 +1216,26 @@ bool Resolve() {
 	p.toggle = Child(page, "FCT_Toggle");
 	p.sell = Child(page, "FCT_SellToggle");
 	p.loot = Child(page, "FCT_LootToggle");
-	uint8_t* const boxes[] = { p.toggle, p.sell, p.loot };
+	p.outline = Child(page, "FCT_OutlineToggle");
+	uint8_t* const boxes[] = { p.toggle, p.sell, p.loot, p.outline };
 	for (uint8_t* box : boxes)
 		if (box && !LooksLikeCheckbox(opt, box)) return false;
 	for (int i = 0; i < kFloatCount; ++i) {
 		p.slider[i] = Child(page, kSliderIds[i]);
 		p.value[i] = Child(page, kValueIds[i]);
-		if (p.slider[i]) g_sliderSetTicks(p.slider[i], kSliderTicks);
+		if (p.slider[i]) g_sliderSetTicks(p.slider[i], kSliderSteps + 1);
 	}
-	for (int i = 0; i < kCategoryCount; ++i) p.combo[i] = Child(page, kComboIds[i]);
+	for (int i = 0; i < kCategoryCount; ++i) {
+		p.combo[i] = Child(page, kComboIds[i]);
+		p.colourCombo[i] = Child(page, kColourComboIds[i]);
+	}
+	for (int i = 0; i < kXCount; ++i) {
+		p.xslider[i] = Child(page, kExtraSliders[i].id);
+		p.xvalue[i] = Child(page, kExtraSliders[i].valueId);
+		if (p.xslider[i]) g_sliderSetTicks(p.xslider[i], kExtraSliders[i].ticks);
+	}
+	p.keyCombo = Child(page, "FCT_ToggleKeyCombobox");
+	p.keyValue = Child(page, "FCT_ToggleKeyValueLabel");
 	g_page = p;
 	Fill();   // first sync (also after a UI reload while the window is open)
 	return true;
@@ -1131,6 +1264,11 @@ uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 		SaveConfig();
 		return 0;
 	}
+	if (msg == kMsgClick && sender == g_page.outline) {
+		g_cfg.outline = IsChecked(sender);
+		SaveExtra("Outline", g_cfg.outline ? "1" : "0");
+		return 0;
+	}
 	if (msg == kMsgSliderMoved) {
 		for (int i = 0; i < kFloatCount; ++i) {
 			if (sender != g_page.slider[i]) continue;
@@ -1139,12 +1277,53 @@ uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 			SaveConfig();
 			return 0;
 		}
+		for (int i = 0; i < kXCount; ++i) {
+			if (sender != g_page.xslider[i]) continue;
+			const ExtraSliderInfo& x = kExtraSliders[i];
+			SetExtraValue(i, x.min + static_cast<float>(Clamp(arg, 0, x.ticks - 1)) * x.step);
+			SetExtraLabel(i);
+			if (i == kXMaxEntries && g_count > g_cfg.maxEntries) {
+				// keep the newest
+				const int drop = g_count - g_cfg.maxEntries;
+				for (int k = 0; k < drop; ++k) ReleaseSprite(g_entries[k]);
+				memmove(g_entries, g_entries + drop, sizeof(Entry) * (g_count - drop));
+				g_count -= drop;
+			}
+			char text[32];
+			snprintf(text, sizeof(text), x.fmt, ExtraValue(i));
+			SaveExtra(x.key, text);
+			return 0;
+		}
 	}
 	if (msg == kMsgClick) {
 		for (int i = 0; i < kCategoryCount; ++i) {
-			if (sender != g_page.combo[i]) continue;
-			g_cfg.hitText[i] = Clamp(arg, kModeNone, kModeDamageOnly);
-			SaveConfig();
+			if (sender == g_page.combo[i]) {
+				g_cfg.hitText[i] = Clamp(arg, kModeNone, kModeDamageOnly);
+				SaveConfig();
+				return 0;
+			}
+			if (sender == g_page.colourCombo[i]) {
+				if (arg < 0 || arg >= kColourPresetCount) {
+					g_comboSetChoice(sender, ColourRow(g_cfg.colour[i]));   // Custom (ini): keep the ini colour
+					return 0;
+				}
+				const uint32_t rgb = kColourPresets[arg];
+				g_cfg.colour[i] = rgb ? (rgb | 0xFF000000u) : 0;
+				char text[16] = "";
+				if (rgb) snprintf(text, sizeof(text), "%06X", rgb);
+				SaveExtra(kColourKeys[i], text);
+				return 0;
+			}
+		}
+		if (sender == g_page.keyCombo) {
+			if (arg < 0 || arg >= kKeyPresetCount) {
+				g_comboSetChoice(sender, KeyRow());   // Custom (ini): keep the ini binding
+				return 0;
+			}
+			ParseHotkey(kKeyPresets[arg], &g_cfg);
+			g_toggleHeld = false;
+			SaveExtra("ToggleKey", kKeyPresets[arg]);
+			SetKeyLabel();
 			return 0;
 		}
 	}
