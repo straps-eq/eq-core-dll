@@ -632,12 +632,26 @@ bool GfxBytes(uint8_t* gfx, size_t rva, const char* pattern) {
 
 void PostVisibleCallback();
 
+// The renderer that draws the world: the EQGraphics global WasVisibleThisFrame compares frame numbers with
+// (`mov rax,[rip+disp32]` at the start of RVA 0x534c0). eqgame's renderer global may hold another instance of the
+// same class; the callback has to sit on the one whose +0x158 renders the scene.
+void* EngineRenderer(uint8_t* gfx) {
+	void* fallback = FctRenderer();
+	if (!gfx || !StartsWith(gfx + kWasVisibleRva, "48 8B 05 ?? ?? ?? ?? 8B 90 E0 B8 00 00")) return fallback;
+	int32_t disp;
+	memcpy(&disp, gfx + kWasVisibleRva + 3, 4);
+	void* engine = *reinterpret_cast<void**>(gfx + kWasVisibleRva + 7 + disp);
+	if (!engine || *reinterpret_cast<uint8_t**>(engine) != gfx + kRendererVtblRva) return fallback;
+	if (engine != fallback) LogOnce("the engine's world renderer is not eqgame's renderer global; using the engine's");
+	return engine;
+}
+
 // Builds the pool and installs the callback once all checks pass (first in-game frame).
 void InstallDepthBars() {
 	if (g_depth != kDepthUnchecked) return;
 	g_depth = kDepthOff;
 	uint8_t* gfx = reinterpret_cast<uint8_t*>(GetModuleHandleA("EQGraphics.dll"));
-	void* renderer = FctRenderer();
+	void* renderer = EngineRenderer(gfx);
 	if (!gfx || !renderer) {
 		LogOnce("2D bars: EQGraphics.dll or the renderer is missing");
 		return;
@@ -695,11 +709,13 @@ void UninstallDepthBars(const char* why) {
 	if (g_depth != kDepthReady) return;
 	g_depth = kDepthOff;
 	void* renderer = g_cbRenderer;
-	if (renderer && *reinterpret_cast<void**>(static_cast<uint8_t*>(renderer) + kRendererPostVisCb) ==
-	                    reinterpret_cast<void*>(&PostVisibleCallback))
+	const bool ours = renderer && *reinterpret_cast<void**>(static_cast<uint8_t*>(renderer) + kRendererPostVisCb) ==
+	                                  reinterpret_cast<void*>(&PostVisibleCallback);
+	if (ours)
 		reinterpret_cast<SetPostVisFn>((*reinterpret_cast<void***>(renderer))[kRendererSetPostVis / sizeof(void*)])(renderer, g_prevPostVis);
-	char text[160];
-	snprintf(text, sizeof(text), "2D bars: %s", why);
+	char text[256];
+	snprintf(text, sizeof(text), "2D bars: %s (renderer %p, eqgame renderer %p, callback slot %s, frame %u)", why, renderer,
+	         FctRenderer(), ours ? "still ours" : "replaced", renderer ? *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(renderer) + 0xb8e0) : 0u);
 	LogOnce(text);
 }
 
