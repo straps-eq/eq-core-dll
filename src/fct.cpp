@@ -32,6 +32,9 @@
 // camera axes are the rows of the camera's view matrix (the fields WorldToScreen reads). Not drawn beyond
 // 200 units from the camera.
 //
+// Drawing, 3D route (default): the engine's own world string sprite, the class name tags use, so the text
+// scales with distance like Legends'; see the "3D route" section below. 2D route (Render3D=0, or when a
+// check of the engine fails):
 // Drawing: from the CXWndManager::DrawWindows hook shared with the Hud (hud.cpp), after the client's
 // windows, while in game. Each frame every entry is projected with the camera's WorldToScreen (EQGraphics
 // CCameraInterface vtbl+0xe8; camera = *(pDisplay + 0x118), the offset read from the "Camera created."
@@ -173,7 +176,11 @@ struct Config {
 	uint32_t colour[kCategoryCount] = {};   // 0 = the client's chat colour
 	int fadeMs = 0;
 	float headHeight = 1.0f;
-	float fontStep = 4.0f;                  // UI font index per unit of font scale
+	float fontStep = 4.0f;                  // 2D route: UI font index per unit of font scale
+	bool render3D = true;                   // world text through the engine's string sprite when its checks pass
+	float letterScale = 0.4f;               // 3D: sprite letter scale per unit of font scale (Legends mapping)
+	int minPx = 12;                         // 3D: minimum text height in pixels (Legends)
+	bool occlude = false;                   // 3D: false = drawn over walls (Legends' default)
 	float otherRange = 200.0f;
 	int maxEntries = 32;
 	int dedupMs = 100;
@@ -245,6 +252,10 @@ void LoadConfig() {
 	c.dedupMs = Clamp(Int(kExtras, "DedupMs", c.dedupMs), 0, 2000);
 	c.outline = Int(kExtras, "Outline", c.outline) != 0;
 	c.fontStep = ClampF(Float(kExtras, "FontStep", c.fontStep), 0.5f, 16.0f);
+	c.render3D = Int(kExtras, "Render3D", c.render3D) != 0;
+	c.letterScale = ClampF(Float(kExtras, "LetterScale", c.letterScale), 0.01f, 10.0f);
+	c.minPx = Clamp(Int(kExtras, "MinPx", c.minPx), 0, 200);
+	c.occlude = Int(kExtras, "Occlude", c.occlude) != 0;
 	char key[64] = {};
 	GetPrivateProfileStringA(kExtras, "ToggleKey", "Ctrl+Shift+F", key, sizeof(key), ini);
 	ParseHotkey(key, &c);
@@ -284,8 +295,9 @@ struct Entry {
 	float pos[3];      // world, spawn memory order
 	float vel[3];      // world units per second
 	float pending;     // time not yet integrated
-	int width;         // text width for `font`
+	int width;         // text width for `font` (2D route)
 	uint8_t* font;
+	int sprite;        // 3D route: pool slot, -1 = none
 };
 Entry g_entries[kMaxEntries];
 int g_count = 0;
@@ -356,6 +368,172 @@ bool CamAxis(const uint8_t* cam, size_t x, size_t y, size_t z, float* out) {
 	return true;
 }
 
+// ---- 3D route: the engine's world string sprite (EQGraphics CStringSprite, the name-tag class) ----
+//
+// analysis\legends\fct-3dtext\dll-spec.md. A pool of sprites in our own memory, constructed once when the
+// EQGraphics.dll functions and vtables check out. Per entry: SetText/SetColor once; per frame the world
+// position (+0x98, spawn memory order) and letter scale (+0x94), then Draw, which queues the text into the
+// engine's name-tag text list; renderer slot +0x158 draws it at the end of this frame's 3D pass. A text
+// smaller than MinPx gets a second Draw with a scaled-up letter scale; without Occlude the depth (+0x58) is
+// replaced after Draw so the text sits over walls. A free sprite holds "" (Draw returns -1). If a check
+// fails, or no sprite produces a rect for two seconds while texts exist, the 2D route takes over.
+
+const size_t kSpriteSize = 0xc0;
+const size_t kSpriteVtblRva = 0x2c5498;
+const size_t kSpriteTextItemVtblRva = 0x2c5240;   // vtable of the text item at sprite+8
+const size_t kRendererVtblRva = 0x2c0830;
+const size_t kRendererEndScene3D = 0x158, kRendererEndScene3DRva = 0xd7820;
+const size_t kSpriteRect = 0x1c;                  // int l, t, r, b (viewport px) after Draw
+const size_t kSpriteDepth = 0x58;                 // float, written into the vertices
+const size_t kSpriteBoneOffset = 0x8c;            // float, vertical offset (world units)
+const size_t kSpriteScale = 0x90;                 // float
+const size_t kSpriteLetterScale = 0x94;           // float
+const size_t kSpritePos = 0x98;                   // float[3]
+const float kDepthOnTop = 1e-4f;
+
+using SpriteCtorFn = void* (*)(void* mem);
+using SpriteSetTextFn = void (*)(void* s, const char* text, const char* text2);
+using SpriteSetColorFn = void (*)(void* s, const uint32_t* rgb);
+using SpriteSetFadeFn = void (*)(void* s, float maxDist, float nearDist, float farBand, float minAlpha);
+using SpriteDrawFn = int (*)(void* s);
+
+struct EngineFn {
+	size_t rva;
+	uint8_t start[16];
+	size_t len;
+	void** target;
+};
+SpriteCtorFn g_spriteCtor = nullptr;
+SpriteSetTextFn g_spriteSetText = nullptr;
+SpriteSetColorFn g_spriteSetColor = nullptr;
+SpriteSetFadeFn g_spriteSetFade = nullptr;
+SpriteDrawFn g_spriteDraw = nullptr;
+const EngineFn kEngineFns[] = {
+	{ 0xfcff0, { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xD9, 0xE8 }, 10, reinterpret_cast<void**>(&g_spriteCtor) },
+	{ 0xfd890, { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xD9, 0x48, 0x85, 0xD2, 0x74 }, 13, reinterpret_cast<void**>(&g_spriteSetText) },
+	{ 0xfd880, { 0x8B, 0x02, 0x89, 0x81, 0x80, 0x00, 0x00, 0x00, 0xC3 }, 9, reinterpret_cast<void**>(&g_spriteSetColor) },
+	{ 0xfd840, { 0xF3, 0x0F, 0x10, 0x44, 0x24, 0x28, 0xF3, 0x0F, 0x11, 0x89, 0xA4, 0x00, 0x00, 0x00 }, 14, reinterpret_cast<void**>(&g_spriteSetFade) },
+	{ 0xfd300, { 0x40, 0x53, 0x57, 0x41, 0x56, 0x48, 0x81, 0xEC, 0xB0, 0x00, 0x00, 0x00 }, 12, reinterpret_cast<void**>(&g_spriteDraw) },
+};
+
+const int kPoolSize = 64;   // >= MaxEntries
+struct Sprite3D {
+	alignas(16) uint8_t mem[kSpriteSize];
+	bool used;
+};
+Sprite3D g_pool[kPoolSize];
+enum Route3D { k3DUnchecked, k3DReady, k3DOff };
+Route3D g_route3D = k3DUnchecked;
+int64_t g_3dNoRectSince = 0;    // first frame with live 3D texts but no drawn rect
+bool g_3dRectSeen = false;
+
+void LogMessage(const char* text) {
+	if (!g_iniPath[0]) return;
+	char path[MAX_PATH];
+	strcpy_s(path, g_iniPath);
+	char* slash = strrchr(path, '\\');
+	if (!slash) return;
+	strcpy_s(slash + 1, static_cast<size_t>(path + sizeof(path) - (slash + 1)), "dinput8.log");
+	FILE* f = nullptr;
+	if (fopen_s(&f, path, "a") != 0 || !f) return;
+	fprintf(f, "FloatingCombatText: %s\n", text);
+	fclose(f);
+}
+
+void Disable3D(const char* why) {
+	g_route3D = k3DOff;
+	char text[160];
+	snprintf(text, sizeof(text), "3D text off, using 2D UI fonts (%s)", why);
+	LogMessage(text);
+}
+
+// Checks EQGraphics.dll once and builds the pool. Only from the draw hook (the module is loaded by then).
+bool Ready3D() {
+	if (g_route3D != k3DUnchecked) return g_route3D == k3DReady;
+	if (!g_cfg.render3D) {
+		g_route3D = k3DOff;
+		return false;
+	}
+	uint8_t* gfx = reinterpret_cast<uint8_t*>(GetModuleHandleA("EQGraphics.dll"));
+	if (!gfx) {
+		Disable3D("EQGraphics.dll not loaded");
+		return false;
+	}
+	for (const EngineFn& fn : kEngineFns) {
+		if (memcmp(gfx + fn.rva, fn.start, fn.len) != 0) {
+			Disable3D("an EQGraphics function does not match this build");
+			return false;
+		}
+		*fn.target = gfx + fn.rva;
+	}
+	void** rVt = *g_pRenderer ? *reinterpret_cast<void***>(*g_pRenderer) : nullptr;
+	if (!rVt || reinterpret_cast<uint8_t*>(rVt) != gfx + kRendererVtblRva ||
+	    reinterpret_cast<uint8_t*>(rVt[kRendererEndScene3D / sizeof(void*)]) != gfx + kRendererEndScene3DRva) {
+		Disable3D("the renderer is not the expected class");
+		return false;
+	}
+	for (int i = 0; i < kPoolSize; ++i) {
+		uint8_t* s = g_pool[i].mem;
+		g_spriteCtor(s);
+		if (i == 0 && (*reinterpret_cast<uint8_t**>(s) != gfx + kSpriteVtblRva ||
+		               *reinterpret_cast<uint8_t**>(s + 8) != gfx + kSpriteTextItemVtblRva)) {
+			Disable3D("the string sprite is not the expected class");   // nothing linked yet that we must undo
+			return false;
+		}
+		g_spriteSetFade(s, 400.0f, 0.001f, 0.001f, 1.0f);   // full alpha everywhere, 1 + d/400 size compensation
+		*reinterpret_cast<float*>(s + kSpriteBoneOffset) = 0.0f;
+		*reinterpret_cast<float*>(s + kSpriteScale) = 1.0f;
+		g_pool[i].used = false;
+	}
+	g_route3D = k3DReady;
+	LogMessage("3D text on (engine string sprites)");
+	return true;
+}
+
+int AcquireSprite(const char* text, uint32_t colour) {
+	for (int i = 0; i < kPoolSize; ++i) {
+		if (g_pool[i].used) continue;
+		g_pool[i].used = true;
+		g_spriteSetText(g_pool[i].mem, text, text);
+		const uint32_t rgb = colour & 0x00FFFFFFu;
+		g_spriteSetColor(g_pool[i].mem, &rgb);
+		return i;
+	}
+	return -1;
+}
+
+void ReleaseSprite(Entry& e) {
+	if (e.sprite < 0) return;
+	if (g_route3D == k3DReady) g_spriteSetText(g_pool[e.sprite].mem, "", "");
+	g_pool[e.sprite].used = false;
+	e.sprite = -1;
+}
+
+void ClearEntries() {
+	for (int i = 0; i < g_count; ++i) ReleaseSprite(g_entries[i]);
+	g_count = 0;
+}
+
+// Queues one entry's text for this frame's name-tag pass.
+void Draw3D(Entry& e) {
+	uint8_t* s = g_pool[e.sprite].mem;
+	float* pos = reinterpret_cast<float*>(s + kSpritePos);
+	pos[0] = e.pos[0];
+	pos[1] = e.pos[1];
+	pos[2] = e.pos[2];
+	const float letter = g_cfg.letterScale * g_cfg.f[kYouFontScale + e.category] * (e.crit ? 2.0f : 1.0f);
+	*reinterpret_cast<float*>(s + kSpriteLetterScale) = letter;
+	if (g_spriteDraw(s) != 0) return;
+	const int* rect = reinterpret_cast<const int*>(s + kSpriteRect);
+	const int h = rect[3] - rect[1];
+	if (rect[2] > rect[0] && h > 0) g_3dRectSeen = true;
+	if (h > 0 && h < g_cfg.minPx) {
+		*reinterpret_cast<float*>(s + kSpriteLetterScale) = letter * static_cast<float>(g_cfg.minPx) / static_cast<float>(h);
+		g_spriteDraw(s);
+	}
+	if (!g_cfg.occlude) *reinterpret_cast<float*>(s + kSpriteDepth) = kDepthOnTop;
+}
+
 // Adds a text above `spawn`, dropping the oldest entry when full. The entry point for every feeder.
 // Numbers and words obey the category's text mode; plain texts only Enabled.
 void AddText(uint8_t* spawn, const char* text, uint32_t colour, int category, bool crit, int lifeMs, Kind kind) {
@@ -375,6 +553,7 @@ void AddText(uint8_t* spawn, const char* text, uint32_t colour, int category, bo
 		return;
 	if (g_count >= g_cfg.maxEntries) {
 		int drop = g_count - g_cfg.maxEntries + 1;
+		for (int i = 0; i < drop; ++i) ReleaseSprite(g_entries[i]);
 		memmove(g_entries, g_entries + drop, sizeof(Entry) * (g_count - drop));
 		g_count -= drop;
 	}
@@ -399,6 +578,7 @@ void AddText(uint8_t* spawn, const char* text, uint32_t colour, int category, bo
 	e.pending = 0.0f;
 	e.width = -1;
 	e.font = nullptr;
+	e.sprite = g_route3D == k3DReady ? AcquireSprite(e.text, colour) : -1;
 }
 
 // True when the same hit was already seen within DedupMs (the pet owner's second copy).
@@ -587,12 +767,13 @@ void DrawEntries(uint8_t* mgr) {
 	g_lastFrame = now;
 	uint8_t* cam = CurrentCamera();
 	if (!cam || !*g_pRenderer) {
-		g_count = 0;
+		ClearEntries();
 		return;
 	}
+	const bool use3D = Ready3D();
 	if (!g_count) return;
 	const Projection proj = CheckCamera(cam);
-	LogFonts(mgr);
+	if (!use3D) LogFonts(mgr);
 	int screenH = 0;
 	const int screenW = HudScreenSize(mgr, &screenH);
 	const int clip[4] = { 0, 0, screenW, screenH };
@@ -601,13 +782,21 @@ void DrawEntries(uint8_t* mgr) {
 	for (int i = 0; i < g_count; ++i) {
 		Entry e = g_entries[i];
 		const float t = static_cast<float>(now - e.born) / freq;
-		if (t >= e.life || !SpawnById(e.spawnId)) continue;
+		if (t >= e.life || !SpawnById(e.spawnId)) {
+			ReleaseSprite(e);
+			continue;
+		}
 		Step(e, dt);
 		g_entries[kept++] = e;
 		Entry& k = g_entries[kept - 1];
-		if (proj == kProjNone) continue;
 		const float dx = k.pos[0] - origin[0], dy = k.pos[1] - origin[1], dz = k.pos[2] - origin[2];
 		if (dx * dx + dy * dy + dz * dz > kMaxDrawDistance * kMaxDrawDistance) continue;
+		if (use3D) {
+			if (k.sprite < 0) k.sprite = AcquireSprite(k.text, k.colour);   // texts added before the pool existed
+			if (k.sprite >= 0) Draw3D(k);
+			continue;
+		}
+		if (proj == kProjNone) continue;
 		float sx = 0.0f, sy = 0.0f;
 		if (!Project(cam, proj, k.pos, &sx, &sy)) continue;   // behind the camera
 		uint8_t* font = FontForScale(mgr, g_cfg.f[kYouFontScale + k.category] * (k.crit ? 2.0f : 1.0f));
@@ -630,6 +819,19 @@ void DrawEntries(uint8_t* mgr) {
 		HudDrawText(font, k.text, x, y, clip, alpha | (k.colour & 0x00FFFFFFu));
 	}
 	g_count = kept;
+	// No rect from any sprite for two seconds while texts were queued: the engine is not drawing them.
+	if (use3D) {
+		if (g_3dRectSeen || !g_count) {
+			g_3dNoRectSince = 0;
+		}
+		else if (!g_3dNoRectSince) {
+			g_3dNoRectSince = now;
+		}
+		else if (now - g_3dNoRectSince > Frequency() * 2) {
+			ClearEntries();
+			Disable3D("the engine drew no text for two seconds");
+		}
+	}
 }
 
 void SyncOptionsPage();   // FCTOptionsPage, below
@@ -652,7 +854,7 @@ void PollToggle() {
 	            KeyDown(VK_SHIFT) == g_cfg.toggleShift && KeyDown(VK_MENU) == g_cfg.toggleAlt;
 	if (down && !g_toggleHeld) {
 		g_cfg.enabled = !g_cfg.enabled;
-		g_count = 0;
+		ClearEntries();
 		SaveConfig();
 		SyncOptionsPage();
 		g_toggleMessageUntil = Now() + Frequency() * 2;
@@ -741,7 +943,7 @@ const char* FctPrepare() {
 void FctFrame(uint8_t* mgr, bool inGame) {
 	if (!g_on) return;
 	if (!inGame) {
-		g_count = 0;
+		ClearEntries();
 		g_lastFrame = 0;
 		g_toggleHeld = false;
 		return;
@@ -922,7 +1124,7 @@ uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 		const bool on = IsChecked(sender);
 		if (sender == g_page.toggle) {
 			g_cfg.enabled = on;
-			if (!on) g_count = 0;
+			if (!on) ClearEntries();
 		}
 		else if (sender == g_page.sell) g_cfg.sellText = on;
 		else g_cfg.lootText = on;
