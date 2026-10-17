@@ -10,8 +10,8 @@ const char* FctPrepare();
 // Called once per frame from the shared DrawWindows hook, after the client's windows are drawn.
 void FctFrame(uint8_t* mgr, bool inGame);
 
-// FCTOptionsCheckbox: "Show Floating Combat Text" on the Options window's Display page, same state as
-// [FCT] Show and the toggle key. Needs FloatingCombatText applied first.
-extern const HookSite kFctCheckboxHooks[2];
-extern const RefSite kFctCheckboxRefs[3];
-const char* FctCheckboxPrepare();
+// FCTOptionsPage: Legends' "Combat Text" tab in the Options window (patched EQUI_OptionsWindow.xml), bound to
+// the [FloatingCombat] settings. Needs FloatingCombatText applied first.
+extern const HookSite kFctPageHooks[2];
+extern const RefSite kFctPageRefs[6];
+const char* FctPagePrepare();
