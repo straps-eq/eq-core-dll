@@ -25,6 +25,14 @@
 // group / pet) within ThreatHoldMs", from the OP_Damage detour shared with FCT. Drawn only while FontShadow or
 // FontOutline is on, as Legends shows the indicator through those layers. Group members: pLocalPC +0x2e30 (as map.cpp).
 //
+// Occlusion (Occlude=1, analysis\legends\nameplates-occlusion\dll-spec.md): ToB has no line-of-sight test for
+// names; the engine queues a name only when its actor rendered, and the occlusion culling skips actors behind
+// geometry. So a bar is drawn only when the actor was drawn last frame (EQGraphics actor vtbl +0x408
+// WasVisibleThisFrame, the call eqgame makes in RealRender_World; its target and bytes are checked once per actor
+// vtable), its name sprite has text (+0x10) and a bone (+0xb8), and it is within the sprite's own XY cutoff
+// (+0xa8 = max distance squared, scaled by +0x90). This applies to the target too. If the check of the engine
+// function fails, the gate (and with it every bar) is turned off and dinput8.log says why.
+//
 // NameplateOptionsPage: Legends' "Nameplates" tab (OptionsNamePlatesPage in the patched EQUI_OptionsWindow.xml),
 // on the two COptionsWnd detours the Combat Text tab uses (fct.cpp). Settings in dinput8.ini [NameplateOptions]
 // with Legends' key names; ConColor switches the ConNameTags feature live ([Features] ConNameTags); Name Filters
@@ -59,7 +67,14 @@ const size_t kSpawnHpCur = 0x5e8;        // int64 (percent for others)
 const size_t kSpawnHpMax = 0x5f8;        // int64 (100 for others)
 const size_t kSpawnActor = 0x1170;       // CActorInterface*
 const size_t kActorNameSprite = 0x2f0;   // EQGraphics string sprite, may be null
+const size_t kSpriteText = 0x10;         // text pointer, null when the name is empty
 const size_t kSpriteFont = 0x18;         // int, 10 when text is set
+const size_t kSpriteScale = 0x90;        // float, actor scale written on each draw
+const size_t kSpritePos = 0x98;          // float[3] world position (spawn memory order)
+const size_t kSpriteMaxDist2 = 0xa8;     // float, 150^2 by default
+const size_t kSpriteBone = 0xb8;         // bone pointer, null = never drawn
+const size_t kActorVtblWasVisible = 0x408;
+const size_t kWasVisibleRva = 0x534c0;
 const size_t kSpriteRect = 0x1c;         // int l, t, r, b (viewport px, last draw)
 const int kSpriteFontName = 10;
 
@@ -130,6 +145,8 @@ struct Config {
 	bool castSpellName = false;
 	bool hpText = false;
 	bool hpByCon = false;
+	bool occlude = true;           // no bar when the client did not draw the spawn (behind walls)
+	bool selfIgnoresOcclusion = false;
 	uint32_t threatColour = 0;     // 0 = Legends pulse
 };
 Config g_cfg;
@@ -169,6 +186,8 @@ void LoadConfig() {
 	c.castSpellName = Int("CastSpellName", c.castSpellName) != 0;
 	c.hpText = Int("HpText", c.hpText) != 0;
 	c.hpByCon = Int("HpByCon", c.hpByCon) != 0;
+	c.occlude = Int("Occlude", c.occlude) != 0;
+	c.selfIgnoresOcclusion = Int("SelfIgnoresOcclusion", c.selfIgnoresOcclusion) != 0;
 	char buf[32] = {};
 	GetPrivateProfileStringA(kSection, "ThreatFrameColour", "", buf, sizeof(buf), ini);
 	char* end = nullptr;
@@ -354,6 +373,61 @@ bool StartsWith(const void* fn, const char* pattern) {
 }
 
 // The renderer's 2D calls, checked once per renderer object.
+// ---- occlusion gate ----
+
+using ActorVisibleFn = bool (*)(void* actor);
+void* g_checkedActorVtbl[8] = {};       // actor vtables whose +0x408 slot passed the check
+int g_checkedActorVtbls = 0;
+bool g_gateBroken = false;
+
+void LogOnce(const char* text) {
+	char path[MAX_PATH];
+	strcpy_s(path, g_iniPath);
+	char* slash = strrchr(path, '\\');
+	if (!slash) return;
+	strcpy_s(slash + 1, static_cast<size_t>(path + sizeof(path) - (slash + 1)), "dinput8.log");
+	FILE* f = nullptr;
+	if (fopen_s(&f, path, "a") != 0 || !f) return;
+	fprintf(f, "Nameplates: %s\n", text);
+	fclose(f);
+}
+
+bool StartsWith(const void* fn, const char* pattern);
+
+// The engine's WasVisibleThisFrame for this actor's class, checked once per vtable.
+ActorVisibleFn ActorVisibleCall(uint8_t* actor) {
+	void** vt = *reinterpret_cast<void***>(actor);
+	if (!vt) return nullptr;
+	void* fn = vt[kActorVtblWasVisible / sizeof(void*)];
+	for (int i = 0; i < g_checkedActorVtbls; ++i)
+		if (g_checkedActorVtbl[i] == vt) return reinterpret_cast<ActorVisibleFn>(fn);
+	uint8_t* gfx = reinterpret_cast<uint8_t*>(GetModuleHandleA("EQGraphics.dll"));
+	if (!gfx || fn != gfx + kWasVisibleRva ||
+	    !StartsWith(fn, "48 8B 05 ?? ?? ?? ?? 8B 90 E0 B8 00 00 39 51 50 0F 94 C0 C3")) {
+		g_gateBroken = true;
+		LogOnce("bars off: the engine's actor visibility test does not match this EQGraphics.dll (Occlude=0 draws them without it)");
+		return nullptr;
+	}
+	if (g_checkedActorVtbls < 8) g_checkedActorVtbl[g_checkedActorVtbls++] = vt;
+	return reinterpret_cast<ActorVisibleFn>(fn);
+}
+
+// True when the client drew this spawn's name last frame (or may have: its actor rendered, the name has text and
+// a bone, and it is inside the name's own distance cutoff).
+bool NameDrawnLastFrame(uint8_t* spawn, float camX, float camY) {
+	uint8_t* actor = *reinterpret_cast<uint8_t**>(spawn + kSpawnActor);
+	uint8_t* sprite = actor ? *reinterpret_cast<uint8_t**>(actor + kActorNameSprite) : nullptr;
+	if (!actor || !sprite) return false;
+	ActorVisibleFn visible = ActorVisibleCall(actor);
+	if (!visible || !visible(actor)) return false;
+	if (!*reinterpret_cast<void**>(sprite + kSpriteText) || !*reinterpret_cast<void**>(sprite + kSpriteBone)) return false;
+	const float scale = *reinterpret_cast<float*>(sprite + kSpriteScale);
+	const float max2 = *reinterpret_cast<float*>(sprite + kSpriteMaxDist2);
+	const float dx = *reinterpret_cast<float*>(sprite + kSpritePos) - camX;
+	const float dy = *reinterpret_cast<float*>(sprite + kSpritePos + 4) - camY;
+	return dx * dx + dy * dy <= scale * scale * max2;
+}
+
 bool RendererReady() {
 	void* renderer = FctRenderer();
 	if (!renderer) return false;
@@ -528,6 +602,9 @@ void DrawNameplates(uint8_t* mgr) {
 		if (type >= 2) continue;   // corpse
 		const bool isMe = spawn == me, isTarget = spawn == target;
 		if (!isMe && (!g_mayShowName(spawn) || spawn[kSpawnUntargetable] || g_isInvisibleTo(me, spawn, 0))) continue;
+		if (g_cfg.occlude && !(isMe && g_cfg.selfIgnoresOcclusion)) {
+			if (g_gateBroken || !NameDrawnLastFrame(spawn, camX, camY)) continue;   // behind a wall, culled or no name
+		}
 		const float dx = *reinterpret_cast<float*>(spawn + kSpawnY) - camX;
 		const float dy = *reinterpret_cast<float*>(spawn + kSpawnX) - camY;
 		if (!isTarget && dx * dx + dy * dy > drawDist2) continue;
@@ -682,6 +759,7 @@ const BoxInfo kBoxes[] = {
 	{ "ODP_NameplateSelfNameCheckbox", "SelfName", &Config::selfName },
 	{ "ODP_NameplateCastSpellNameCheckbox", "CastSpellName", &Config::castSpellName },
 	{ "ODP_NameplateHpTextCheckbox", "HpText", &Config::hpText },
+	{ "ODP_NameplateOccludeCheckbox", "Occlude", &Config::occlude },
 	{ "ODP_NameplateHpByConCheckbox", "HpByCon", &Config::hpByCon },
 };
 const int kBoxCount = static_cast<int>(sizeof(kBoxes) / sizeof(kBoxes[0]));
