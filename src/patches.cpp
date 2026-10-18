@@ -128,6 +128,11 @@ static const Feature kFeatures[] = {
 	// handler (FUN_14015da60) and the request sender (FUN_140161230), plus the shared DrawWindows hook. See advloot.cpp.
 	{ "AdvLootActions",   true, "Sell / Store and auto actions in the Advanced Loot window", nullptr, 0,
 	  kAdvLootHooks, COUNT(kAdvLootHooks), kHudRefs, COUNT(kHudRefs), AdvLootPrepare, kAdvLootRefs, COUNT(kAdvLootRefs) },
+	// Same ini key, second table: AS / ST columns in the Edit Loot Filters window (hooks on its WndNotification
+	// FUN_1401af130, AddOrUpdateRow FUN_1401ad5f0, Rebuild FUN_1401aea30, OnProcessFrame FUN_1401aee00 and the
+	// Merge / Replace confirm callback FUN_140158490). Needs the entry above; a changed window only loses the columns.
+	{ "AdvLootActions",   true, "AS / ST columns in the Edit Loot Filters window", nullptr, 0,
+	  kAdvLootFilterHooks, COUNT(kAdvLootFilterHooks), kAdvLootFilterRefs, COUNT(kAdvLootFilterRefs), AdvLootFiltersPrepare },
 	// Lore, value, tribute, levels, clicky cooldown and spell details in the item window: hook on the
 	// CItemDisplayWnd text finalise step (FUN_1404340d0), see itemdisplay.cpp.
 	{ "ItemDisplayExtras", false, "Lore, value, levels and spell details in the item window", nullptr, 0,

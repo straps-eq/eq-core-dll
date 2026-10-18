@@ -28,7 +28,21 @@
 // item_id_name=<name>; toggled from the right-click menu (0x43 Auto-sell, 0x44 Auto-store, 0x46
 // Clear auto action) and applied once per frame from the DrawWindows hook while the window has rows and the
 // server's flags are set: once per (item, corpse), never on pending rows, never on NO TRADE rows unless
-// AutoNoTrade=1.
+// AutoNoTrade=1. The file also keeps item_id_icon=<icon id> for the Edit Loot Filters rows.
+//
+// Edit Loot Filters window (CLootFiltersWnd, second feature table, same ini key): the patched EQUI_LootFiltersWnd.xml
+// adds columns 8 AS and 9 ST after Remove. The client hard-codes columns 3-7 (AN, AG, NV, auto-roll, Remove) and
+// never looks at 8+, so the DLL fills them: H2 post-hook on AddOrUpdateRow FUN_1401ad5f0 clones LF_CheckBoxTemplate
+// into the two cells the way the client does for AN/AG/NV (SidlFindDef, SidlCreate, SetCellWnd) and sets them from the
+// DLL table; H3 post-hook on Rebuild FUN_1401aea30 adds rows for items that only have a DLL action (a stack record
+// {0, item, icon, name} through AddOrUpdateRow in search mode, so the search text and "Max search results" apply);
+// H1 detour on CLootFiltersWnd::WndNotification FUN_1401af130 handles clicks on AS/ST (mutually exclusive; both off
+// clears the action) and, for DLL-only rows, Remove and AN/AG/NV/auto-roll (creating the client's record with
+// FUN_14015a770 turns the row into a stock one); H4 pre-hook on OnProcessFrame FUN_1401aee00: the client deletes the
+// row for the item in wnd+0x324 on this path, so Remove also clears the DLL action and a row whose stock flags fell to
+// 0 while a DLL action remains is kept; changes from the Advanced Loot menu are synced on the next visible frame.
+// H5 on the Merge / Replace confirm callback FUN_140158490 merges / replaces the DLL file from the other character's.
+// Cells are only attached when the list reports at least 10 columns, AutoFilters is on and the server's flags are set.
 #include "advloot.h"
 #include "hud.h"
 #include "fct.h"
@@ -57,6 +71,7 @@ const size_t kListRowCount = 0x268;
 // Personal row
 const size_t kRowItemId = 0x00;          // u64
 const size_t kRowName = 0x08;            // char[64]
+const size_t kRowIcon = 0x48;            // u32 (the client's auto-roll box passes it as the filter record's icon)
 const size_t kRowNoTrade = 0x54;         // u8
 const size_t kRowMenuOpen = 0x6a;        // u8
 const size_t kRowPending = 0x6d;         // u8
@@ -159,16 +174,49 @@ void SaveFlag(const char* key, bool on) {
 struct Filter {
 	uint64_t item;
 	uint8_t action;
+	uint32_t icon;      // item icon id, for the Edit Loot Filters row
+	char name[64];
 };
 const int kMaxFilters = 512;
 Filter g_filters[kMaxFilters];
 int g_filterCount = 0;
 char g_filterFile[MAX_PATH] = {};
 char g_filterChar[0x40] = {};
+bool g_lfDirty = false;      // the Edit Loot Filters window has to be brought in line with the table
 
 const char* CharacterName() {
 	uint8_t* me = *HudLocalPlayerRef();
 	return me ? reinterpret_cast<const char*>(me + kSpawnName) : nullptr;
+}
+
+// Reads a [Filters] section into the table: item_id=action, then item_id_name / item_id_icon for those items.
+int ReadFilterFile(const char* file, Filter* out, int max) {
+	int count = 0;
+	static char keys[32768];
+	DWORD n = GetPrivateProfileSectionA("Filters", keys, sizeof(keys), file);
+	for (const char* p = keys; n && *p && count < max; p += strlen(p) + 1) {
+		const char* eq = strchr(p, '=');
+		char* end = nullptr;
+		uint64_t item = _strtoui64(p, &end, 10);
+		int action = eq ? atoi(eq + 1) : 0;
+		if (!eq || end != eq || !item || (action != kActionSell && action != kActionStore && action != kActionDepot))
+			continue;
+		out[count] = {};
+		out[count].item = item;
+		out[count++].action = static_cast<uint8_t>(action);
+	}
+	for (const char* p = keys; n && *p; p += strlen(p) + 1) {
+		const char* eq = strchr(p, '=');
+		char* end = nullptr;
+		uint64_t item = _strtoui64(p, &end, 10);
+		if (!eq || !item || end == eq || *end != '_') continue;
+		int i = 0;
+		while (i < count && out[i].item != item) ++i;
+		if (i == count) continue;
+		if (strncmp(end, "_name=", 6) == 0) strncpy_s(out[i].name, eq + 1, _TRUNCATE);
+		else if (strncmp(end, "_icon=", 6) == 0) out[i].icon = static_cast<uint32_t>(strtoul(eq + 1, nullptr, 10));
+	}
+	return count;
 }
 
 // Loads the character's filter file the first time that character is seen.
@@ -177,19 +225,8 @@ void LoadFilters() {
 	if (!name || !name[0] || strncmp(name, g_filterChar, sizeof(g_filterChar)) == 0) return;
 	strncpy_s(g_filterChar, name, _TRUNCATE);
 	snprintf(g_filterFile, sizeof(g_filterFile), "%s\\userdata\\eqcore_advloot_%s.ini", g_gameDir, g_filterChar);
-	g_filterCount = 0;
-	static char keys[32768];
-	DWORD n = GetPrivateProfileSectionA("Filters", keys, sizeof(keys), g_filterFile);
-	for (const char* p = keys; n && *p && g_filterCount < kMaxFilters; p += strlen(p) + 1) {
-		const char* eq = strchr(p, '=');
-		if (!eq || strstr(p, "_name=")) continue;
-		char* end = nullptr;
-		uint64_t item = _strtoui64(p, &end, 10);
-		int action = atoi(eq + 1);
-		if (end != eq || !item || (action != kActionSell && action != kActionStore && action != kActionDepot))
-			continue;
-		g_filters[g_filterCount++] = { item, static_cast<uint8_t>(action) };
-	}
+	g_filterCount = ReadFilterFile(g_filterFile, g_filters, kMaxFilters);
+	g_lfDirty = true;
 }
 
 int FindFilter(uint64_t item) {
@@ -198,27 +235,38 @@ int FindFilter(uint64_t item) {
 	return -1;
 }
 
-void SetFilter(uint64_t item, const char* name, uint8_t action) {
+void WriteFilterKey(const char* file, uint64_t item, const char* suffix, const char* value) {
+	char key[32];
+	snprintf(key, sizeof(key), "%llu%s", static_cast<unsigned long long>(item), suffix);
+	WritePrivateProfileStringA("Filters", key, value, file);
+}
+
+void SetFilter(uint64_t item, const char* name, uint32_t icon, uint8_t action) {
 	if (!g_filterFile[0]) return;
-	char key[32], value[16];
-	snprintf(key, sizeof(key), "%llu", static_cast<unsigned long long>(item));
+	g_lfDirty = true;
 	const int i = FindFilter(item);
 	if (!action) {
 		if (i >= 0) g_filters[i] = g_filters[--g_filterCount];
-		WritePrivateProfileStringA("Filters", key, nullptr, g_filterFile);
-		strcat_s(key, "_name");
-		WritePrivateProfileStringA("Filters", key, nullptr, g_filterFile);
+		WriteFilterKey(g_filterFile, item, "", nullptr);
+		WriteFilterKey(g_filterFile, item, "_name", nullptr);
+		WriteFilterKey(g_filterFile, item, "_icon", nullptr);
 		return;
 	}
-	if (i >= 0) g_filters[i].action = action;
-	else if (g_filterCount < kMaxFilters) g_filters[g_filterCount++] = { item, action };
-	char dir[MAX_PATH];
+	Filter* f = i >= 0 ? &g_filters[i] : g_filterCount < kMaxFilters ? &g_filters[g_filterCount++] : nullptr;
+	if (f) {
+		f->item = item;
+		f->action = action;
+		f->icon = icon;
+		strncpy_s(f->name, name ? name : "", _TRUNCATE);
+	}
+	char dir[MAX_PATH], value[16];
 	snprintf(dir, sizeof(dir), "%s\\userdata", g_gameDir);
 	CreateDirectoryA(dir, nullptr);
 	snprintf(value, sizeof(value), "%u", action);
-	WritePrivateProfileStringA("Filters", key, value, g_filterFile);
-	strcat_s(key, "_name");
-	WritePrivateProfileStringA("Filters", key, name, g_filterFile);
+	WriteFilterKey(g_filterFile, item, "", value);
+	WriteFilterKey(g_filterFile, item, "_name", name);
+	snprintf(value, sizeof(value), "%u", icon);
+	WriteFilterKey(g_filterFile, item, "_icon", value);
 }
 
 // (item, corpse) pairs the server refused (or never answered): the auto filters don't ask for them again. Pairs that
@@ -362,10 +410,10 @@ void* Virtual(uint8_t* wnd, size_t slot) {
 	return (*reinterpret_cast<void***>(wnd))[slot / sizeof(void*)];
 }
 
-bool LooksLikeCheckbox(uint8_t* wnd, uint8_t* box) {
+// `ref` is a window known to be a checkbox (or null): same vtable, or the client's IsChecked / SetCheck bodies.
+bool LooksLikeCheckbox(uint8_t* ref, uint8_t* box) {
 	void** vt = *reinterpret_cast<void***>(box);
 	if (!vt) return false;
-	uint8_t* ref = *reinterpret_cast<uint8_t**>(wnd + kWndApplyFiltersCheck);
 	if (ref && *reinterpret_cast<void***>(ref) == vt) return true;
 	return memcmp(vt[kVtblIsChecked / sizeof(void*)], kIsCheckedStart, sizeof(kIsCheckedStart)) == 0 &&
 	       memcmp(vt[kVtblSetCheck / sizeof(void*)], kSetCheckStart, sizeof(kSetCheckStart)) == 0;
@@ -393,8 +441,9 @@ void Resolve(uint8_t* wnd) {
 	c.sell = Child(wnd, "ADLW_PLL_SellAllBtn");
 	c.shiftBox = Child(wnd, "ADLW_ShiftForAllCheck");
 	c.autoBox = Child(wnd, "ADLW_AutoActionsCheck");
-	if (c.shiftBox && !LooksLikeCheckbox(wnd, c.shiftBox)) c.shiftBox = nullptr;
-	if (c.autoBox && !LooksLikeCheckbox(wnd, c.autoBox)) c.autoBox = nullptr;
+	uint8_t* ref = *reinterpret_cast<uint8_t**>(wnd + kWndApplyFiltersCheck);
+	if (c.shiftBox && !LooksLikeCheckbox(ref, c.shiftBox)) c.shiftBox = nullptr;
+	if (c.autoBox && !LooksLikeCheckbox(ref, c.autoBox)) c.autoBox = nullptr;
 	g_ctl = c;
 	SetBox(c.shiftBox, g_shiftForAll);
 	SetBox(c.autoBox, g_autoFilters);
@@ -440,6 +489,7 @@ int64_t NotifyDetour(uint8_t* wnd, uint8_t* sender, uint64_t notification, void*
 			else {
 				g_autoFilters = on;
 				SaveFlag("AutoFilters", on);
+				g_lfDirty = true;
 			}
 			return 0;
 		}
@@ -463,12 +513,13 @@ int64_t NotifyDetour(uint8_t* wnd, uint8_t* sender, uint64_t notification, void*
 			row[kRowMenuOpen] = 0;
 			const uint64_t item = *reinterpret_cast<uint64_t*>(row + kRowItemId);
 			const char* name = reinterpret_cast<const char*>(row + kRowName);
+			const uint32_t icon = *reinterpret_cast<uint32_t*>(row + kRowIcon);
 			switch (id) {
 			case kMenuSell: if (Allowed(kActionSell)) RequestRow(row, kActionSell, false); break;
 			case kMenuStore: if (Allowed(StoreAction())) RequestRow(row, StoreAction(), false); break;
-			case kMenuAutoSell: LoadFilters(); SetFilter(item, name, kActionSell); break;
-			case kMenuAutoStore: LoadFilters(); SetFilter(item, name, kActionStore); break;
-			default: LoadFilters(); SetFilter(item, name, 0); break;
+			case kMenuAutoSell: LoadFilters(); SetFilter(item, name, icon, kActionSell); break;
+			case kMenuAutoStore: LoadFilters(); SetFilter(item, name, icon, kActionStore); break;
+			default: LoadFilters(); SetFilter(item, name, icon, 0); break;
 			}
 			return 0;
 		}
@@ -571,11 +622,14 @@ uint64_t DispatchDetour(uint8_t* mgr, const uint8_t* data, uint32_t length) {
 	if (g_on && data && length >= 2) {
 		const uint16_t sub = *reinterpret_cast<const uint16_t*>(data);
 		if (sub == kSubSync) {
+			if (g_caps) g_lfDirty = true;
 			g_caps = 0;
 			g_doneCount = 0;
 		}
 		else if (sub == kSubCapabilities && length >= 6) {
-			g_caps = *reinterpret_cast<const uint32_t*>(data + 2);
+			const uint32_t caps = *reinterpret_cast<const uint32_t*>(data + 2);
+			if (caps != g_caps) g_lfDirty = true;
+			g_caps = caps;
 			return 0;
 		}
 		else if (sub == kSubClearPending && length >= 14) {
@@ -666,7 +720,338 @@ void ApplyFilters(uint8_t* wnd) {
 	}
 }
 
+// ---- Edit Loot Filters window: AS / ST columns ----
+
+// CLootFiltersWnd
+const size_t kLfList = 0x2e0;            // CListWnd* LF_ItemOptionsList
+const size_t kLfCheckTemplate = 0x2f8;   // CXWnd* LF_CheckBoxTemplate (hidden; cloned per cell)
+const size_t kLfRemoveItem = 0x324;      // int item id whose row OnProcessFrame deletes, -1 none
+// CListWnd
+const size_t kListColCount = 0x280;      // int
+const int kLfColumns = 10;               // the shipped XML: 8 stock columns plus AS and ST
+const int kColAN = 3, kColAR = 6, kColRemove = 7, kColAS = 8, kColST = 9;
+const uint32_t kBitAR = 1, kBitAN = 2, kBitAG = 4, kBitNV = 8;
+// CXWnd
+const size_t kWndXmlIndex = 0x108;       // u32 SIDL id of the template, passed to SidlFindDef
+const size_t kWndUnk1e0 = 0x1e0;         // u64, zeroed on every clone like the client does
+// LootFiltersCopyWnd confirm callback interface: entries "<server>_<character>" (CXStr at the start of each)
+const size_t kCopyEntryCount = 0x10;
+const size_t kCopyEntries = 0x18;
+const size_t kCopyEntrySize = 0x20;
+const int kCopyMerge = 100, kCopyReplace = 0x65;
+
+// The client's filter record (store node + 4).
+struct FilterRecord {
+	uint32_t flags;
+	uint32_t item;
+	uint32_t icon;
+	char name[64];
+};
+
+using LfNotifyFn = int64_t (*)(uint8_t* wnd, uint8_t* sender, uint32_t code, void* data);
+using LfAddRowFn = void (*)(uint8_t* wnd, FilterRecord* rec, char searchMode);
+using LfRebuildFn = void (*)(uint8_t* wnd, void** search);
+using LfFrameFn = void (*)(uint8_t* wnd);
+using CopyConfirmFn = void (*)(uint8_t* iface, int id, uint64_t result, int* entry);
+using FilterFindFn = FilterRecord* (*)(uint8_t* store, uint32_t item);
+using FilterSetFn = uint8_t (*)(uint8_t* store, uint32_t item, uint32_t icon, const char* name, uint32_t flags,
+                                char keepBit0, char select);
+using CellFromWndFn = void (*)(uint8_t* list, uint8_t* wnd, int* row, int* col);
+using GetCellWndFn = uint8_t* (*)(uint8_t* list, int row, int col);
+using SetCellWndFn = void (*)(uint8_t* list, int row, int col, uint8_t* wnd);
+using ListLayoutFn = void (*)(uint8_t* list);
+using SidlFindDefFn = void* (*)(uint8_t* mgr, uint32_t xmlIndex);
+using SidlCreateFn = uint8_t* (*)(uint8_t* mgr, uint8_t* parent, void* def, uint8_t flag);
+using SetByte70Fn = void (*)(uint8_t* wnd, uint8_t value, int depth);
+using CXStrCStrFn = const char* (*)(void** str);
+
+LfNotifyFn g_origLfNotify = nullptr;         // FUN_1401af130
+LfAddRowFn g_origLfAddRow = nullptr;         // FUN_1401ad5f0 (trampoline)
+LfAddRowFn g_lfAddRow = nullptr;             // FUN_1401ad5f0 (through our detour, so the cells follow)
+LfRebuildFn g_origLfRebuild = nullptr;       // FUN_1401aea30
+LfRebuildFn g_lfRebuild = nullptr;
+LfFrameFn g_origLfFrame = nullptr;           // FUN_1401aee00
+CopyConfirmFn g_origCopyConfirm = nullptr;   // FUN_140158490
+FilterFindFn g_filterFind = nullptr;         // FUN_140159c20
+FilterSetFn g_filterSet = nullptr;           // FUN_14015a770
+CellFromWndFn g_listCellFromWnd = nullptr;   // FUN_1405b6d20
+GetCellWndFn g_listGetCellWnd = nullptr;     // FUN_1405b69c0
+SetCellWndFn g_listSetCellWnd = nullptr;     // FUN_1405b9440
+ListLayoutFn g_listLayout = nullptr;         // FUN_1405b2590
+SidlFindDefFn g_sidlFindDef = nullptr;       // FUN_1405da5c0
+SidlCreateFn g_sidlCreate = nullptr;         // FUN_1405d92c0
+SetByte70Fn g_wndSetByte70 = nullptr;        // FUN_1405a77b0
+CXStrCStrFn g_cxstrCStr = nullptr;           // FUN_1405859f0
+uint8_t** g_pFilterStore = nullptr;          // &DAT_140db4828
+uint8_t** g_pSidlMgr = nullptr;              // &DAT_140f0f8d0
+uint8_t* g_lfNotifyFn = nullptr;             // function starts, for the prepare checks
+uint8_t* g_lfFrameFn = nullptr;
+uint8_t* g_copyConfirmFn = nullptr;
+bool g_lfOn = false;
+int g_pendingRemove = -1;                    // item whose Remove was pressed; its deferred row removal clears our action
+
+bool LfActive(uint8_t* wnd) {
+	if (!g_lfOn || !g_caps || !g_autoFilters || !wnd) return false;
+	uint8_t* list = *reinterpret_cast<uint8_t**>(wnd + kLfList);
+	return list && *reinterpret_cast<int*>(list + kListColCount) >= kLfColumns &&
+	       *reinterpret_cast<uint8_t**>(wnd + kLfCheckTemplate) != nullptr;
+}
+
+FilterRecord* StoreRec(uint32_t item) {
+	uint8_t* store = *g_pFilterStore;
+	return store ? g_filterFind(store, item) : nullptr;
+}
+
+int ListRowCount(uint8_t* list) {
+	return *reinterpret_cast<int*>(list + kListRowCount);
+}
+
+int RowOfItem(uint8_t* list, uint32_t item) {
+	for (int r = 0, n = ListRowCount(list); r < n; ++r)
+		if (static_cast<uint32_t>(g_listItemData(list, r)) == item) return r;
+	return -1;
+}
+
+bool ActionShownIn(int col, uint8_t action) {
+	return col == kColAS ? action == kActionSell : (action == kActionStore || action == kActionDepot);
+}
+
+// A checkbox from LF_CheckBoxTemplate, as AddOrUpdateRow makes them for AN / AG / NV.
+uint8_t* CloneCheckbox(uint8_t* wnd) {
+	uint8_t* tmpl = *reinterpret_cast<uint8_t**>(wnd + kLfCheckTemplate);
+	uint8_t* mgr = *g_pSidlMgr;
+	if (!tmpl || !mgr) return nullptr;
+	void* def = g_sidlFindDef(mgr, *reinterpret_cast<uint32_t*>(tmpl + kWndXmlIndex));
+	uint8_t* box = def ? g_sidlCreate(mgr, wnd, def, 1) : nullptr;
+	if (!box) return nullptr;
+	if (!LooksLikeCheckbox(tmpl, box)) {
+		g_lfOn = false;   // not the client's checkbox class: leave the columns alone from now on
+		Log("filter columns off: the cloned template is not a checkbox");
+		return nullptr;
+	}
+	g_wndSetByte70(box, 1, 0);
+	Show(box, true);
+	*reinterpret_cast<uint64_t*>(box + kWndUnk1e0) = 0;
+	return box;
+}
+
+// Attaches AS / ST to row r if missing and sets them from the DLL table. A box whose action the server does not
+// offer is hidden.
+void EnsureCells(uint8_t* wnd, int r, bool* attached) {
+	uint8_t* list = *reinterpret_cast<uint8_t**>(wnd + kLfList);
+	const int f = FindFilter(static_cast<uint32_t>(g_listItemData(list, r)));
+	const uint8_t action = f >= 0 ? g_filters[f].action : 0;
+	for (int c = kColAS; c <= kColST; ++c) {
+		uint8_t* box = g_listGetCellWnd(list, r, c);
+		if (!box) {
+			box = CloneCheckbox(wnd);
+			if (!box) return;
+			g_listSetCellWnd(list, r, c, box);
+			*attached = true;
+		}
+		SetBox(box, ActionShownIn(c, action));
+		Show(box, Allowed(c == kColAS ? kActionSell : kActionStore));
+	}
+}
+
+// A row for an item that only has a DLL action: a record with no stock flags through the client's own AddOrUpdateRow
+// (our H2 detour attaches the cells). Search mode 1 applies the window's search text and row limit.
+void AddDllRow(uint8_t* wnd, const Filter& f, char searchMode) {
+	FilterRecord rec = {};
+	rec.item = static_cast<uint32_t>(f.item);
+	rec.icon = f.icon;
+	strncpy_s(rec.name, f.name, _TRUNCATE);
+	g_lfAddRow(wnd, &rec, searchMode);
+}
+
+// Brings the list in line with the DLL table: cells on every row, rows for DLL-only items, and the deferred removal
+// of a DLL-only row whose action was cleared elsewhere (one per frame, the client deletes it on this frame's path).
+void Sync(uint8_t* wnd) {
+	uint8_t* list = *reinterpret_cast<uint8_t**>(wnd + kLfList);
+	bool attached = false;
+	int stale = 0;
+	for (int r = 0, n = ListRowCount(list); r < n; ++r) {
+		const uint32_t item = static_cast<uint32_t>(g_listItemData(list, r));
+		if (FindFilter(item) < 0 && !StoreRec(item)) {
+			int* removal = reinterpret_cast<int*>(wnd + kLfRemoveItem);
+			if (!stale++ && *removal == -1) *removal = static_cast<int>(item);
+			continue;
+		}
+		EnsureCells(wnd, r, &attached);
+	}
+	for (int i = 0; i < g_filterCount; ++i) {
+		const uint32_t item = static_cast<uint32_t>(g_filters[i].item);
+		if (StoreRec(item) || RowOfItem(list, item) >= 0) continue;
+		AddDllRow(wnd, g_filters[i], 1);
+	}
+	if (attached) g_listLayout(list);
+	g_lfDirty = stale > 1;
+}
+
+// H1: clicks (notification 1) on our cells, and on the stock cells of rows the client has no record for.
+int64_t LfNotifyDetour(uint8_t* wnd, uint8_t* sender, uint32_t code, void* data) {
+	if (code != kNotifyClick || !sender || !LfActive(wnd)) return g_origLfNotify(wnd, sender, code, data);
+	uint8_t* list = *reinterpret_cast<uint8_t**>(wnd + kLfList);
+	if (sender == list) return g_origLfNotify(wnd, sender, code, data);
+	int r = -1, c = -1;
+	g_listCellFromWnd(list, sender, &r, &c);
+	if (r < 0) {
+		g_pendingRemove = -1;
+		return g_origLfNotify(wnd, sender, code, data);
+	}
+	const uint32_t item = static_cast<uint32_t>(g_listItemData(list, r));
+	LoadFilters();
+	FilterRecord* rec = StoreRec(item);
+	const int f = FindFilter(item);
+	if (c == kColAS || c == kColST) {
+		const bool on = IsChecked(sender);
+		const uint8_t action = on ? (c == kColAS ? kActionSell : kActionStore) : 0;
+		if (action && !Allowed(action)) {
+			SetBox(sender, false);
+			return 0;
+		}
+		if (on) SetBox(g_listGetCellWnd(list, r, c == kColAS ? kColST : kColAS), false);
+		const char* name = rec ? rec->name : (f >= 0 ? g_filters[f].name : "");
+		const uint32_t icon = rec ? rec->icon : (f >= 0 ? g_filters[f].icon : 0);
+		SetFilter(item, name, icon, action);
+		if (!action && !rec) {   // a DLL-only row with nothing left: the client removes it on the next frame
+			g_pendingRemove = static_cast<int>(item);
+			*reinterpret_cast<int*>(wnd + kLfRemoveItem) = static_cast<int>(item);
+		}
+		return 0;
+	}
+	if (c == kColRemove) {
+		g_pendingRemove = static_cast<int>(item);   // consumed by H4 when the row goes
+		if (rec) return g_origLfNotify(wnd, sender, code, data);
+		SetFilter(item, "", 0, 0);                  // DLL-only row: the stock Remove has nothing to remove
+		*reinterpret_cast<int*>(wnd + kLfRemoveItem) = static_cast<int>(item);
+		return 0;
+	}
+	if (c >= kColAN && c <= kColAR && !rec && f >= 0) {
+		// AN / AG / NV / auto-roll on a DLL-only row: the client's rule (AN, AG and NV exclusive, auto-roll combines),
+		// then its record is created, which refreshes the row and makes it a stock row.
+		if (IsChecked(sender)) {
+			for (int o = kColAN; o <= kColAR; ++o) {
+				uint8_t* box = o != c ? g_listGetCellWnd(list, r, o) : nullptr;
+				if (box && IsChecked(box)) SetBox(box, c == kColAR || o == kColAR);
+			}
+		}
+		static const uint32_t kBits[] = { kBitAN, kBitAG, kBitNV, kBitAR };
+		uint32_t flags = 0;
+		for (int o = kColAN; o <= kColAR; ++o) {
+			uint8_t* box = g_listGetCellWnd(list, r, o);
+			if (box && IsChecked(box)) flags |= kBits[o - kColAN];
+		}
+		if (flags && *g_pFilterStore) g_filterSet(*g_pFilterStore, item, g_filters[f].icon, g_filters[f].name, flags, 0, 0);
+		return 0;
+	}
+	g_pendingRemove = -1;
+	return g_origLfNotify(wnd, sender, code, data);
+}
+
+// H2: after the client added or updated a row, give it our cells. Covers file load, Merge / Replace, Advanced Loot
+// changes, cursor drops and our own rows.
+void LfAddRowDetour(uint8_t* wnd, FilterRecord* rec, char searchMode) {
+	g_origLfAddRow(wnd, rec, searchMode);
+	if (!rec || !LfActive(wnd)) return;
+	LoadFilters();
+	uint8_t* list = *reinterpret_cast<uint8_t**>(wnd + kLfList);
+	const int r = RowOfItem(list, rec->item);
+	if (r < 0) return;
+	bool attached = false;
+	EnsureCells(wnd, r, &attached);
+	if (attached) g_listLayout(list);
+}
+
+// H3: after a rebuild (file load, Search, Enter in the search box, limit edits, cursor drop), add the DLL-only rows.
+// AddOrUpdateRow in search mode tests the search box text and the row limit itself (the text the rebuild was called
+// with: a cursor drop writes the dropped item's name into the box first).
+void LfRebuildDetour(uint8_t* wnd, void** search) {
+	g_origLfRebuild(wnd, search);
+	if (!LfActive(wnd)) return;
+	LoadFilters();
+	uint8_t* list = *reinterpret_cast<uint8_t**>(wnd + kLfList);
+	for (int i = 0; i < g_filterCount; ++i) {
+		const uint32_t item = static_cast<uint32_t>(g_filters[i].item);
+		if (StoreRec(item) || RowOfItem(list, item) >= 0) continue;
+		AddDllRow(wnd, g_filters[i], 1);
+	}
+}
+
+// H4: before the client's per-frame work, which deletes the row of the item in wnd+0x324.
+void LfFrameDetour(uint8_t* wnd) {
+	if (LfActive(wnd)) {
+		int* removal = reinterpret_cast<int*>(wnd + kLfRemoveItem);
+		const int item = *removal;
+		if (item != -1) {
+			LoadFilters();
+			if (item == g_pendingRemove) {   // Remove pressed (and confirmed, if the client asked)
+				if (FindFilter(static_cast<uint32_t>(item)) >= 0) SetFilter(static_cast<uint32_t>(item), "", 0, 0);
+				g_pendingRemove = -1;
+			}
+			else if (FindFilter(static_cast<uint32_t>(item)) >= 0 && !StoreRec(static_cast<uint32_t>(item))) {
+				*removal = -1;   // the stock flags fell to 0 but our action remains: keep the row
+			}
+		}
+		if (g_lfDirty && wnd[kWndVisible]) Sync(wnd);
+	}
+	g_origLfFrame(wnd);
+}
+
+// H5: Merge / Replace Filters confirmed for another character: do the same for the DLL file. The entry reads
+// "<server>_<character>"; the part that names an existing DLL file is taken as the character.
+void MergeDllFile(const char* entry, bool replace) {
+	static Filter other[kMaxFilters];
+	const char* first = strchr(entry, '_');
+	const char* last = strrchr(entry, '_');
+	const char* parts[2] = { last ? last + 1 : entry, entry };
+	char file[MAX_PATH];
+	int n = -1;
+	for (int i = 0; i < 2 && n < 0; ++i) {
+		const size_t len = i == 0 ? strlen(parts[0]) : first ? static_cast<size_t>(first - entry) : strlen(entry);
+		if (!len || len >= 64) continue;
+		snprintf(file, sizeof(file), "%s\\userdata\\eqcore_advloot_%.*s.ini", g_gameDir, static_cast<int>(len), parts[i]);
+		if (GetFileAttributesA(file) != INVALID_FILE_ATTRIBUTES) n = ReadFilterFile(file, other, kMaxFilters);
+	}
+	if (n < 0 || _stricmp(file, g_filterFile) == 0) return;
+	if (replace)
+		while (g_filterCount) SetFilter(g_filters[g_filterCount - 1].item, "", 0, 0);
+	for (int i = 0; i < n; ++i)
+		if (FindFilter(other[i].item) < 0) SetFilter(other[i].item, other[i].name, other[i].icon, other[i].action);
+}
+
+void CopyConfirmDetour(uint8_t* iface, int id, uint64_t result, int* entry) {
+	if (g_lfOn && g_autoFilters && entry && (result & 5) && (id == kCopyMerge || id == kCopyReplace) && iface) {
+		const int i = *entry;
+		uint8_t* entries = *reinterpret_cast<uint8_t**>(iface + kCopyEntries);
+		if (i >= 0 && i < *reinterpret_cast<int*>(iface + kCopyEntryCount) && entries) {
+			LoadFilters();
+			const char* name = g_cxstrCStr(reinterpret_cast<void**>(entries + static_cast<size_t>(i) * kCopyEntrySize));
+			if (name && g_filterFile[0]) MergeDllFile(name, id == kCopyReplace);
+		}
+	}
+	g_origCopyConfirm(iface, id, result, entry);
+}
+
+// True if the function body starting at `fn` has a rel32 call (E8) to `target` within `size` bytes.
+template <class T>
+bool CallsWithin(const uint8_t* fn, size_t size, T target) {
+	for (size_t i = 0; i + 5 <= size; ++i) {
+		if (fn[i] != 0xE8) continue;
+		int32_t rel;
+		memcpy(&rel, fn + i + 1, 4);
+		if (fn + i + 5 + rel == reinterpret_cast<const uint8_t*>(target)) return true;
+	}
+	return false;
+}
+
 #define REF(var) reinterpret_cast<void**>(&var)
+
+const char* kLfNotifySig = "48 89 5C 24 08 48 89 6C 24 10 56 57 41 56 48 83 EC 30 4D 8B F1";
+const char* kLfAddRowSig = "48 89 5C 24 10 48 89 74 24 18 55 57 41 54 41 56 41 57 48 8B EC 48 83 EC 70 45 0F B6 E0";
+const char* kLfRebuildSig = "48 89 5C 24 18 48 89 54 24 10 55 56 57 41 56 41 57 48 83 EC 20";
+const char* kLfFrameSig = "40 57 48 83 EC 20 48 83 B9 70 02 00 00 00 48 8B F9 0F 84 ?? ?? ?? ??";
+const char* kCopyConfirmSig = "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 41 56 48 83 EC 20 4D 8B F1";
 
 const char* kNotifySig =
 	"40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 F8 48 81 EC 08 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 F0 4D 8B F1";
@@ -739,5 +1124,77 @@ const char* AdvLootPrepare() {
 	if (!found) return "the loot window does not call the loot manager getter we resolved";
 	LoadConfig();
 	g_on = true;
+	return nullptr;
+}
+
+const HookSite kAdvLootFilterHooks[5] = {
+	// H1: CLootFiltersWnd::WndNotification FUN_1401af130. Stolen (5): mov [rsp+8],rbx.
+	{ kLfNotifySig, 5, reinterpret_cast<void*>(&LfNotifyDetour), REF(g_origLfNotify) },
+	// H2: AddOrUpdateRow FUN_1401ad5f0(wnd, record, searchMode). Stolen (5): mov [rsp+10],rbx.
+	{ kLfAddRowSig, 5, reinterpret_cast<void*>(&LfAddRowDetour), REF(g_origLfAddRow) },
+	// H3: Rebuild FUN_1401aea30(wnd, CXStr* search). Stolen (5): mov [rsp+18],rbx.
+	{ kLfRebuildSig, 5, reinterpret_cast<void*>(&LfRebuildDetour), REF(g_origLfRebuild) },
+	// H4: CLootFiltersWnd::OnProcessFrame FUN_1401aee00. Stolen (6): push rdi; sub rsp,20.
+	{ kLfFrameSig, 6, reinterpret_cast<void*>(&LfFrameDetour), REF(g_origLfFrame) },
+	// H5: LootFiltersCopyWnd confirm callback FUN_140158490(iface, id, result, int* entry). Stolen (5): mov [rsp+8],rbx.
+	{ kCopyConfirmSig, 5, reinterpret_cast<void*>(&CopyConfirmDetour), REF(g_origCopyConfirm) },
+};
+
+const RefSite kAdvLootFilterRefs[17] = {
+	{ kLfNotifySig, 0, 0, REF(g_lfNotifyFn) },
+	{ kLfAddRowSig, 0, 0, REF(g_lfAddRow) },
+	{ kLfRebuildSig, 0, 0, REF(g_lfRebuild) },
+	{ kLfFrameSig, 0, 0, REF(g_lfFrameFn) },
+	{ kCopyConfirmSig, 0, 0, REF(g_copyConfirmFn) },
+	// FUN_140159c20(store, item) -> FilterRecord*
+	{ "8B C2 45 33 C0 83 E0 1F 48 8B 44 C1 20 48 85 C0 74 0D 39 10 74 0C 48 8B 40 68 48 85 C0 75 F3", 0, 0, REF(g_filterFind) },
+	// FUN_14015a770(store, item, icon, name, flags, keepBit0, select)
+	{ "4C 8B DC 55 57 41 57 49 8D AB C8 FD FF FF", 0, 0, REF(g_filterSet) },
+	// CListWnd::CellFromWnd FUN_1405b6d20(list, wnd, int* row, int* col)
+	{ "48 89 5C 24 08 4C 89 4C 24 20 4C 89 44 24 18 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 20 49 8B C1",
+	  0, 0, REF(g_listCellFromWnd) },
+	// CListWnd::GetCellWnd FUN_1405b69c0(list, row, col)
+	{ "48 83 EC 28 85 D2 78 ?? 48 81 C1 68 02 00 00 3B 11 7D ?? 4C 8B 49 08 4D 85 C9 74 ?? 48 63 C2 48 69 C8 38 01 00 00 49 03 C9 45 85 C0 78 ?? 44 3B 01 7D ?? 48 8B 51 08 48 85 D2 74 ?? 49 63 C0",
+	  0, 0, REF(g_listGetCellWnd) },
+	// CListWnd::SetCellWnd FUN_1405b9440(list, row, col, wnd)
+	{ "85 D2 0F 88 ?? ?? ?? ?? 48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54", 0, 0, REF(g_listSetCellWnd) },
+	// CListWnd cell layout FUN_1405b2590(list); short, so the prepare check that AddOrUpdateRow calls it is required
+	{ "40 55 41 54 41 56 48 83 EC 60", 0, 0, REF(g_listLayout) },
+	// CSidlManager::FindDef FUN_1405da5c0(mgr, xmlIndex)
+	{ "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 8B EA 48 8B F1 44 0F B7 F5", 0, 0, REF(g_sidlFindDef) },
+	// CSidlManager::Create FUN_1405d92c0(mgr, parent, def, flag)
+	{ "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 20 57 48 83 EC 50 41 0F B6 F9", 0, 0, REF(g_sidlCreate) },
+	// FUN_1405a77b0(wnd, u8, depth): sets wnd+0x70 as AddOrUpdateRow does on every cell it clones
+	{ "48 89 74 24 10 57 48 83 EC 20 88 51 70", 0, 0, REF(g_wndSetByte70) },
+	// CXStr -> const char* FUN_1405859f0 (the copy callback reads the entry names with it)
+	{ "40 53 48 83 EC 20 48 8B 01 48 8B D9 48 85 C0 74 ?? 83 78 0C 00", 0, 0, REF(g_cxstrCStr) },
+	// FUN_140281e50: mov rcx,[pFilterStore]; test rcx,rcx; je; mov dl,1; call; mov rcx,[..]; test; je; xor edx,edx
+	{ "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 ?? B2 01 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 ?? 33 D2", 3, 7, REF(g_pFilterStore) },
+	// FUN_140196d10: mov rcx,[pSidlMgr]; call; mov rdx,rax; lea rcx,[rsp+130]
+	{ "48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B D0 48 8D 8C 24 30 01 00 00", 3, 7, REF(g_pSidlMgr) },
+};
+
+const char* AdvLootFiltersPrepare() {
+	if (!g_on) return "AdvLootActions itself is off";
+	const uint8_t* addRow = reinterpret_cast<const uint8_t*>(g_lfAddRow);
+	if (!CallsWithin(addRow, 0x760, g_sidlFindDef) || !CallsWithin(addRow, 0x760, g_sidlCreate) ||
+	    !CallsWithin(addRow, 0x760, g_wndSetByte70) || !CallsWithin(addRow, 0x760, g_listSetCellWnd))
+		return "AddOrUpdateRow does not clone cells with the functions we resolved";
+	if (!CallsWithin(addRow, 0x760, g_listLayout) || !CallsWithin(addRow, 0x760, g_listGetCellWnd))
+		return "AddOrUpdateRow does not use the list functions we resolved";
+	if (!CallsWithin(reinterpret_cast<const uint8_t*>(g_lfRebuild), 0x270, g_lfAddRow))
+		return "the rebuild does not call AddOrUpdateRow";
+	if (!CallsWithin(g_lfNotifyFn, 0x3d0, g_lfRebuild) || !CallsWithin(g_lfNotifyFn, 0x3d0, g_listCellFromWnd))
+		return "the filters window's WndNotification does not call the functions we resolved";
+	// The click handler the window calls at +0xdf (FUN_1401adf60) writes records with the set / find we resolved.
+	int32_t rel = 0;
+	if (g_lfNotifyFn[0xdf] != 0xE8) return "no call where the filters window hands clicks on";
+	memcpy(&rel, g_lfNotifyFn + 0xe0, 4);
+	const uint8_t* clicks = g_lfNotifyFn + 0xe4 + rel;
+	if (!CallsWithin(clicks, 0x650, g_filterSet) || !CallsWithin(clicks, 0x650, g_filterFind))
+		return "the click handler does not use the filter store functions we resolved";
+	if (!CallsWithin(g_copyConfirmFn, 0x140, g_cxstrCStr))
+		return "the copy confirm callback does not read its entries with the CXStr function we resolved";
+	g_lfOn = true;
 	return nullptr;
 }
