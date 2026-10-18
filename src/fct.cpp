@@ -88,6 +88,7 @@ const size_t kDmgAmount = 0x08;      // int64
 const size_t kDmgSpecial = 0x10;     // u32, bit 7 = critical
 const size_t kDmgType = 0x28;        // u8
 const uint32_t kSpecialCrit = 0x80;
+const uint8_t kTypeSpell = 0xE7;           // below: a melee skill
 const uint8_t kTypeDamageShield = 0xEC;
 
 // CEverQuest game state, as in hud.cpp.
@@ -654,6 +655,8 @@ void OnDamage(const uint8_t* pkt) {
 		AddText(target, text, colour, cat, crit, crit ? 5000 : 4000, kNumber);
 		return;
 	}
+	// Spells (beneficial ones land as damage 0, type 0xE7) and damage shields have no miss: the client prints none.
+	if (type >= kTypeSpell) return;
 	const char* word = MissWord(damage);
 	if (!word) return;
 	static const int kMiss[kCategoryCount] = { kColourYouMiss, kColourSelfMiss, kColourOtherMiss };
