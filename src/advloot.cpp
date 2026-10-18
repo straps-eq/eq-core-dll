@@ -618,6 +618,7 @@ bool RequestPending(uint8_t* mgr, uint32_t seq) {
 	return false;
 }
 
+const uint16_t kResultRefused = 6;         // the server refused the action for this item ("cannot be sold ...")
 const uint16_t kSubClearPending = 0x10;    // {u16 0x10, u32 corpse, u64 item, u32 0}: the server refused
 const uint64_t kRequestTimeoutMs = 8000;
 
@@ -676,6 +677,13 @@ uint64_t ResultDetour(uint8_t* mgr, PacketStream* stream) {
 				s.used = false;
 				if (result != 1 && result != 2) {
 					MarkDone(s.item, s.corpse);   // refused (the server's result 6): no auto retry
+					// The server won't do this action for this item, so its auto action is cleared: the AS / ST
+					// boxes and the filters window then show what the server allows.
+					const int f = result == kResultRefused ? FindFilter(s.item) : -1;
+					if (f >= 0 && (g_filters[f].action == kActionSell) == (s.action == kActionSell)) {
+						const Filter copy = g_filters[f];
+						SetFilter(copy.item, copy.name, copy.icon, 0);
+					}
 					break;
 				}
 				char text[128];
