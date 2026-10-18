@@ -629,8 +629,48 @@ struct NameRef {
 	uint32_t alpha;                                  // the name's fade, 0..255
 };
 
-bool GfxBytes(uint8_t* gfx, size_t rva, const char* pattern) {
-	return StartsWith(gfx + rva, pattern);
+// Where a jump at the start of a function goes (E9 rel32, FF 25 [rip], or mov rax,imm64; jmp rax), or nullptr.
+const uint8_t* JumpTarget(const uint8_t* fn) {
+	if (fn[0] == 0xE9) {
+		int32_t rel;
+		memcpy(&rel, fn + 1, 4);
+		return fn + 5 + rel;
+	}
+	if (fn[0] == 0xFF && fn[1] == 0x25) {
+		int32_t rel;
+		memcpy(&rel, fn + 2, 4);
+		return *reinterpret_cast<const uint8_t* const*>(fn + 6 + rel);
+	}
+	if (fn[0] == 0x48 && fn[1] == 0xB8 && fn[10] == 0xFF && fn[11] == 0xE0) return *reinterpret_cast<const uint8_t* const*>(fn + 2);
+	return nullptr;
+}
+
+bool InModule(const uint8_t* base, const void* p) {
+	const IMAGE_NT_HEADERS* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + reinterpret_cast<const IMAGE_DOS_HEADER*>(base)->e_lfanew);
+	return p >= base && p < base + nt->OptionalHeader.SizeOfImage;
+}
+
+// The engine function's first bytes, or a hook another module (MacroQuest, an overlay) put there: a jump out of
+// EQGraphics.dll at the function start. The hook chains to the original, so calling it or being called through
+// it still works. Anything else fails and is named in the log.
+bool GfxBytes(uint8_t* gfx, size_t rva, const char* pattern, const char* name) {
+	if (StartsWith(gfx + rva, pattern)) return true;
+	char text[MAX_PATH + 160];
+	const uint8_t* target = JumpTarget(gfx + rva);
+	if (target && !InModule(gfx, target)) {
+		HMODULE mod = nullptr;
+		char path[MAX_PATH] = "another module";
+		if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		                       reinterpret_cast<LPCSTR>(target), &mod) && mod)
+			GetModuleFileNameA(mod, path, MAX_PATH);
+		const char* file = strrchr(path, '\\');
+		snprintf(text, sizeof(text), "%s is hooked by %s; using it through the hook", name, file ? file + 1 : path);
+		LogOnce(text);
+		return true;
+	}
+	snprintf(text, sizeof(text), "2D bars: the engine's %s does not match this EQGraphics.dll", name);
+	LogOnce(text);
+	return false;
 }
 
 void PostVisibleCallback();
@@ -662,9 +702,9 @@ void* PostVisSlot(void* renderer) {
 bool AttachCallback(void* renderer) {
 	uint8_t* gfx = reinterpret_cast<uint8_t*>(GetModuleHandleA("EQGraphics.dll"));
 	void** vt = *reinterpret_cast<void***>(renderer);
-	if (!gfx || reinterpret_cast<uint8_t*>(vt) != gfx + kRendererVtblRva ||
-	    reinterpret_cast<uint8_t*>(vt[kRendererSetPostVis / sizeof(void*)]) != gfx + kSetPostVisRva)
-		return false;
+	if (!gfx || reinterpret_cast<uint8_t*>(vt) != gfx + kRendererVtblRva) return false;
+	void* setter = vt[kRendererSetPostVis / sizeof(void*)];
+	if (setter != gfx + kSetPostVisRva && InModule(gfx, setter)) return false;
 	void* prev = reinterpret_cast<SetPostVisFn>(vt[kRendererSetPostVis / sizeof(void*)])(renderer, &PostVisibleCallback);
 	g_prevPostVis = prev == reinterpret_cast<void*>(&PostVisibleCallback) ? nullptr : reinterpret_cast<void (*)()>(prev);
 	g_cbRenderer = renderer;
@@ -686,20 +726,26 @@ void InstallDepthBars() {
 		return;
 	}
 	void** vt = *reinterpret_cast<void***>(renderer);
-	if (reinterpret_cast<uint8_t*>(vt) != gfx + kRendererVtblRva ||
-	    reinterpret_cast<uint8_t*>(vt[kRendererSetPostVis / sizeof(void*)]) != gfx + kSetPostVisRva ||
-	    reinterpret_cast<uint8_t*>(vt[kRendererEndScene3D / sizeof(void*)]) != gfx + kEndScene3DRva ||
-	    !GfxBytes(gfx, kSetPostVisRva, "48 8B 81 B0 B8 00 00 48 89 91 B0 B8 00 00 C3") ||
-	    !GfxBytes(gfx, kPostVisCallSiteRva, "48 8B 87 B0 B8 00 00 48 85 C0 74 02 FF D0") ||
-	    !GfxBytes(gfx, kEndScene3DRva, "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55") ||
-	    !GfxBytes(gfx, kSpriteCtorRva, "40 53 48 83 EC 20 48 8B D9 E8") ||
-	    !GfxBytes(gfx, kSpriteSetTextRva, "40 53 48 83 EC 20 48 8B D9 48 85 D2 74") ||
-	    !GfxBytes(gfx, kGetBatchRva, "40 53 48 83 EC 30 8B 0D") ||
-	    !GfxBytes(gfx, kBatchAddTextRva, "4C 8B D2 4C 8B C9 48 85 D2") ||
-	    !GfxBytes(gfx, kBatchRemoveTextRva, "48 85 D2 74 57 48 83 7A 68 00 74 50 48 83 C2 58")) {
-		LogOnce("2D bars: the engine's name pass does not match this EQGraphics.dll");
+	if (reinterpret_cast<uint8_t*>(vt) != gfx + kRendererVtblRva) {
+		LogOnce("2D bars: the renderer is not the expected class");
 		return;
 	}
+	// Slots another module may have redirected: the setter is called (through any hook), EndScene3D only has to
+	// still lead to the engine's (the call site check below covers what we rely on inside it).
+	void* setter = vt[kRendererSetPostVis / sizeof(void*)];
+	if (setter != gfx + kSetPostVisRva && InModule(gfx, setter)) {
+		LogOnce("2D bars: the renderer's post-visibility setter slot does not match this EQGraphics.dll");
+		return;
+	}
+	if (!GfxBytes(gfx, kSetPostVisRva, "48 8B 81 B0 B8 00 00 48 89 91 B0 B8 00 00 C3", "post-visibility setter") ||
+	    !GfxBytes(gfx, kPostVisCallSiteRva, "48 8B 87 B0 B8 00 00 48 85 C0 74 02 FF D0", "post-visibility call site") ||
+	    !GfxBytes(gfx, kEndScene3DRva, "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55", "end-of-scene function") ||
+	    !GfxBytes(gfx, kSpriteCtorRva, "40 53 48 83 EC 20 48 8B D9 E8", "string sprite constructor") ||
+	    !GfxBytes(gfx, kSpriteSetTextRva, "40 53 48 83 EC 20 48 8B D9 48 85 D2 74", "string sprite SetText") ||
+	    !GfxBytes(gfx, kGetBatchRva, "40 53 48 83 EC 30 8B 0D", "text batch getter") ||
+	    !GfxBytes(gfx, kBatchAddTextRva, "4C 8B D2 4C 8B C9 48 85 D2", "text batch add") ||
+	    !GfxBytes(gfx, kBatchRemoveTextRva, "48 85 D2 74 57 48 83 7A 68 00 74 50 48 83 C2 58", "text batch remove"))
+		return;
 	g_itemCtor = reinterpret_cast<SpriteCtorFn>(gfx + kSpriteCtorRva);
 	g_itemSetText = reinterpret_cast<SpriteSetTextFn>(gfx + kSpriteSetTextRva);
 	g_getBatch = reinterpret_cast<GetBatchFn>(gfx + kGetBatchRva);

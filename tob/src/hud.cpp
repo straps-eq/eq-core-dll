@@ -30,6 +30,7 @@
 #include "hud.h"
 #include "fct.h"
 #include "nameplates.h"
+#include "advloot.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -75,7 +76,7 @@ const size_t kZoneShortName = 0x0;       // char[0x80]
 const size_t kZoneLongName = 0x80;       // char[0x80]
 
 using CXStrCtorFn = void* (*)(void** str, const char* text);
-using CXStrReleaseFn = void (*)(void** str);
+using CXStrReleaseFn = void (*)(void** str, void* rep);   // rep = *str, as the client passes it
 using DrawWrappedTextFn = int (*)(uint8_t* font, void** str, int x, int y, int maxWidth, int* clip,
                                   uint32_t argb, uint16_t flags, int offset);
 using FontHeightFn = int (*)(uint8_t* font);
@@ -225,7 +226,7 @@ int DrawStringClipped(uint8_t* font, const char* text, int x, int y, const int* 
 	if (!str) return 0;
 	int rect[4] = { clip[0], clip[1], clip[2], clip[3] };
 	int width = g_drawWrapped(font, &str, x, y, clip[2] - x, rect, argb, 1, 0);
-	if (str) g_cxstrRelease(&str);
+	if (str) g_cxstrRelease(&str, str);
 	return width;
 }
 
@@ -240,7 +241,7 @@ int TextWidth(uint8_t* font, const char* text) {
 	g_cxstrCtor(&str, text);
 	if (!str) return 0;
 	int width = g_textWidth(*reinterpret_cast<int*>(font + kFontIndex), &str);
-	if (str) g_cxstrRelease(&str);
+	if (str) g_cxstrRelease(&str, str);
 	return (width > 0 && width < 4096) ? width : 0;
 }
 
@@ -473,6 +474,7 @@ int DrawWindowsDetour(uint8_t* mgr) {
 	TickFps();
 	bool inGame = InGame(mgr);
 	NameplatesFrame(mgr, inGame);
+	AdvLootFrame(inGame);
 	FctFrame(mgr, inGame);
 	if (g_hudOn && inGame) DrawHud(mgr, *g_pLocalPlayer);
 	g_inDraw = false;
@@ -597,7 +599,7 @@ void HudCXStr(void** str, const char* text) {
 }
 
 void HudCXStrRelease(void** str) {
-	if (*str) g_cxstrRelease(str);
+	if (*str) g_cxstrRelease(str, *str);
 }
 
 void* HudLocalPC() {
