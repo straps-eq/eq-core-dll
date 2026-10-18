@@ -250,8 +250,10 @@ void MarkDone(uint64_t item, uint32_t corpse) {
 struct Sent {
 	uint32_t seq;
 	uint32_t corpse;
+	uint64_t item;
+	uint64_t when;      // GetTickCount64 at send
 	uint8_t action;
-	bool used;
+	bool used;          // no result yet
 	char name[64];
 };
 const int kMaxSent = 64;
@@ -534,6 +536,25 @@ int64_t PopupDetour(uint8_t* mgr, int menuIndex, void* point, uint8_t* wnd, uint
 	return g_origPopup(mgr, menuIndex, point, wnd, flag);
 }
 
+// Ends a request the server refused (or never answered) the way a result does: the client's own result handler with
+// an unknown result code clears the row's pending flag and drops its pending node, so the row can be looted or left
+// again. Without this a refused row stays "busy" and Leave All answers "You cannot perform that action right now".
+void ReleaseRequest(Sent& s) {
+	s.used = false;
+	uint8_t packet[13] = {};
+	const uint16_t sub = kSubResult, result = 0x7fff;
+	const uint32_t one = 1;
+	memcpy(packet, &sub, 2);
+	memcpy(packet + 2, &result, 2);
+	memcpy(packet + 4, &one, 4);
+	memcpy(packet + 8, &s.seq, 4);
+	PacketStream stream = { packet, sizeof(packet), 2 };
+	g_origResult(g_lootMgr(), &stream);
+}
+
+const uint16_t kSubClearPending = 0x10;    // {u16 0x10, u32 corpse, u64 item, u32 0}: the server refused
+const uint64_t kRequestTimeoutMs = 8000;
+
 uint64_t DispatchDetour(uint8_t* mgr, const uint8_t* data, uint32_t length) {
 	if (g_on && data && length >= 2) {
 		const uint16_t sub = *reinterpret_cast<const uint16_t*>(data);
@@ -544,6 +565,14 @@ uint64_t DispatchDetour(uint8_t* mgr, const uint8_t* data, uint32_t length) {
 		else if (sub == kSubCapabilities && length >= 6) {
 			g_caps = *reinterpret_cast<const uint32_t*>(data + 2);
 			return 0;
+		}
+		else if (sub == kSubClearPending && length >= 14) {
+			const uint64_t result = g_origDispatch(mgr, data, length);
+			const uint32_t corpse = *reinterpret_cast<const uint32_t*>(data + 2);
+			const uint64_t item = *reinterpret_cast<const uint64_t*>(data + 6);
+			for (Sent& s : g_sent)
+				if (s.used && s.corpse == corpse && s.item == item) ReleaseRequest(s);
+			return result;
 		}
 	}
 	return g_origDispatch(mgr, data, length);
@@ -556,6 +585,8 @@ uint64_t SendDetour(uint8_t* mgr, AdvLootRequest* req) {
 		g_sentNext = (g_sentNext + 1) % kMaxSent;
 		s.seq = req->seq;
 		s.corpse = req->corpse;
+		s.item = req->item;
+		s.when = GetTickCount64();
 		s.action = req->action;
 		s.used = true;
 		const char* name = NameOfItem(req->item);
@@ -626,6 +657,10 @@ void AdvLootFrame(bool inGame) {
 		g_ctl = {};
 		return;
 	}
+	// Requests nobody answered (a lost refusal): release them after a while, like Legends' pending expiry.
+	const uint64_t now = GetTickCount64();
+	for (Sent& s : g_sent)
+		if (s.used && now - s.when > kRequestTimeoutMs) ReleaseRequest(s);
 	uint8_t* wnd = *g_pAdvLootWnd;
 	if (!wnd || !wnd[kWndInitDone]) return;
 	UpdateVisibility(wnd);
