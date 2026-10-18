@@ -182,6 +182,7 @@ struct Config {
 	float letterScale = 0.4f;               // 3D: sprite letter scale per unit of font scale (Legends mapping)
 	int minPx = 12;                         // 3D: minimum text height in pixels (Legends)
 	bool occlude = false;                   // 3D: false = drawn over walls (Legends' default)
+	bool valueLabels = false;               // SliderLabels=value: the DLL-only sliders show their value, not N%
 	float otherRange = 200.0f;
 	int maxEntries = 32;
 	int dedupMs = 100;
@@ -257,6 +258,9 @@ void LoadConfig() {
 	c.letterScale = ClampF(Float(kExtras, "LetterScale", c.letterScale), 0.01f, 10.0f);
 	c.minPx = Clamp(Int(kExtras, "MinPx", c.minPx), 0, 200);
 	c.occlude = Int(kExtras, "Occlude", c.occlude) != 0;
+	char labels[16] = {};
+	GetPrivateProfileStringA(kExtras, "SliderLabels", "percent", labels, sizeof(labels), ini);
+	c.valueLabels = _stricmp(labels, "value") == 0;
 	char key[64] = {};
 	GetPrivateProfileStringA(kExtras, "ToggleKey", "Ctrl+Shift+F", key, sizeof(key), ini);
 	ParseHotkey(key, &c);
@@ -1151,9 +1155,15 @@ void SetText(uint8_t* wnd, const char* text) {
 	HudCXStrRelease(&str);
 }
 
-void SetLabel(uint8_t* label, int option) {
+// Legends' slider label: the position as a percentage of the track (its CSliderWnd draw), not the setting.
+void PercentText(int position, int ticks, char* out, size_t size) {
+	const float pct = ticks > 1 ? static_cast<float>(Clamp(position, 0, ticks - 1)) / (static_cast<float>(ticks) - 1.0f) * 100.0f : 0.0f;
+	snprintf(out, size, "%.0f%%", static_cast<double>(pct));
+}
+
+void SetLabel(uint8_t* label, int position) {
 	char text[32];
-	snprintf(text, sizeof(text), option == kMinAngle || option == kMaxAngle ? "%.0f" : "%.2f", g_cfg.f[option]);
+	PercentText(position, kSliderSteps + 1, text, sizeof(text));
 	SetText(label, text);
 }
 
@@ -1189,9 +1199,10 @@ void SetExtraValue(int i, float v) {
 	}
 }
 
-void SetExtraLabel(int i) {
+void SetExtraLabel(int i, int position) {
 	char text[32];
-	snprintf(text, sizeof(text), kExtraSliders[i].fmt, ExtraValue(i));
+	if (g_cfg.valueLabels) snprintf(text, sizeof(text), kExtraSliders[i].fmt, ExtraValue(i));
+	else PercentText(position, kExtraSliders[i].ticks, text, sizeof(text));
 	SetText(g_page.xvalue[i], text);
 }
 
@@ -1250,14 +1261,14 @@ void Fill() {
 	SetBox(g_page.loot, g_cfg.lootText);
 	for (int i = 0; i < kFloatCount; ++i) {
 		if (g_page.slider[i]) g_sliderSetValue(g_page.slider[i], PositionOf(i));
-		SetLabel(g_page.value[i], i);
+		SetLabel(g_page.value[i], PositionOf(i));
 	}
 	for (int i = 0; i < kCategoryCount; ++i)
 		if (g_page.combo[i]) g_comboSetChoice(g_page.combo[i], g_cfg.hitText[i]);
 	SetBox(g_page.outline, g_cfg.outline);
 	for (int i = 0; i < kXCount; ++i) {
 		if (g_page.xslider[i]) g_sliderSetValue(g_page.xslider[i], ExtraPosition(i));
-		SetExtraLabel(i);
+		SetExtraLabel(i, ExtraPosition(i));
 	}
 	if (g_page.keyCombo) g_comboSetChoice(g_page.keyCombo, KeyRow());
 	SetKeyLabel();
@@ -1342,7 +1353,7 @@ uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 		for (int i = 0; i < kFloatCount; ++i) {
 			if (sender != g_page.slider[i]) continue;
 			g_cfg.f[i] = ValueOf(i, arg);
-			SetLabel(g_page.value[i], i);
+			SetLabel(g_page.value[i], arg);
 			SaveConfig();
 			return 0;
 		}
@@ -1350,7 +1361,7 @@ uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 			if (sender != g_page.xslider[i]) continue;
 			const ExtraSliderInfo& x = kExtraSliders[i];
 			SetExtraValue(i, x.min + static_cast<float>(Clamp(arg, 0, x.ticks - 1)) * x.step);
-			SetExtraLabel(i);
+			SetExtraLabel(i, arg);
 			if (i == kXMaxEntries && g_count > g_cfg.maxEntries) {
 				// keep the newest
 				const int drop = g_count - g_cfg.maxEntries;
