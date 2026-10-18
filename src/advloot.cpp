@@ -110,7 +110,8 @@ using SendFn = uint64_t (*)(uint8_t* mgr, AdvLootRequest* req);
 using LootMgrFn = uint8_t* (*)();
 using GetChildFn = uint8_t* (*)(uint8_t* parent, void** name, char log);
 using ListItemDataFn = int64_t (*)(uint8_t* list, int row);
-using AddMenuItemFn = int (*)(uint8_t* menu, void** text, int id, int a, int b);
+// As the client calls it (FUN_1400ad9c0): r9 = 0, then -1 and 1 on the stack.
+using AddMenuItemFn = int (*)(uint8_t* menu, void** text, int id, void* zero, int minusOne, uint8_t one);
 using ShowFn = void (*)(uint8_t* wnd, uint8_t visible, uint8_t unknown);
 using IsCheckedFn = uint8_t (*)(uint8_t* box);
 using SetCheckFn = void (*)(uint8_t* box, uint8_t on, uint8_t unused);
@@ -481,7 +482,7 @@ void AddItem(uint8_t* menu, const char* text, int id) {
 	void* s = nullptr;
 	HudCXStr(&s, text);
 	if (!s) return;
-	reinterpret_cast<AddMenuItemFn>(Virtual(menu, kVtblAddMenuItem))(menu, &s, id, -1, 1);
+	reinterpret_cast<AddMenuItemFn>(Virtual(menu, kVtblAddMenuItem))(menu, &s, id, nullptr, -1, 1);
 	HudCXStrRelease(&s);
 }
 
