@@ -538,18 +538,30 @@ int64_t PopupDetour(uint8_t* mgr, int menuIndex, void* point, uint8_t* wnd, uint
 // Ends a request the server refused (or never answered) the way a result does: the client's own result handler with
 // an unknown result code clears the row's pending flag and drops its pending node, so the row can be looted or left
 // again. Without this a refused row stays "busy" and Leave All answers "You cannot perform that action right now".
-void ReleaseRequest(Sent& s) {
-	s.used = false;
-	MarkDone(s.item, s.corpse);   // refused or unanswered: the auto filters leave this pair alone from now on
+void SendReleaseResult(uint32_t seq) {
 	uint8_t packet[13] = {};
 	const uint16_t sub = kSubResult, result = 0x7fff;
 	const uint32_t one = 1;
 	memcpy(packet, &sub, 2);
 	memcpy(packet + 2, &result, 2);
 	memcpy(packet + 4, &one, 4);
-	memcpy(packet + 8, &s.seq, 4);
+	memcpy(packet + 8, &seq, 4);
 	PacketStream stream = { packet, sizeof(packet), 2 };
 	g_origResult(g_lootMgr(), &stream);
+}
+
+void ReleaseRequest(Sent& s) {
+	s.used = false;
+	MarkDone(s.item, s.corpse);   // refused or unanswered: the auto filters leave this pair alone from now on
+	SendReleaseResult(s.seq);
+}
+
+// The loot manager's pending request node for `seq` (buckets at +0x38, seq % 30; node +0 seq, +0x38 next).
+bool RequestPending(uint8_t* mgr, uint32_t seq) {
+	const uint8_t* node = reinterpret_cast<uint8_t**>(mgr + 0x38)[seq % 0x1e];
+	for (; node; node = *reinterpret_cast<uint8_t* const*>(node + 0x38))
+		if (*reinterpret_cast<const uint32_t*>(node) == seq) return true;
+	return false;
 }
 
 const uint16_t kSubClearPending = 0x10;    // {u16 0x10, u32 corpse, u64 item, u32 0}: the server refused
@@ -622,7 +634,15 @@ uint64_t ResultDetour(uint8_t* mgr, PacketStream* stream) {
 			}
 		}
 	}
-	return g_origResult(mgr, stream);
+	uint32_t seq = 0;
+	const bool known = g_on && stream && stream->data && stream->length >= stream->position + 10;
+	if (known) seq = *reinterpret_cast<const uint32_t*>(stream->data + stream->position + 6);
+	const uint64_t ret = g_origResult(mgr, stream);
+	// A success for a corpse the client no longer lists (an earlier result emptied it) makes the handler return early,
+	// leaving the request's node and the client's "waiting on the server" count behind. That count blocks the inventory
+	// and other item actions until something resets it, so finish the request the way an unknown result code does.
+	if (known && RequestPending(mgr, seq)) SendReleaseResult(seq);
+	return ret;
 }
 
 // Auto filters: one pass over the Personal rows per frame.
