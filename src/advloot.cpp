@@ -221,7 +221,9 @@ void SetFilter(uint64_t item, const char* name, uint8_t action) {
 	WritePrivateProfileStringA("Filters", key, name, g_filterFile);
 }
 
-// (item, corpse) pairs the auto filters already asked for; cleared on sync and when the window empties.
+// (item, corpse) pairs the server refused (or never answered): the auto filters don't ask for them again. Pairs that
+// succeed are not recorded, so the next copy of the same item on the same corpse is handled too. Cleared on sync
+// and when the window empties.
 struct Done {
 	uint64_t item;
 	uint32_t corpse;
@@ -290,8 +292,8 @@ const char* NameOfItem(uint64_t item) {
 	return nullptr;
 }
 
-// One request per (item, corpse) of the row, as the client's Loot button does. `autoOnly` skips pairs the
-// filters already sent. Returns the number of requests.
+// One request per (item, corpse) of the row, as the client's Loot button does. `autoOnly` skips pairs the server
+// refused before. Returns the number of requests.
 int RequestRow(uint8_t* row, uint8_t action, bool autoOnly) {
 	if (!g_caps || row[kRowPending]) return 0;
 	const uint64_t item = *reinterpret_cast<uint64_t*>(row + kRowItemId);
@@ -304,10 +306,7 @@ int RequestRow(uint8_t* row, uint8_t action, bool autoOnly) {
 		const uint32_t corpse = *reinterpret_cast<uint32_t*>(sub + kSubCorpseId);
 		const uint16_t qty = *reinterpret_cast<uint16_t*>(sub + kSubQty);
 		if (!qty) continue;
-		if (autoOnly) {
-			if (AlreadyDone(item, corpse)) continue;
-			MarkDone(item, corpse);
-		}
+		if (autoOnly && AlreadyDone(item, corpse)) continue;   // refused before: don't ask again
 		AdvLootRequest req = { item, corpse, qty, 0, action, {} };
 		row[kRowPending] = 1;
 		g_send(g_lootMgr(), &req);
@@ -541,6 +540,7 @@ int64_t PopupDetour(uint8_t* mgr, int menuIndex, void* point, uint8_t* wnd, uint
 // again. Without this a refused row stays "busy" and Leave All answers "You cannot perform that action right now".
 void ReleaseRequest(Sent& s) {
 	s.used = false;
+	MarkDone(s.item, s.corpse);   // refused or unanswered: the auto filters leave this pair alone from now on
 	uint8_t packet[13] = {};
 	const uint16_t sub = kSubResult, result = 0x7fff;
 	const uint32_t one = 1;
@@ -605,7 +605,10 @@ uint64_t ResultDetour(uint8_t* mgr, PacketStream* stream) {
 			for (Sent& s : g_sent) {
 				if (!s.used || s.seq != seq) continue;
 				s.used = false;
-				if (result != 1 && result != 2) break;
+				if (result != 1 && result != 2) {
+					MarkDone(s.item, s.corpse);   // refused (the server's result 6): no auto retry
+					break;
+				}
 				char text[128];
 				if (copper) {
 					const unsigned long long pp = copper / 1000, gp = copper / 100 % 10, sp = copper / 10 % 10, cp = copper % 10;
