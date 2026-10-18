@@ -651,6 +651,8 @@ uint32_t g_frameAtCallback = 0;                  // the renderer's frame number 
 const size_t kRendererFrame = 0xb8e0;            // u32, bumped by +0x158 for every world frame
 const uint32_t kMissedFrames = 120;              // world frames without our callback before we give up
 void* g_failedRenderer = nullptr;                // renderer that never called back (Waiting)
+void* g_reattachedOn = nullptr;                  // renderer whose slot someone replaced and we re-attached to once
+thread_local bool t_inCallback = false;          // re-entry guard: chained callbacks that call each other stop here
 
 struct NameRef {
 	float depth, key;
@@ -852,9 +854,19 @@ void KeepCallbackAttached() {
 		if (renderer != g_failedRenderer && AttachCallback(renderer)) LogOnce("depth bars on (new world renderer)");
 		return;
 	}
-	if (renderer != g_cbRenderer || PostVisSlot(renderer) != reinterpret_cast<void*>(&PostVisibleCallback)) {
-		AttachCallback(renderer);
+	if (renderer != g_cbRenderer) {
+		AttachCallback(renderer);   // a new world renderer (zoning)
 		return;
+	}
+	if (PostVisSlot(renderer) != reinterpret_cast<void*>(&PostVisibleCallback)) {
+		// Another module put its callback in the slot after we attached. Re-attach once on this renderer, chaining
+		// it; if it takes the slot again, stay where we are (it may chain us) instead of fighting over the slot.
+		if (g_reattachedOn != renderer) {
+			LogOnce("another module replaced the post-visibility callback; chaining it");
+			g_reattachedOn = renderer;
+			AttachCallback(renderer);
+			return;
+		}
 	}
 	// Counted in world frames, not time: a zone load or UI-only frames render no world and call nothing.
 	const uint32_t frame = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(renderer) + kRendererFrame);
@@ -1088,8 +1100,19 @@ void TrackTarget() {
 	}
 }
 
-// Renderer post-visibility callback: this frame's names are queued, the flush has not run yet.
+void PostVisibleBody();
+
+// Renderer post-visibility callback. Guarded against re-entry: if a chained callback calls back into us, that inner
+// call returns at once without chaining again.
 void PostVisibleCallback() {
+	if (t_inCallback) return;
+	t_inCallback = true;
+	PostVisibleBody();
+	t_inCallback = false;
+}
+
+// This frame's names are queued, the flush has not run yet.
+void PostVisibleBody() {
 	if (g_prevPostVis) g_prevPostVis();
 	g_lastCallback = Now();
 	if (g_cbRenderer) g_frameAtCallback = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(g_cbRenderer) + kRendererFrame);
