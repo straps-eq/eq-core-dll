@@ -476,10 +476,13 @@ bool Allowed(uint8_t action) {
 
 // ---- hooks ----
 
+bool PllCellClick(uint8_t* wnd, uint8_t* sender);
+
 int64_t NotifyDetour(uint8_t* wnd, uint8_t* sender, uint64_t notification, void* data) {
 	if (!g_on || !wnd || !wnd[kWndInitDone] || !g_caps || !sender) return g_origNotify(wnd, sender, notification, data);
 	UpdateVisibility(wnd);
 	if (notification == kNotifyClick) {
+		if (PllCellClick(wnd, sender)) return 0;
 		if (sender == g_ctl.shiftBox || sender == g_ctl.autoBox) {
 			const bool on = IsChecked(sender);
 			if (sender == g_ctl.shiftBox) {
@@ -1045,6 +1048,102 @@ bool CallsWithin(const uint8_t* fn, size_t size, T target) {
 	return false;
 }
 
+// ---- AS / ST columns in the Advanced Loot window's Personal list ----
+// The shipped EQUI_AdvancedLootWnd.xml puts AS and ST in columns 7 and 8; the client fills 0-6 only (FUN_1400a2460).
+// Cells are clones of ADLW_CheckBoxTemplate made the way the client's FUN_1400a5250 makes the AN / AG boxes.
+
+const size_t kWndCheckTemplate = 0x388;  // CXWnd* ADLW_CheckBoxTemplate (FUN_1400a5250 clones it)
+const int kPllColAS = 7, kPllColST = 8, kPllColumns = 9;
+bool g_pllShown = false;                 // cells were made while the columns were active
+
+uint8_t* PllList(uint8_t* wnd) {
+	uint8_t* rows = PersonalRows(wnd);
+	uint8_t* list = rows ? *reinterpret_cast<uint8_t**>(rows + kRowsList) : nullptr;
+	return list && *reinterpret_cast<int*>(list + kListColCount) >= kPllColumns ? list : nullptr;
+}
+
+bool PllActive() {
+	return g_lfOn && g_caps && g_autoFilters;
+}
+
+uint8_t* PllCloneCheckbox(uint8_t* wnd) {
+	uint8_t* tmpl = *reinterpret_cast<uint8_t**>(wnd + kWndCheckTemplate);
+	uint8_t* mgr = *g_pSidlMgr;
+	if (!tmpl || !mgr) return nullptr;
+	void* def = g_sidlFindDef(mgr, *reinterpret_cast<uint32_t*>(tmpl + kWndXmlIndex));
+	uint8_t* box = def ? g_sidlCreate(mgr, wnd, def, 1) : nullptr;
+	if (!box) return nullptr;
+	if (!LooksLikeCheckbox(*reinterpret_cast<uint8_t**>(wnd + kWndApplyFiltersCheck), box)) {
+		g_lfOn = false;
+		Log("loot list columns off: the cloned template is not a checkbox");
+		return nullptr;
+	}
+	g_wndSetByte70(box, 1, 0);
+	SetBox(box, false);
+	Show(box, true);
+	*reinterpret_cast<uint64_t*>(box + kWndUnk1e0) = 0;
+	return box;
+}
+
+// Each frame: every Personal row gets its AS / ST boxes (only for actions the server offers) and they follow the table.
+void PllSync(uint8_t* wnd) {
+	uint8_t* rows = PersonalRows(wnd);
+	uint8_t* list = PllList(wnd);
+	if (!list) return;
+	const bool active = PllActive();
+	if (!active && !g_pllShown) return;
+	const bool reshow = active && !g_pllShown;   // boxes hidden while the columns were off come back
+	bool attached = false;
+	for (int r = 0, n = ListRows(rows); r < n; ++r) {
+		uint8_t* row = RowAt(rows, r);
+		if (!row) continue;
+		const int f = active ? FindFilter(*reinterpret_cast<uint64_t*>(row + kRowItemId)) : -1;
+		const uint8_t action = f >= 0 ? g_filters[f].action : 0;
+		for (int c = kPllColAS; c <= kPllColST; ++c) {
+			uint8_t* box = g_listGetCellWnd(list, r, c);
+			if (!active) {
+				Show(box, false);
+				continue;
+			}
+			if (!Allowed(c == kPllColAS ? kActionSell : kActionStore)) continue;
+			if (!box) {
+				box = PllCloneCheckbox(wnd);
+				if (!box) return;
+				g_listSetCellWnd(list, r, c, box);
+				attached = true;
+			}
+			else if (reshow) Show(box, true);
+			const bool want = c == kPllColAS ? action == kActionSell : (action == kActionStore || action == kActionDepot);
+			if (IsChecked(box) != want) SetBox(box, want);
+		}
+	}
+	if (attached) g_listLayout(list);
+	g_pllShown = active;
+}
+
+// A click on one of our cells: set or clear the row's auto action (AS and ST exclude each other).
+bool PllCellClick(uint8_t* wnd, uint8_t* sender) {
+	if (!PllActive()) return false;
+	uint8_t* list = PllList(wnd);
+	if (!list || sender == list) return false;
+	int r = -1, c = -1;
+	g_listCellFromWnd(list, sender, &r, &c);
+	if (r < 0 || (c != kPllColAS && c != kPllColST)) return false;
+	uint8_t* row = RowAt(PersonalRows(wnd), r);
+	if (!row) return true;
+	const bool on = IsChecked(sender);
+	const uint8_t action = on ? (c == kPllColAS ? kActionSell : StoreAction()) : 0;
+	if (action && !Allowed(action)) {
+		SetBox(sender, false);
+		return true;
+	}
+	if (on) SetBox(g_listGetCellWnd(list, r, c == kPllColAS ? kPllColST : kPllColAS), false);
+	LoadFilters();
+	SetFilter(*reinterpret_cast<uint64_t*>(row + kRowItemId), reinterpret_cast<const char*>(row + kRowName),
+	          *reinterpret_cast<uint32_t*>(row + kRowIcon), action);
+	return true;
+}
+
 #define REF(var) reinterpret_cast<void**>(&var)
 
 const char* kLfNotifySig = "48 89 5C 24 08 48 89 6C 24 10 56 57 41 56 48 83 EC 30 4D 8B F1";
@@ -1072,6 +1171,7 @@ void AdvLootFrame(bool inGame) {
 	uint8_t* wnd = *g_pAdvLootWnd;
 	if (!wnd || !wnd[kWndInitDone]) return;
 	UpdateVisibility(wnd);
+	if (g_lfOn) PllSync(wnd);
 	if (g_caps && g_autoFilters) ApplyFilters(wnd);
 }
 
