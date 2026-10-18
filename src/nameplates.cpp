@@ -1,6 +1,6 @@
 // Nameplates: EverQuest Legends-style bars under spawn names (analysis\legends\nameplates-parity\dll-spec.md,
 // behaviour-spec.md): an HP row, then a cast-or-mana row 1 px below, a 500 ms red flash in the cast row when a
-// cast is interrupted, and a pulsing red frame around the bars of NPCs that have aggro on me (or my group).
+// cast is interrupted, and a flashing HP bar on NPCs that have aggro on me (or my group) (Legends: a pulsing frame).
 //
 // Drawing: from the CXWndManager::DrawWindows hook shared with the Hud and FCT, after the client's windows, with
 // the renderer's DrawColoredQuad (vtbl +0x140) and DrawLine2D (+0x110), checked once against the EQGraphics.dll
@@ -464,15 +464,18 @@ void Quad(float x0, float y0, float x1, float y1, uint32_t argb) {
 	g_drawQuad(g_renderer, q, argb);
 }
 
-// Threat pulse as Legends (red, brightness 50..100 % on a 2 s triangle, fading beyond 80 units), but alpha 240 (Legends 190).
-uint32_t ThreatColour(float distance) {
-	float alpha = 240.0f * (distance > 80.0f ? 80.0f / distance : 1.0f);   // Legends 190; bolder here
-	if (g_cfg.threatColour) return (static_cast<uint32_t>(alpha) << 24) | (g_cfg.threatColour & 0x00FFFFFFu);
-	const uint64_t t = Now();
-	const float phase = static_cast<float>(t % 1000) / 1000.0f;
-	const float tri = (t % 2000 < 1000) ? phase : 1.0f - phase;
-	const uint32_t red = static_cast<uint32_t>(255.0f * (1.0f - 0.5f * tri));
-	return (static_cast<uint32_t>(alpha) << 24) | (red << 16);
+// Threat: the HP bar's fill flashes between its colour and the flash colour (ThreatFrameColour, else near white)
+// on a 0.8 s triangle, so an NPC that is on you stands out without anything drawn around its name.
+uint32_t ThreatFlash(uint32_t fill) {
+	const uint32_t flash = g_cfg.threatColour ? (g_cfg.threatColour | 0xFF000000u) : 0xFFFFE0E0u;
+	const uint64_t t = Now() % 800;
+	const float k = t < 400 ? t / 400.0f : (800 - t) / 400.0f;
+	uint32_t out = 0xFF000000u;
+	for (int shift = 0; shift < 24; shift += 8) {
+		const float a = static_cast<float>((fill >> shift) & 0xFF), b = static_cast<float>((flash >> shift) & 0xFF);
+		out |= static_cast<uint32_t>(a + (b - a) * k + 0.5f) << shift;
+	}
+	return out;
 }
 
 // Text the DLL draws next to the bars, with the FontShadow / FontOutline layers.
@@ -1012,6 +1015,7 @@ bool PlanSpawn(uint8_t* spawn, uint8_t* me, uint8_t* target, float camX, float c
 	q.mana = manaMax > 0 ? static_cast<float>(manaCur) / static_cast<float>(manaMax) : 1.0f;
 	q.showMana = manaOn && !q.casting && manaCur >= 0 && (q.mana < 1.0f || isTarget) && (manaMax > 0 || isTarget) && q.mana > 0.0f;
 	q.threat = !isMe && type == 1 && ThreatFlag(spawn, id, isTarget, now);
+	if (q.threat) q.showHp = true;   // the flashing HP bar is the indicator, even at full health
 	if (!q.showHp && !q.casting && !q.flashing && !q.showMana && !q.threat) return false;
 	*p = q;
 	return true;
@@ -1028,30 +1032,13 @@ void PutRect(const Sink& s, float l, float t, float r, float b, uint32_t argb) {
 	else Quad(l, t, r, b, argb);
 }
 
-// The threat frame: `t` px thick, inside the given rect.
-void PutFrame(const Sink& s, float x0, float y0, float x1, float y1, uint32_t argb, float t) {
-	PutRect(s, x0, y0, x1, y0 + t, argb);
-	PutRect(s, x0, y1 - t, x1, y1, argb);
-	PutRect(s, x0, y0 + t, x0 + t, y1 - t, argb);
-	PutRect(s, x1 - t, y0 + t, x1, y1 - t, argb);
-}
-
-// Bolder than Legends' 1 px: 2 px, 3-4 px at larger Size.
-float ThreatThickness() {
-	return ClampF(roundf(2.0f * g_cfg.size), 2.0f, 4.0f);
-}
-
-void PutBar(const Sink& s, float cx, float y, float w, float h, float pct, uint32_t fill, bool threat, uint32_t threatColour) {
+void PutBar(const Sink& s, float cx, float y, float w, float h, float pct, uint32_t fill) {
 	const float x0 = floorf(cx - w * 0.5f);
 	w = floorf(w);
 	h = floorf(h);
 	y = floorf(y);
 	PutRect(s, x0 + 1, y - 1, x0 + w + 1, y + h + 1, kColourBacking);
 	if (pct > 0.0f) PutRect(s, x0, y, x0 + roundf(w * ClampF(pct, 0.0f, 1.0f)), y + h, fill);
-	if (threat) {
-		const float t = ThreatThickness();
-		PutFrame(s, x0 - t, y - 1 - t, x0 + w + 1 + t, y + h + 1 + t, threatColour, t);
-	}
 }
 
 // Lays out a spawn's bars under the name box; `mgr` non-null draws the 2D labels too, `bars` false skips the rects.
@@ -1062,13 +1049,13 @@ void Layout(const Sink& s, const Plan& p, const float* box, uint8_t* mgr, bool b
 	const float w = ClampF(roundf(nameH * 4.5f * g_cfg.size), 24.0f, viewportW / 4.0f > 24.0f ? viewportW / 4.0f : 24.0f);
 	const float cx = (box[0] + box[2]) * 0.5f;
 	float y = box[3];
-	const uint32_t threatColour = p.threat ? ThreatColour(p.dist) : 0;
 	const bool depthLabels = s.depth && g_labelsReady;
 	const float labelH = ClampF(roundf(nameH * 0.5f * g_cfg.size), 8.0f, 32.0f);   // half the name's height
 	const uint32_t id = *reinterpret_cast<uint32_t*>(p.spawn + kSpawnId);
 	if (p.showHp) {
-		const uint32_t fill = g_cfg.hpByCon && p.type == 1 ? HudConColour(p.spawn) : kColourHp;
-		if (bars) PutBar(s, cx, y, w, h, p.hp, fill, p.threat, threatColour);
+		uint32_t fill = g_cfg.hpByCon && p.type == 1 ? HudConColour(p.spawn) : kColourHp;
+		if (p.threat) fill = ThreatFlash(fill);
+		if (bars) PutBar(s, cx, y, w, h, p.hp, fill);
 		if (g_cfg.hpText && (mgr || depthLabels)) {
 			char text[16];
 			snprintf(text, sizeof(text), "%d%%", static_cast<int>(p.hp * 100.0f + 0.5f));
@@ -1082,11 +1069,11 @@ void Layout(const Sink& s, const Plan& p, const float* box, uint8_t* mgr, bool b
 		y += h + 1.0f;
 	}
 	if (p.flashing) {
-		if (bars) PutBar(s, cx, y, w, h, 1.0f, kColourHp, p.threat, threatColour);
+		if (bars) PutBar(s, cx, y, w, h, 1.0f, kColourHp);
 		y += h + 1.0f;
 	}
 	else if (p.casting) {
-		if (bars) PutBar(s, cx, y, w, h, p.castLeft, kColourCast, p.threat, threatColour);
+		if (bars) PutBar(s, cx, y, w, h, p.castLeft, kColourCast);
 		y += h + 1.0f;
 		if (g_cfg.castSpellName && (mgr || depthLabels)) {
 			if (const char* name = SpellName(p.spell)) {
@@ -1095,10 +1082,7 @@ void Layout(const Sink& s, const Plan& p, const float* box, uint8_t* mgr, bool b
 			}
 		}
 	}
-	if (p.showMana && bars) PutBar(s, cx, y, w, h, p.mana, kColourMana, p.threat, threatColour);
-	if (p.threat && bars && !p.showHp && !p.casting && !p.flashing && !p.showMana)
-		PutFrame(s, box[0] - ThreatThickness(), box[1] - ThreatThickness(), box[2] + ThreatThickness(), box[3] + ThreatThickness(),
-		         threatColour, ThreatThickness());
+	if (p.showMana && bars) PutBar(s, cx, y, w, h, p.mana, kColourMana);
 }
 
 void TrackTarget() {
@@ -1358,7 +1342,7 @@ const char* const kSliderIds[kSliderCount] = { "ODP_NameplateDrawDistanceSlider"
 const char* const kValueIds[kSliderCount] = { "ODP_NameplateDrawDistanceValueLabel", "ODP_NameplateSizeValueLabel", "ODP_NameplateThreatHoldValueLabel" };
 const int kSliderTicks[kSliderCount] = { 100, 200, 59 };
 
-// Threat frame colour rows: Legends pulse (empty), presets, Custom (ini).
+// Threat flash colour rows: near white (empty), presets, Custom (ini).
 const uint32_t kThreatColours[] = { 0, 0xFF0000, 0xFF8000, 0xFFFF00, 0xFFFFFF, 0xC000FF };
 const int kThreatColourCount = static_cast<int>(sizeof(kThreatColours) / sizeof(kThreatColours[0]));
 
