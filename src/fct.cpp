@@ -130,6 +130,12 @@ uint8_t** g_spawnMgr = nullptr;       // &DAT_140ee4b40
 uint8_t** g_pLocalPlayer = nullptr;   // &DAT_140e66228, as the damage handler loads it
 uint8_t** g_pDisplay = nullptr;       // &DAT_140e65d60, as the damage handler loads it
 DistanceFn g_distance = nullptr;      // FUN_14019b2c0
+// The Chat tab's Show / Hide: the chat manager FUN_1401093c0() and its "is this colour shown" FUN_140108b00(mgr,
+// colour) (filter value != 1 for the filter the colour maps to), the check the damage message makes before printing.
+using ChatMgrFn = uint8_t* (*)();
+using ChatShowsFn = bool (*)(uint8_t* mgr, int colour);
+ChatMgrFn g_chatMgr = nullptr;
+ChatShowsFn g_chatShows = nullptr;
 uint8_t** g_pDisplayCheck = nullptr;  // &DAT_140e65d60 from the game time read, for the cross-check
 int32_t* g_cameraOffsetAt = nullptr;  // the 0x118 inside `lea rdx,[rdi+118]` at the "Camera created." site
 void** g_pRenderer = nullptr;         // &DAT_140f0e910
@@ -183,6 +189,7 @@ struct Config {
 	float letterScale = 0.4f;               // 3D: sprite letter scale per unit of font scale (Legends mapping)
 	int minPx = 12;                         // 3D: minimum text height in pixels (Legends)
 	bool occlude = false;                   // 3D: false = drawn over walls (Legends' default)
+	bool followChatFilters = true;          // a hit / miss hidden in the Chat tab gets no floating text either
 	bool valueLabels = false;               // SliderLabels=value: the DLL-only sliders show their value, not N%
 	float otherRange = 200.0f;
 	int maxEntries = 32;
@@ -259,6 +266,7 @@ void LoadConfig() {
 	c.letterScale = ClampF(Float(kExtras, "LetterScale", c.letterScale), 0.01f, 10.0f);
 	c.minPx = Clamp(Int(kExtras, "MinPx", c.minPx), 0, 200);
 	c.occlude = Int(kExtras, "Occlude", c.occlude) != 0;
+	c.followChatFilters = Int(kExtras, "FollowChatFilters", c.followChatFilters) != 0;
 	char labels[16] = {};
 	GetPrivateProfileStringA(kExtras, "SliderLabels", "percent", labels, sizeof(labels), ini);
 	c.valueLabels = _stricmp(labels, "value") == 0;
@@ -622,6 +630,13 @@ bool InGame() {
 	return eq && *reinterpret_cast<int*>(eq + kEverQuestGameState) == 5 && *g_pLocalPlayer;
 }
 
+// The client prints this chat colour (Chat tab filter not set to Hide).
+bool ChatShows(int colour) {
+	if (!g_cfg.followChatFilters) return true;
+	uint8_t* mgr = g_chatMgr();
+	return !mgr || g_chatShows(mgr, colour);
+}
+
 void OnDamage(const uint8_t* pkt) {
 	if (!InGame()) return;
 	uint8_t* me = *g_pLocalPlayer;
@@ -649,7 +664,9 @@ void OnDamage(const uint8_t* pkt) {
 	if (damage > 0) {
 		static const int kHit[kCategoryCount] = { kColourYouHit, kColourSelfHit, kColourOtherHit };
 		const bool crit = (special & kSpecialCrit) != 0;
-		uint32_t colour = g_cfg.colour[cat] ? g_cfg.colour[cat] : HudUserColour(type >= kTypeDamageShield ? kColourNonMelee : kHit[cat]);
+		const int chat = type >= kTypeDamageShield ? kColourNonMelee : kHit[cat];
+		if (!ChatShows(chat)) return;
+		uint32_t colour = g_cfg.colour[cat] ? g_cfg.colour[cat] : HudUserColour(chat);
 		char text[24];
 		snprintf(text, sizeof(text), "%lld", static_cast<long long>(damage));
 		AddText(target, text, colour, cat, crit, crit ? 5000 : 4000, kNumber);
@@ -660,6 +677,7 @@ void OnDamage(const uint8_t* pkt) {
 	const char* word = MissWord(damage);
 	if (!word) return;
 	static const int kMiss[kCategoryCount] = { kColourYouMiss, kColourSelfMiss, kColourOtherMiss };
+	if (!ChatShows(kMiss[cat])) return;
 	uint32_t colour = HudUserColour(damage == -1 ? kColourWhite : kMiss[cat]);
 	AddText(target, word, colour, cat, false, 2000, kWord);
 }
@@ -920,7 +938,7 @@ const HookSite kFctHooks[2] = {
 	{ kFctDamageSig, 5, reinterpret_cast<void*>(&DamageDetour), REF(g_origDamage) },
 };
 
-const RefSite kFctRefs[9] = {
+const RefSite kFctRefs[11] = {
 	{ kDamageGateSig, 3, 7, REF(g_spawnMgr) },
 	{ kDamageGateSig, 30, 34, REF(g_pLocalPlayer) },
 	{ kDamageGateSig, 37, 41, REF(g_pDisplay) },
@@ -935,6 +953,9 @@ const RefSite kFctRefs[9] = {
 	{ "8B 05 ?? ?? ?? ?? 48 8D 93 A4 54 00 00 0F 28 74 24 30", 2, 6, REF(g_viewport) },
 	// mov rcx,[pEverQuest]; cmp dword [rcx+5e4],5 (the in-game test, as in hud.cpp)
 	{ "48 8B 0D ?? ?? ?? ?? 83 B9 E4 05 00 00 05", 3, 7, REF(g_pEverQuest) },
+	// The damage message's chat gate: call ChatMgr; mov rcx,rax; mov ebx,[rbp-58]; mov edx,ebx; call Shows; test al,al
+	{ "E8 ?? ?? ?? ?? 48 8B C8 8B 5D A8 8B D3 E8 ?? ?? ?? ?? 84 C0 0F", 1, 5, REF(g_chatMgr) },
+	{ "E8 ?? ?? ?? ?? 48 8B C8 8B 5D A8 8B D3 E8 ?? ?? ?? ?? 84 C0 0F", 14, 18, REF(g_chatShows) },
 };
 
 const char* FctSharedPrepare() {
@@ -948,6 +969,10 @@ const char* FctSharedPrepare() {
 	if (memcmp(reinterpret_cast<const void*>(g_distance), kDistanceStart, sizeof(kDistanceStart)) != 0)
 		return "the damage handler's distance call is not the expected function";
 	if (*g_cameraOffsetAt != 0x118) return "the camera is not at CDisplay+0x118";
+	// FUN_140108b00: mov r8d,edx; lea rdx,[filters]; jmp (the colour -> filter lookup)
+	static const uint8_t kChatShowsStart[] = { 0x44, 0x8B, 0xC2, 0x48, 0x8D, 0x15 };
+	if (memcmp(reinterpret_cast<const void*>(g_chatShows), kChatShowsStart, sizeof(kChatShowsStart)) != 0)
+		return "the damage message's chat filter check is not the expected function";
 	g_cameraOffset = static_cast<size_t>(*g_cameraOffsetAt);
 	return nullptr;
 }
