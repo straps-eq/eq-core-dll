@@ -646,7 +646,42 @@ const uint16_t kResultRefused = 6;         // the server refused the action for 
 const uint16_t kSubClearPending = 0x10;    // {u16 0x10, u32 corpse, u64 item, u32 0}: the server refused
 const uint64_t kRequestTimeoutMs = 8000;
 
+void ApplyFilters(uint8_t* wnd);
+bool g_autoHidden = false;   // we hid a window the client opened for loot the auto actions are already handling
+
+bool AllRowsPending(uint8_t* wnd) {
+	uint8_t* rows = PersonalRows(wnd);
+	const int n = rows ? ListRows(rows) : 0;
+	for (int i = 0; i < n; ++i) {
+		uint8_t* row = RowAt(rows, i);
+		if (row && !row[kRowPending]) return false;
+	}
+	return n > 0;
+}
+
+// Runs the auto actions as soon as a packet adds loot, before the frame is drawn. If the client opened the window
+// only for items that are now being sold / stored, it is hidden again so it doesn't flash on every kill.
+void AutoAfterPacket(bool wasVisible) {
+	if (!g_caps || !g_autoFilters) return;
+	uint8_t* wnd = *g_pAdvLootWnd;
+	if (!wnd || !wnd[kWndInitDone]) return;
+	ApplyFilters(wnd);
+	if (!wasVisible && wnd[kWndVisible] && AllRowsPending(wnd)) {
+		Show(wnd, false);
+		g_autoHidden = true;
+	}
+}
+
 uint64_t DispatchDetour(uint8_t* mgr, const uint8_t* data, uint32_t length) {
+	if (g_on && data && length >= 2 && g_pAdvLootWnd && *g_pAdvLootWnd) {
+		const uint16_t sub = *reinterpret_cast<const uint16_t*>(data);
+		if (sub != kSubSync && sub != kSubCapabilities && sub != kSubClearPending) {
+			const bool wasVisible = (*g_pAdvLootWnd)[kWndVisible] != 0;
+			const uint64_t result = g_origDispatch(mgr, data, length);
+			AutoAfterPacket(wasVisible);
+			return result;
+		}
+	}
 	if (g_on && data && length >= 2) {
 		const uint16_t sub = *reinterpret_cast<const uint16_t*>(data);
 		if (sub == kSubSync) {
@@ -1204,6 +1239,16 @@ void AdvLootFrame(bool inGame) {
 	uint8_t* wnd = *g_pAdvLootWnd;
 	if (!wnd || !wnd[kWndInitDone]) return;
 	UpdateVisibility(wnd);
+	if (g_autoHidden) {
+		// Bring the window back if something in it still needs the player (a refusal freed a row, or new loot that
+		// no auto action covers); forget it once the list is empty or the player opened it.
+		uint8_t* rows = PersonalRows(wnd);
+		if (wnd[kWndVisible] || !rows || ListRows(rows) == 0) g_autoHidden = false;
+		else if (!AllRowsPending(wnd)) {
+			Show(wnd, true);
+			g_autoHidden = false;
+		}
+	}
 	if (g_lfOn) PllSync(wnd);
 	if (g_caps && g_autoFilters) ApplyFilters(wnd);
 }
