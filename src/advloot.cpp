@@ -486,24 +486,55 @@ void AddItem(uint8_t* menu, const char* text, int id) {
 	HudCXStrRelease(&s);
 }
 
+void Log(const char* text) {
+	char path[MAX_PATH];
+	snprintf(path, sizeof(path), "%s\\dinput8.log", g_gameDir);
+	FILE* f = nullptr;
+	if (fopen_s(&f, path, "a") != 0 || !f) return;
+	fprintf(f, "AdvLootActions: %s\n", text);
+	fclose(f);
+}
+
+bool g_menuBroken = false;   // adding our menu entries faulted once: stop adding them
+
+void AddEntries(uint8_t* menu, uint8_t* wnd) {
+	if (g_caps & kCapSell) AddItem(menu, "Sell this item", kMenuSell);
+	if (g_caps & (kCapDepot | kCapHoard)) AddItem(menu, "Store this item", kMenuStore);
+	if (g_caps & kCapMerge) AddItem(menu, "Merge this item", kMenuMerge);
+	if (g_autoFilters) {
+		LoadFilters();
+		if (g_caps & kCapSell) AddItem(menu, "Auto-sell this item", kMenuAutoSell);
+		if (g_caps & (kCapDepot | kCapHoard)) AddItem(menu, "Auto-store this item", kMenuAutoStore);
+		if (g_caps & kCapMerge) AddItem(menu, "Auto-merge this item", kMenuAutoMerge);
+		uint8_t* row = RowWithMenuOpen(wnd);
+		if (row && FindFilter(*reinterpret_cast<uint64_t*>(row + kRowItemId)) >= 0)
+			AddItem(menu, "Clear auto action", kMenuAutoClear);
+	}
+}
+
+// The entries are added under a structured exception guard: if the client's menu call ever faults (a different
+// argument layout than the one read from FUN_1400ad9c0), the menu stays stock and the log says so.
+void AddEntriesGuarded(uint8_t* menu, uint8_t* wnd) {
+	DWORD code = 0;
+	__try {
+		AddEntries(menu, wnd);
+	}
+	__except (code = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER) {
+		g_menuBroken = true;
+	}
+	if (g_menuBroken) {
+		char text[96];
+		snprintf(text, sizeof(text), "menu entries off: adding them faulted (exception 0x%08lx)", code);
+		Log(text);
+	}
+}
+
 int64_t PopupDetour(uint8_t* mgr, int menuIndex, void* point, uint8_t* wnd, uint8_t flag) {
-	if (g_on && g_caps && wnd && wnd == *g_pAdvLootWnd && mgr && menuIndex == *reinterpret_cast<int*>(wnd + kWndPllMenuIndex) &&
-	    menuIndex >= 0 && menuIndex < *reinterpret_cast<int*>(mgr + kMenuCount)) {
+	if (g_on && g_caps && !g_menuBroken && wnd && wnd == *g_pAdvLootWnd && mgr &&
+	    menuIndex == *reinterpret_cast<int*>(wnd + kWndPllMenuIndex) && menuIndex >= 0 &&
+	    menuIndex < *reinterpret_cast<int*>(mgr + kMenuCount)) {
 		uint8_t* menu = reinterpret_cast<uint8_t**>(mgr + kMenuArray)[menuIndex];
-		if (menu) {
-			if (g_caps & kCapSell) AddItem(menu, "Sell this item", kMenuSell);
-			if (g_caps & (kCapDepot | kCapHoard)) AddItem(menu, "Store this item", kMenuStore);
-			if (g_caps & kCapMerge) AddItem(menu, "Merge this item", kMenuMerge);
-			if (g_autoFilters) {
-				LoadFilters();
-				if (g_caps & kCapSell) AddItem(menu, "Auto-sell this item", kMenuAutoSell);
-				if (g_caps & (kCapDepot | kCapHoard)) AddItem(menu, "Auto-store this item", kMenuAutoStore);
-				if (g_caps & kCapMerge) AddItem(menu, "Auto-merge this item", kMenuAutoMerge);
-				uint8_t* row = RowWithMenuOpen(wnd);
-				if (row && FindFilter(*reinterpret_cast<uint64_t*>(row + kRowItemId)) >= 0)
-					AddItem(menu, "Clear auto action", kMenuAutoClear);
-			}
-		}
+		if (menu) AddEntriesGuarded(menu, wnd);
 	}
 	return g_origPopup(mgr, menuIndex, point, wnd, flag);
 }
