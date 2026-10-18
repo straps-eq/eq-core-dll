@@ -1,5 +1,5 @@
 #pragma once
-// AdvLootActions: Sell / Store / Merge in the Advanced Loot window, per-item auto actions and sale/loot text.
+// AdvLootActions: Sell / Store in the Advanced Loot window, per-item auto actions and sale/loot text.
 // See advloot.cpp.
 #include <cstdint>
 #include "patches.h"

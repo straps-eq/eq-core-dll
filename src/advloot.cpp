@@ -1,12 +1,12 @@
-// AdvLootActions: Sell / Store / Merge in the ToB Advanced Loot window, like EverQuest Legends
+// AdvLootActions: Sell / Store in the ToB Advanced Loot window, like EverQuest Legends (without its Merge)
 // (analysis\legends\advloot-buttons\dll-spec.md, ui-all-options\dll-spec-addendum.md section 3, server contract in
 // analysis\legends\server\README.md).
 //
-// Buttons Merge All / Store All / Sell All (ADLW_PLL_*AllBtn from the patched EQUI_AdvancedLootWnd.xml) and
-// right-click entries "Sell / Store / Merge this item" (ids 0x40-0x42) on the Personal list. Every request goes
+// Buttons Store All / Sell All (ADLW_PLL_*AllBtn from the patched EQUI_AdvancedLootWnd.xml) and right-click
+// entries "Sell / Store this item" (ids 0x40-0x41) on the Personal list. Every request goes
 // through the client's own FUN_140161230 (it fills the sequence number and tracks the pending row, so the row
 // disappears on the result): OP_AdvLoot sub 8 {u16 8, u64 item, u32 corpse, u32 qty, u32 seq, u8 action}, action
-// 3 sell, 4 merge, 5 store (the server picks Tradeskill Depot or Dragon's Hoard), 6 depot only. One request per
+// 3 sell, 5 store (the server picks Tradeskill Depot or Dragon's Hoard), 6 depot only. One request per
 // (item, corpse) and only for rows the client would loot itself (not pending, corpse entry not locked), the row
 // marked pending first as the Loot button does.
 //
@@ -24,8 +24,8 @@
 //
 // Loot-window checkboxes ADLW_ShiftForAllCheck (the All buttons act only while Shift is held) and
 // ADLW_AutoActionsCheck (auto filters), saved in dinput8.ini [AdvLoot]. Auto filters: per character in
-// userdata\eqcore_advloot_<Character>.ini, [Filters] item_id=action (3 sell, 4 merge, 5 store, 6 depot) plus
-// item_id_name=<name>; toggled from the right-click menu (0x43 Auto-sell, 0x44 Auto-store, 0x45 Auto-merge, 0x46
+// userdata\eqcore_advloot_<Character>.ini, [Filters] item_id=action (3 sell, 5 store, 6 depot) plus
+// item_id_name=<name>; toggled from the right-click menu (0x43 Auto-sell, 0x44 Auto-store, 0x46
 // Clear auto action) and applied once per frame from the DrawWindows hook while the window has rows and the
 // server's flags are set: once per (item, corpse), never on pending rows, never on NO TRADE rows unless
 // AutoNoTrade=1.
@@ -80,10 +80,11 @@ const uint8_t kSetCheckStart[] = { 0x38, 0x91, 0x70, 0x02, 0x00, 0x00, 0x74 };
 const size_t kSpawnName = 0xb4;          // char[0x40]
 
 const int kNotifyClick = 1, kNotifyMenu = 0x14;
-const int kMenuSell = 0x40, kMenuStore = 0x41, kMenuMerge = 0x42;
-const int kMenuAutoSell = 0x43, kMenuAutoStore = 0x44, kMenuAutoMerge = 0x45, kMenuAutoClear = 0x46;
-const uint8_t kActionSell = 3, kActionMerge = 4, kActionStore = 5, kActionDepot = 6;
-const uint32_t kCapSell = 1, kCapDepot = 2, kCapHoard = 4, kCapMerge = 8;
+// Merge (Legends' 0x42 / 0x45, action 4, capability bit 3) is left out: this server has no such gameplay.
+const int kMenuSell = 0x40, kMenuStore = 0x41;
+const int kMenuAutoSell = 0x43, kMenuAutoStore = 0x44, kMenuAutoClear = 0x46;
+const uint8_t kActionSell = 3, kActionStore = 5, kActionDepot = 6;
+const uint32_t kCapSell = 1, kCapDepot = 2, kCapHoard = 4;
 const uint16_t kSubSync = 3, kSubResult = 9, kSubCapabilities = 0x20;
 
 #pragma pack(push, 1)
@@ -185,7 +186,7 @@ void LoadFilters() {
 		char* end = nullptr;
 		uint64_t item = _strtoui64(p, &end, 10);
 		int action = atoi(eq + 1);
-		if (end != eq || !item || (action != kActionSell && action != kActionMerge && action != kActionStore && action != kActionDepot))
+		if (end != eq || !item || (action != kActionSell && action != kActionStore && action != kActionDepot))
 			continue;
 		g_filters[g_filterCount++] = { item, static_cast<uint8_t>(action) };
 	}
@@ -405,7 +406,7 @@ void UpdateVisibility(uint8_t* wnd) {
 	g_ctl.shownCaps = g_caps + 1;
 	Show(g_ctl.sell, (g_caps & kCapSell) != 0);
 	Show(g_ctl.store, (g_caps & (kCapDepot | kCapHoard)) != 0);
-	Show(g_ctl.merge, (g_caps & kCapMerge) != 0);
+	Show(g_ctl.merge, false);   // an older XML may still have the Merge All button
 	Show(g_ctl.shiftBox, g_caps != 0);
 	Show(g_ctl.autoBox, g_caps != 0);
 }
@@ -417,7 +418,6 @@ uint8_t StoreAction() {
 bool Allowed(uint8_t action) {
 	switch (action) {
 	case kActionSell: return (g_caps & kCapSell) != 0;
-	case kActionMerge: return (g_caps & kCapMerge) != 0;
 	case kActionStore: return (g_caps & (kCapDepot | kCapHoard)) != 0;
 	case kActionDepot: return (g_caps & kCapDepot) != 0;
 	default: return false;
@@ -445,7 +445,6 @@ int64_t NotifyDetour(uint8_t* wnd, uint8_t* sender, uint64_t notification, void*
 		uint8_t action = 0;
 		if (sender == g_ctl.sell) action = kActionSell;
 		else if (sender == g_ctl.store) action = StoreAction();
-		else if (sender == g_ctl.merge) action = kActionMerge;
 		if (action) {
 			if (Allowed(action) && (!g_shiftForAll || (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0))
 				ForEachPersonalRow(wnd, action);
@@ -456,7 +455,7 @@ int64_t NotifyDetour(uint8_t* wnd, uint8_t* sender, uint64_t notification, void*
 		const int id = static_cast<int>(reinterpret_cast<intptr_t>(data));
 		uint8_t* mgr = *g_menuMgr;
 		const int index = *reinterpret_cast<int*>(wnd + kWndPllMenuIndex);
-		if (id >= kMenuSell && id <= kMenuAutoClear && mgr && index >= 0 && index < *reinterpret_cast<int*>(mgr + kMenuCount) &&
+		if (id >= kMenuSell && id <= kMenuAutoClear && id != 0x42 && id != 0x45 && mgr && index >= 0 && index < *reinterpret_cast<int*>(mgr + kMenuCount) &&
 		    sender == reinterpret_cast<uint8_t**>(mgr + kMenuArray)[index]) {
 			uint8_t* row = RowWithMenuOpen(wnd);
 			if (!row) return 0;
@@ -466,10 +465,8 @@ int64_t NotifyDetour(uint8_t* wnd, uint8_t* sender, uint64_t notification, void*
 			switch (id) {
 			case kMenuSell: if (Allowed(kActionSell)) RequestRow(row, kActionSell, false); break;
 			case kMenuStore: if (Allowed(StoreAction())) RequestRow(row, StoreAction(), false); break;
-			case kMenuMerge: if (Allowed(kActionMerge)) RequestRow(row, kActionMerge, false); break;
 			case kMenuAutoSell: LoadFilters(); SetFilter(item, name, kActionSell); break;
 			case kMenuAutoStore: LoadFilters(); SetFilter(item, name, kActionStore); break;
-			case kMenuAutoMerge: LoadFilters(); SetFilter(item, name, kActionMerge); break;
 			default: LoadFilters(); SetFilter(item, name, 0); break;
 			}
 			return 0;
@@ -500,12 +497,10 @@ bool g_menuBroken = false;   // adding our menu entries faulted once: stop addin
 void AddEntries(uint8_t* menu, uint8_t* wnd) {
 	if (g_caps & kCapSell) AddItem(menu, "Sell this item", kMenuSell);
 	if (g_caps & (kCapDepot | kCapHoard)) AddItem(menu, "Store this item", kMenuStore);
-	if (g_caps & kCapMerge) AddItem(menu, "Merge this item", kMenuMerge);
 	if (g_autoFilters) {
 		LoadFilters();
 		if (g_caps & kCapSell) AddItem(menu, "Auto-sell this item", kMenuAutoSell);
 		if (g_caps & (kCapDepot | kCapHoard)) AddItem(menu, "Auto-store this item", kMenuAutoStore);
-		if (g_caps & kCapMerge) AddItem(menu, "Auto-merge this item", kMenuAutoMerge);
 		uint8_t* row = RowWithMenuOpen(wnd);
 		if (row && FindFilter(*reinterpret_cast<uint64_t*>(row + kRowItemId)) >= 0)
 			AddItem(menu, "Clear auto action", kMenuAutoClear);

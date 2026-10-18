@@ -126,7 +126,7 @@ static const Feature kFeatures[] = {
 	// Sell / Store / Merge in the Advanced Loot window and per-item auto actions: hooks on its WndNotification
 	// (FUN_1400adc10), the context menu (FUN_1405bca80), the AdvLoot subtype dispatcher (FUN_14015dec0), the result
 	// handler (FUN_14015da60) and the request sender (FUN_140161230), plus the shared DrawWindows hook. See advloot.cpp.
-	{ "AdvLootActions",   true, "Sell / Store / Merge and auto actions in the Advanced Loot window", nullptr, 0,
+	{ "AdvLootActions",   true, "Sell / Store and auto actions in the Advanced Loot window", nullptr, 0,
 	  kAdvLootHooks, COUNT(kAdvLootHooks), kHudRefs, COUNT(kHudRefs), AdvLootPrepare, kAdvLootRefs, COUNT(kAdvLootRefs) },
 	// Lore, value, tribute, levels, clicky cooldown and spell details in the item window: hook on the
 	// CItemDisplayWnd text finalise step (FUN_1404340d0), see itemdisplay.cpp.
