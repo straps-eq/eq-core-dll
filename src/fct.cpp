@@ -189,6 +189,7 @@ struct Config {
 	float letterScale = 0.4f;               // 3D: sprite letter scale per unit of font scale (Legends mapping)
 	int minPx = 12;                         // 3D: minimum text height in pixels (Legends)
 	bool occlude = false;                   // 3D: false = drawn over walls (Legends' default)
+	bool healText = true;                   // green heal numbers
 	bool followChatFilters = true;          // a hit / miss hidden in the Chat tab gets no floating text either
 	bool valueLabels = false;               // SliderLabels=value: the DLL-only sliders show their value, not N%
 	float otherRange = 200.0f;
@@ -267,6 +268,7 @@ void LoadConfig() {
 	c.minPx = Clamp(Int(kExtras, "MinPx", c.minPx), 0, 200);
 	c.occlude = Int(kExtras, "Occlude", c.occlude) != 0;
 	c.followChatFilters = Int(kExtras, "FollowChatFilters", c.followChatFilters) != 0;
+	c.healText = Int(kExtras, "HealText", c.healText) != 0;
 	char labels[16] = {};
 	GetPrivateProfileStringA(kExtras, "SliderLabels", "percent", labels, sizeof(labels), ini);
 	c.valueLabels = _stricmp(labels, "value") == 0;
@@ -688,6 +690,108 @@ void DamageDetour(uint8_t* pkt) {
 	if (pkt) NameplatesOnDamage(pkt);
 }
 
+// ---- heal numbers (analysis\legends\fct-feeders) ----
+// Legends draws a green number over the healed spawn ("N", or "N (M)" for an overheal), plain (text modes ignored),
+// 2 s (crit 2.5 s, double size). Two sources:
+// - OP_CombatText64 (the client's own heal message) through its builder FUN_140286f00(CEverQuest*, rec), when the
+//   server sends it;
+// - the heal strings EQEmu sends today, through the OP_FormattedMessage handler FUN_140207ce0(data, size): 9068 "You
+//   have healed %1 for %2", 419 "%1 has healed you for %2", 12976 "You have been healed for %1 hit points by your %2",
+//   12997 "You have healed %1 for %2 hit points with your %3", 12998 "%1 healed you for %2 hit points by %3".
+
+struct HealRecord {
+	uint16_t target, healer;
+	int32_t spell;
+	int64_t healed, total;
+	uint32_t flags;
+};
+using HealFn = void (*)(uint8_t* eq, const HealRecord* rec);
+using FormattedFn = void (*)(const uint8_t* data, uint32_t size);
+HealFn g_origHeal = nullptr;             // trampoline into FUN_140286f00
+FormattedFn g_origFormatted = nullptr;   // trampoline into FUN_140207ce0
+const uint32_t kHealCritical = 4;
+const int kColourGreen = 0xe;
+const size_t kSpawnName = 0xb4;          // char[0x40]
+const size_t kSpawnDisplayed = 0xf4;     // char[0x40], the clean name EQEmu puts in heal strings
+
+void ShowHeal(uint8_t* spawn, int64_t healed, int64_t total, bool crit) {
+	if (!spawn || healed <= 0) return;
+	char text[48];
+	if (total <= 0 || healed == total) snprintf(text, sizeof(text), "%lld", static_cast<long long>(healed));
+	else snprintf(text, sizeof(text), "%lld (%lld)", static_cast<long long>(healed), static_cast<long long>(total));
+	AddText(spawn, text, HudUserColour(kColourGreen), spawn == *g_pLocalPlayer ? kSelf : kYou, crit, crit ? 2500 : 2000, kPlain);
+}
+
+void HealDetour(uint8_t* eq, const HealRecord* rec) {
+	g_origHeal(eq, rec);
+	if (!g_on || !g_cfg.healText || !rec || !InGame()) return;
+	ShowHeal(SpawnById(rec->target), rec->healed, rec->total, (rec->flags & kHealCritical) != 0);
+}
+
+// A spawn by the name in a heal string: my target, then me, then the nearest spawn with that displayed name.
+uint8_t* SpawnByName(const char* name) {
+	auto matches = [name](uint8_t* s) {
+		return s && (!_stricmp(reinterpret_cast<const char*>(s + kSpawnDisplayed), name) ||
+		             !_stricmp(reinterpret_cast<const char*>(s + kSpawnName), name));
+	};
+	uint8_t* me = *g_pLocalPlayer;
+	uint8_t* target = HudTarget();
+	if (matches(target)) return target;
+	if (matches(me)) return me;
+	uint8_t* best = nullptr;
+	float bestD = 0.0f;
+	int guard = 0;
+	for (uint8_t* s = FctFirstSpawn(); s && guard < 4096; s = *reinterpret_cast<uint8_t**>(s + 0x10), ++guard) {
+		if (!matches(s)) continue;
+		const float dx = *reinterpret_cast<float*>(s + 0x74) - *reinterpret_cast<float*>(me + 0x74);
+		const float dy = *reinterpret_cast<float*>(s + 0x78) - *reinterpret_cast<float*>(me + 0x78);
+		if (!best || dx * dx + dy * dy < bestD) {
+			best = s;
+			bestD = dx * dx + dy * dy;
+		}
+	}
+	return best;
+}
+
+void OnFormatted(const uint8_t* data, uint32_t size) {
+	if (size < 4) return;
+	uint32_t len0;
+	memcpy(&len0, data, 4);
+	size_t pos = 4 + static_cast<size_t>(len0);
+	if (pos + 9 > size) return;
+	uint32_t id, colour;
+	memcpy(&id, data + pos + 1, 4);
+	memcpy(&colour, data + pos + 5, 4);
+	pos += 9;
+	if (id != 9068 && id != 419 && id != 12976 && id != 12997 && id != 12998) return;
+	char arg[3][72] = {};
+	for (int i = 0; i < 3 && pos + 4 <= size; ++i) {
+		uint32_t n;
+		memcpy(&n, data + pos, 4);
+		pos += 4;
+		if (n > size - pos) break;
+		const size_t copy = n < sizeof(arg[i]) - 1 ? n : sizeof(arg[i]) - 1;
+		memcpy(arg[i], data + pos, copy);
+		pos += n;
+	}
+	if (!ChatShows(static_cast<int>(colour))) return;
+	uint8_t* spawn = nullptr;
+	const char* amount = nullptr;
+	switch (id) {
+	case 9068: spawn = SpawnByName(arg[0]); amount = arg[1]; break;    // I healed %1 (or myself) for %2
+	case 12997: spawn = SpawnByName(arg[0]); amount = arg[1]; break;   // HoT I cast on %1
+	case 419: case 12998: spawn = *g_pLocalPlayer; amount = arg[1]; break;   // someone healed me
+	default: spawn = *g_pLocalPlayer; amount = arg[0]; break;          // 12976: my own HoT on me
+	}
+	const long long healed = strtoll(amount, nullptr, 10);
+	if (healed > 0) ShowHeal(spawn, healed, 0, false);
+}
+
+void FormattedDetour(const uint8_t* data, uint32_t size) {
+	g_origFormatted(data, size);
+	if (g_on && g_cfg.healText && data && InGame()) OnFormatted(data, size);
+}
+
 // ---- projection ----
 
 enum Projection { kProjNone, kProjSlot, kProjManual };
@@ -932,10 +1036,16 @@ extern const char kFctDamageSig[] =
 void (*const g_fctDamageDetour)(uint8_t* pkt) = &DamageDetour;
 void (**const g_fctOrigDamageSlot)(uint8_t* pkt) = &g_origDamage;
 
-const HookSite kFctHooks[2] = {
+const HookSite kFctHooks[4] = {
 	// Shared with the Hud (same signature, detour and trampoline): whichever feature is applied first installs it.
 	{ kDrawWindowsSig, 5, reinterpret_cast<void*>(&DrawWindowsDetour), reinterpret_cast<void**>(&g_origDrawWindows) },
 	{ kFctDamageSig, 5, reinterpret_cast<void*>(&DamageDetour), REF(g_origDamage) },
+	// Heal message builder FUN_140286f00(CEverQuest*, rec) (OP_CombatText64). Stolen (5): mov [rsp+8],rbx.
+	{ "48 89 5C 24 08 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8D AC 24 90 FD FF FF 48 81 EC 70 03 00 00",
+	  5, reinterpret_cast<void*>(&HealDetour), REF(g_origHeal) },
+	// OP_FormattedMessage handler FUN_140207ce0(data, size). Stolen (5): mov [rsp+8],rbx.
+	{ "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 55 41 54 41 55 41 56 41 57 48 8D AC 24 50 FA FF FF",
+	  5, reinterpret_cast<void*>(&FormattedDetour), REF(g_origFormatted) },
 };
 
 const RefSite kFctRefs[11] = {

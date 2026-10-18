@@ -610,6 +610,10 @@ uint32_t HudConColour(uint8_t* spawn) {
 	return ConColour(spawn);
 }
 
+uint8_t* HudTarget() {
+	return g_pTarget ? *g_pTarget : nullptr;
+}
+
 uint8_t** HudLocalPlayerRef() {
 	return g_pLocalPlayer;
 }
