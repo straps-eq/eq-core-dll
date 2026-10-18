@@ -36,6 +36,21 @@ client functions/globals a hook uses are found and checked the same way.
 Old-model horses need no patch on ToB: set `AllowPreLuclinMountRiders=1` under `[Defaults]` in `eqclient.ini`
 (Options window, "Toggle Display of Pre-Luclin Characters on Mounts").
 
+## What needs the server
+
+Most features are client-only and work on any server. These need something from the server:
+
+| `dinput8.ini` key | Server side |
+|---|---|
+| `SoloLDoN` | The server must accept LDoN adventure requests from a player without a group. Otherwise the request is refused server-side. |
+| `AAPre51`, `AAPre51Inventory` | The client patch only unlocks the window. The server must actually award AA experience and points below level 51, which stock EQEmu does not. |
+| `Nameplates` | HP and mana bars on NPCs you have not targeted need the server to send their HP and mana percent to nearby ToB clients. That is a server change not in stock EQEmu (rule `Character:ToBNameplateVitalsRange`, a range in units; 0 = off). Without it, bars only fill for your target, group members and extended targets, which is what stock EQEmu sends. Cast bars, the interrupt flash and the threat frame use packets every server already sends. |
+| `BuffTooltips` | The "Caster:" line only appears when the server includes the caster's name in the buff data. |
+
+`FloatingCombatText` needs nothing extra: it uses the damage packets every server sends (the pet-owner duplicate that EQEmu sends for pet hits is filtered out client-side).
+
+The options tabs (`FCTOptionsPage`, `NameplateOptionsPage`) need a patched `uifiles\default\EQUI_OptionsWindow.xml` on the client, not a server change.
+
 ## Build
 
 Visual Studio 2022 with the C++ workload. Run `build.bat`; output goes to `bin\`.
