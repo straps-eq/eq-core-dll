@@ -294,6 +294,30 @@ void MarkDone(uint64_t item, uint32_t corpse) {
 	g_done[g_doneCount++] = { item, corpse };
 }
 
+// Items the server refused to sell (or store) this session: their AS (or ST) box can't be ticked again.
+struct Refused {
+	uint64_t item;
+	bool sell;
+};
+const int kMaxRefused = 256;
+Refused g_refused[kMaxRefused];
+int g_refusedCount = 0;
+
+bool WasRefused(uint64_t item, uint8_t action) {
+	for (int i = 0; i < g_refusedCount; ++i)
+		if (g_refused[i].item == item && g_refused[i].sell == (action == kActionSell)) return true;
+	return false;
+}
+
+void MarkRefused(uint64_t item, uint8_t action) {
+	if (WasRefused(item, action)) return;
+	if (g_refusedCount == kMaxRefused) {
+		memmove(g_refused, g_refused + 1, sizeof(Refused) * (kMaxRefused - 1));
+		--g_refusedCount;
+	}
+	g_refused[g_refusedCount++] = { item, action == kActionSell };
+}
+
 // ---- requests ----
 
 // What each request was for, by sequence number, for the result's floating text.
@@ -520,8 +544,8 @@ int64_t NotifyDetour(uint8_t* wnd, uint8_t* sender, uint64_t notification, void*
 			switch (id) {
 			case kMenuSell: if (Allowed(kActionSell)) RequestRow(row, kActionSell, false); break;
 			case kMenuStore: if (Allowed(StoreAction())) RequestRow(row, StoreAction(), false); break;
-			case kMenuAutoSell: LoadFilters(); SetFilter(item, name, icon, kActionSell); break;
-			case kMenuAutoStore: LoadFilters(); SetFilter(item, name, icon, kActionStore); break;
+			case kMenuAutoSell: if (!WasRefused(item, kActionSell)) { LoadFilters(); SetFilter(item, name, icon, kActionSell); } break;
+			case kMenuAutoStore: if (!WasRefused(item, kActionStore)) { LoadFilters(); SetFilter(item, name, icon, kActionStore); } break;
 			default: LoadFilters(); SetFilter(item, name, icon, 0); break;
 			}
 			return 0;
@@ -679,6 +703,7 @@ uint64_t ResultDetour(uint8_t* mgr, PacketStream* stream) {
 					MarkDone(s.item, s.corpse);   // refused (the server's result 6): no auto retry
 					// The server won't do this action for this item, so its auto action is cleared: the AS / ST
 					// boxes and the filters window then show what the server allows.
+					if (result == kResultRefused) MarkRefused(s.item, s.action);
 					const int f = result == kResultRefused ? FindFilter(s.item) : -1;
 					if (f >= 0 && (g_filters[f].action == kActionSell) == (s.action == kActionSell)) {
 						const Filter copy = g_filters[f];
@@ -917,7 +942,7 @@ int64_t LfNotifyDetour(uint8_t* wnd, uint8_t* sender, uint32_t code, void* data)
 	if (c == kColAS || c == kColST) {
 		const bool on = IsChecked(sender);
 		const uint8_t action = on ? (c == kColAS ? kActionSell : kActionStore) : 0;
-		if (action && !Allowed(action)) {
+		if (action && (!Allowed(action) || WasRefused(item, action))) {
 			SetBox(sender, false);
 			return 0;
 		}
@@ -1141,7 +1166,7 @@ bool PllCellClick(uint8_t* wnd, uint8_t* sender) {
 	if (!row) return true;
 	const bool on = IsChecked(sender);
 	const uint8_t action = on ? (c == kPllColAS ? kActionSell : StoreAction()) : 0;
-	if (action && !Allowed(action)) {
+	if (action && (!Allowed(action) || WasRefused(*reinterpret_cast<uint64_t*>(row + kRowItemId), action))) {
 		SetBox(sender, false);
 		return true;
 	}
