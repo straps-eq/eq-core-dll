@@ -464,9 +464,9 @@ void Quad(float x0, float y0, float x1, float y1, uint32_t argb) {
 	g_drawQuad(g_renderer, q, argb);
 }
 
-// Legends' threat pulse: red, alpha 190, brightness 50..100 % on a 2 s triangle, fading beyond 80 units.
+// Threat pulse as Legends (red, brightness 50..100 % on a 2 s triangle, fading beyond 80 units), but alpha 240 (Legends 190).
 uint32_t ThreatColour(float distance) {
-	float alpha = 190.0f * (distance > 80.0f ? 80.0f / distance : 1.0f);
+	float alpha = 240.0f * (distance > 80.0f ? 80.0f / distance : 1.0f);   // Legends 190; bolder here
 	if (g_cfg.threatColour) return (static_cast<uint32_t>(alpha) << 24) | (g_cfg.threatColour & 0x00FFFFFFu);
 	const uint64_t t = Now();
 	const float phase = static_cast<float>(t % 1000) / 1000.0f;
@@ -1028,11 +1028,17 @@ void PutRect(const Sink& s, float l, float t, float r, float b, uint32_t argb) {
 	else Quad(l, t, r, b, argb);
 }
 
-void PutFrame(const Sink& s, float x0, float y0, float x1, float y1, uint32_t argb) {
-	PutRect(s, x0, y0, x1, y0 + 1, argb);
-	PutRect(s, x0, y1 - 1, x1, y1, argb);
-	PutRect(s, x0, y0, x0 + 1, y1, argb);
-	PutRect(s, x1 - 1, y0, x1, y1, argb);
+// The threat frame: `t` px thick, inside the given rect.
+void PutFrame(const Sink& s, float x0, float y0, float x1, float y1, uint32_t argb, float t) {
+	PutRect(s, x0, y0, x1, y0 + t, argb);
+	PutRect(s, x0, y1 - t, x1, y1, argb);
+	PutRect(s, x0, y0 + t, x0 + t, y1 - t, argb);
+	PutRect(s, x1 - t, y0 + t, x1, y1 - t, argb);
+}
+
+// Bolder than Legends' 1 px: 2 px, 3-4 px at larger Size.
+float ThreatThickness() {
+	return ClampF(roundf(2.0f * g_cfg.size), 2.0f, 4.0f);
 }
 
 void PutBar(const Sink& s, float cx, float y, float w, float h, float pct, uint32_t fill, bool threat, uint32_t threatColour) {
@@ -1042,7 +1048,10 @@ void PutBar(const Sink& s, float cx, float y, float w, float h, float pct, uint3
 	y = floorf(y);
 	PutRect(s, x0 + 1, y - 1, x0 + w + 1, y + h + 1, kColourBacking);
 	if (pct > 0.0f) PutRect(s, x0, y, x0 + roundf(w * ClampF(pct, 0.0f, 1.0f)), y + h, fill);
-	if (threat) PutFrame(s, x0 - 1, y - 2, x0 + w + 2, y + h + 2, threatColour);
+	if (threat) {
+		const float t = ThreatThickness();
+		PutFrame(s, x0 - t, y - 1 - t, x0 + w + 1 + t, y + h + 1 + t, threatColour, t);
+	}
 }
 
 // Lays out a spawn's bars under the name box; `mgr` non-null draws the 2D labels too, `bars` false skips the rects.
@@ -1088,7 +1097,8 @@ void Layout(const Sink& s, const Plan& p, const float* box, uint8_t* mgr, bool b
 	}
 	if (p.showMana && bars) PutBar(s, cx, y, w, h, p.mana, kColourMana, p.threat, threatColour);
 	if (p.threat && bars && !p.showHp && !p.casting && !p.flashing && !p.showMana)
-		PutFrame(s, box[0] - 1, box[1] - 1, box[2] + 1, box[3] + 1, threatColour);
+		PutFrame(s, box[0] - ThreatThickness(), box[1] - ThreatThickness(), box[2] + ThreatThickness(), box[3] + ThreatThickness(),
+		         threatColour, ThreatThickness());
 }
 
 void TrackTarget() {
