@@ -30,6 +30,7 @@
 #include "hud.h"
 #include "fct.h"
 #include "nameplates.h"
+#include "advloot.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -473,6 +474,7 @@ int DrawWindowsDetour(uint8_t* mgr) {
 	TickFps();
 	bool inGame = InGame(mgr);
 	NameplatesFrame(mgr, inGame);
+	AdvLootFrame(inGame);
 	FctFrame(mgr, inGame);
 	if (g_hudOn && inGame) DrawHud(mgr, *g_pLocalPlayer);
 	g_inDraw = false;

@@ -954,6 +954,17 @@ const char* FctPrepare() {
 
 // ---- shared with Nameplates (valid after FctSharedPrepare) ----
 
+// Advanced Loot results (advloot.cpp): the item name over the corpse, as Legends does (sale 0xFFFFDF00, loot
+// 0xFF9090FF, 2500 ms, You font scale), gated by [FloatingCombat] SellText / LootText. Over me when the corpse is
+// already gone (its last item was taken).
+void FctShowLootText(uint32_t corpseId, const char* text, bool sale) {
+	if (!g_on || !InGame() || !text || !text[0]) return;
+	if (sale ? !g_cfg.sellText : !g_cfg.lootText) return;
+	uint8_t* spawn = SpawnById(corpseId);
+	if (!spawn) spawn = *g_pLocalPlayer;
+	AddText(spawn, text, sale ? 0xFFFFDF00u : 0xFF9090FFu, kYou, false, 2500, kPlain);
+}
+
 uint8_t* FctDisplay() {
 	return *g_pDisplay;
 }

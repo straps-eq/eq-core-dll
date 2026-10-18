@@ -7,6 +7,7 @@
 #include "spellwindow.h"
 #include "fct.h"
 #include "nameplates.h"
+#include "advloot.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -88,14 +89,14 @@ static const Feature kFeatures[] = {
 	{ "IllegalAugments",  false, "Allow augment combinations the player can't use", kIllegalAugments,  COUNT(kIllegalAugments) },
 	{ "NoFoodDrinkSpam",  false, "No hunger/thirst client processing or messages",  kFoodDrinkSpam,    COUNT(kFoodDrinkSpam) },
 	{ "NoPatchme",        false, "Start without the patchme argument",              kPatchme,          COUNT(kPatchme) },
-	{ "ConNameTags",      true, "Colour NPC name tags by con colour",              nullptr,           0,
+	{ "ConNameTags",      false, "Colour NPC name tags by con colour",              nullptr,           0,
 	  kConNameTagsHooks, COUNT(kConNameTagsHooks), kConNameTagsRefs, COUNT(kConNameTagsRefs), ConNameTagsPrepare },
 	// Spawn dots/labels and target line on the map: hook on MapViewMap::PostDraw (FUN_140455a60), see map.cpp.
-	{ "MapSpawns",        true, "Spawns and target line on the map window",        nullptr,           0,
+	{ "MapSpawns",        false, "Spawns and target line on the map window",        nullptr,           0,
 	  kMapSpawnsHooks, COUNT(kMapSpawnsHooks), kMapSpawnsRefs, COUNT(kMapSpawnsRefs), MapSpawnsPrepare },
 	// Caster, effects and cure counters on buff tooltips: hooks on the buff/song (FUN_140390640) and
 	// target (FUN_14050ec00) tooltip refresh, see buffs.cpp.
-	{ "BuffTooltips",     true, "Caster, effects and cures on buff tooltips",      nullptr,           0,
+	{ "BuffTooltips",     false, "Caster, effects and cures on buff tooltips",      nullptr,           0,
 	  kBuffTooltipsHooks, COUNT(kBuffTooltipsHooks), kBuffTooltipsRefs, COUNT(kBuffTooltipsRefs), BuffTooltipsPrepare },
 	// Level/race/class and distance line in the Target window: hook on CTargetWnd::Draw (FUN_14050db60);
 	// on-screen text: hook on CXWndManager::DrawWindows (FUN_1405cc3a0). Both in hud.cpp.
@@ -115,20 +116,25 @@ static const Feature kFeatures[] = {
 	// Legends-style HP / mana / cast bars and threat frame under names: hooks on StartCasting (FUN_140293100) and
 	// the packet dispatcher (FUN_1401e4010), plus the DrawWindows and OP_Damage hooks shared with Hud/FCT. See
 	// nameplates.cpp.
-	{ "Nameplates",       false, "HP, mana and cast bars and threat under names",  nullptr,           0,
+	{ "Nameplates",       true, "HP, mana and cast bars and threat under names",  nullptr,           0,
 	  kNameplatesHooks, COUNT(kNameplatesHooks), kHudRefs, COUNT(kHudRefs), NameplatesPrepare,
 	  kFctRefs, COUNT(kFctRefs), kNameplatesRefs, COUNT(kNameplatesRefs) },
 	// Legends' "Nameplates" tab in Options, on the two COptionsWnd detours of the Combat Text tab.
-	{ "NameplateOptionsPage", false, "Nameplates options page (Legends layout)",   nullptr,           0,
+	{ "NameplateOptionsPage", true, "Nameplates options page (Legends layout)",   nullptr,           0,
 	  kNameplatePageHooks, COUNT(kNameplatePageHooks), kHudRefs, COUNT(kHudRefs), NameplatePagePrepare,
 	  kFctPageRefs, COUNT(kFctPageRefs), kNameplatePageRefs, COUNT(kNameplatePageRefs) },
+	// Sell / Store / Merge in the Advanced Loot window and per-item auto actions: hooks on its WndNotification
+	// (FUN_1400adc10), the context menu (FUN_1405bca80), the AdvLoot subtype dispatcher (FUN_14015dec0), the result
+	// handler (FUN_14015da60) and the request sender (FUN_140161230), plus the shared DrawWindows hook. See advloot.cpp.
+	{ "AdvLootActions",   true, "Sell / Store / Merge and auto actions in the Advanced Loot window", nullptr, 0,
+	  kAdvLootHooks, COUNT(kAdvLootHooks), kHudRefs, COUNT(kHudRefs), AdvLootPrepare, kAdvLootRefs, COUNT(kAdvLootRefs) },
 	// Lore, value, tribute, levels, clicky cooldown and spell details in the item window: hook on the
 	// CItemDisplayWnd text finalise step (FUN_1404340d0), see itemdisplay.cpp.
 	{ "ItemDisplayExtras", false, "Lore, value, levels and spell details in the item window", nullptr, 0,
 	  kItemDisplayExtrasHooks, COUNT(kItemDisplayExtrasHooks), kItemDisplayExtrasRefs, COUNT(kItemDisplayExtrasRefs), ItemDisplayExtrasPrepare },
 	// Effect slots, timers, classes and category in the spell window: hook on the CSpellDisplayWnd text
 	// finalise step (FUN_1404fcdc0), see spellwindow.cpp.
-	{ "SpellWindowExtras", true, "Effects, timers, classes and category in the spell window", nullptr, 0,
+	{ "SpellWindowExtras", false, "Effects, timers, classes and category in the spell window", nullptr, 0,
 	  kSpellWindowExtrasHooks, COUNT(kSpellWindowExtrasHooks), kSpellWindowExtrasRefs, COUNT(kSpellWindowExtrasRefs), SpellWindowExtrasPrepare },
 };
 

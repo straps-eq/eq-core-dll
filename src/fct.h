@@ -48,3 +48,4 @@ void OptSliderSetValue(uint8_t* slider, int position);
 void OptSliderSetTicks(uint8_t* slider, int ticks);
 void OptComboSetChoice(uint8_t* combo, int row);
 bool OptIsTabSwitchTo(uint8_t* opt, uint8_t* sender, int msg, void* data, uint8_t* page);
+void FctShowLootText(uint32_t corpseId, const char* text, bool sale);   // Advanced Loot sale / loot text
