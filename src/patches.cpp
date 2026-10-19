@@ -79,6 +79,15 @@ static const PatchSite kPatchme[] = {
 	  1, 5, "0F 84 E1 04 00 00", "66 0F 1F 44 00 00" },
 };
 
+// Optional: Persona window "Create Class" / "Swap Class" with unspent AA points (button pre-check
+// FUN_140402330). The client greys the buttons with eqstr 10022 when the AA window (DAT_140db4f10) can buy
+// an AA (FUN_1403544a0); JLE -> JMP skips that one check. The other checks (14753-14756) stay. The request
+// still carries the AA-buyable byte; the server decides whether to honour it.
+static const PatchSite kPersonaUnspentAA[] = {
+	{ "8D 1C 40 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 3B C3 7E 48 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 3C E8 ?? ?? ?? ?? 84 C0 74 33 45 32 ED 45 33 C0 BA 26 27 00 00",
+	  1, 17, "7E 48", "EB 48" },
+};
+
 // Con-coloured NPC name tags: hook on EQPlayer::SetNameSpriteTint (FUN_1403014a0), see nametags.cpp.
 static const Feature kFeatures[] = {
 	{ "SoloLDoN",         true, "Solo LDoN adventures (no group needed)",          kSoloLDoN,         COUNT(kSoloLDoN) },
@@ -89,6 +98,7 @@ static const Feature kFeatures[] = {
 	{ "IllegalAugments",  false, "Allow augment combinations the player can't use", kIllegalAugments,  COUNT(kIllegalAugments) },
 	{ "NoFoodDrinkSpam",  false, "No hunger/thirst client processing or messages",  kFoodDrinkSpam,    COUNT(kFoodDrinkSpam) },
 	{ "NoPatchme",        false, "Start without the patchme argument",              kPatchme,          COUNT(kPatchme) },
+	{ "PersonaUnspentAA", false, "Persona class swap with unspent AA points",       kPersonaUnspentAA, COUNT(kPersonaUnspentAA) },
 	{ "ConNameTags",      false, "Colour NPC name tags by con colour",              nullptr,           0,
 	  kConNameTagsHooks, COUNT(kConNameTagsHooks), kConNameTagsRefs, COUNT(kConNameTagsRefs), ConNameTagsPrepare },
 	// Spawn dots/labels and target line on the map: hook on MapViewMap::PostDraw (FUN_140455a60), see map.cpp.
