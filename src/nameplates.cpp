@@ -1,6 +1,5 @@
-// Nameplates: EverQuest Legends-style bars under spawn names (analysis\legends\nameplates-parity\dll-spec.md,
-// behaviour-spec.md): an HP row, then a cast-or-mana row 1 px below, a 500 ms red flash in the cast row when a
-// cast is interrupted, and a flashing HP bar on NPCs that have aggro on me (or my group) (Legends: a pulsing frame).
+// Nameplates: bars under spawn names. An HP row, then a cast-or-mana row 1 px below, a 500 ms red flash in the cast row when a
+// cast is interrupted, and a flashing HP bar on NPCs that have aggro on me (or my group).
 //
 // Drawing: from the CXWndManager::DrawWindows hook shared with the Hud and FCT, after the client's windows, with
 // the renderer's DrawColoredQuad (vtbl +0x140) and DrawLine2D (+0x110), checked once against the EQGraphics.dll
@@ -8,10 +7,10 @@
 // name sprite (actor +0x2f0, actor = spawn +0x1170) keeps its last screen rect at +0x1c..+0x28 (font +0x18 = 10).
 // The rect is used when it is plausible and agrees with our own projection of the spawn's head; otherwise a
 // name box is made around the projected head point (camera WorldToScreen, shared with FCT).
-// Layout and colours as Legends: HP fill 0xFFFF1919, mana 0xFF1919FF, cast 0xFF820082 (the bar empties:
+// Layout and colours: HP fill 0xFFFF1919, mana 0xFF1919FF, cast 0xFF820082 (the bar empties:
 // remaining / total), backing 0xFF191919 shifted 1 px right and 1 px out; bar height = name height / 9 (min 2,
 // at most 6 x Size), width = 4.5 name heights (24 px .. a quarter of the viewport); Size scales both (ToB's name
-// itself cannot be scaled). Visibility (Legends "TargetHealth"): every spawn with 0 < HP < 100 % plus the target;
+// itself cannot be scaled). Visibility ("TargetHealth"): every spawn with 0 < HP < 100 % plus the target;
 // never corpses or HP < 2; spawns whose name the client hides (MayShowName FUN_1402fa230, invisible to me
 // FUN_140315770, untargetable +0x18e) get nothing; XY distance from the camera above DrawDistance hides all but
 // the target. Self bars follow the Self options (HP only when hurt or self-targeted).
@@ -23,9 +22,9 @@
 // target) and OP_Death 0x1e90 (u32 spawn id: state dropped). Threat (ThreatDisplay 1 = the NPC targets me, 2 = it
 // targets me, my group or my pet): exact for my target from OP_TargetHoTT, otherwise "the NPC swung at me (or my
 // group / pet) within ThreatHoldMs", from the OP_Damage detour shared with FCT. Drawn only while FontShadow or
-// FontOutline is on, as Legends shows the indicator through those layers. Group members: pLocalPC +0x2e30 (as map.cpp).
+// FontOutline is on (the indicator belongs to those layers). Group members: pLocalPC +0x2e30 (as map.cpp).
 //
-// Occlusion (Occlude=1, analysis\legends\nameplates-occlusion\dll-spec.md): ToB has no line-of-sight test for
+// Occlusion (Occlude=1): ToB has no line-of-sight test for
 // names; the engine queues a name only when its actor rendered, and the occlusion culling skips actors behind
 // geometry. So a bar is drawn only when the actor was drawn last frame (EQGraphics actor vtbl +0x408
 // WasVisibleThisFrame, the call eqgame makes in RealRender_World; its target and bytes are checked once per actor
@@ -33,15 +32,15 @@
 // (+0xa8 = max distance squared, scaled by +0x90). This applies to the target too. If the check of the engine
 // function fails, the gate (and with it every bar) is turned off and dinput8.log says why.
 //
-// NameplateOptionsPage: Legends' "Nameplates" tab (OptionsNamePlatesPage in the patched EQUI_OptionsWindow.xml),
-// on the two COptionsWnd detours the Combat Text tab uses (fct.cpp). Settings in dinput8.ini [NameplateOptions]
-// with Legends' key names; ConColor switches the ConNameTags feature live ([Features] ConNameTags); Name Filters
+// NameplateOptionsPage: a "Nameplates" tab (OptionsNamePlatesPage in the patched EQUI_OptionsWindow.xml),
+// on the two COptionsWnd detours the Combat Text tab uses (fct.cpp). Settings in dinput8.ini [NameplateOptions];
+// ConColor switches the ConNameTags feature live ([Features] ConNameTags); Name Filters
 // sets the client's own /shownames level (DAT_140e6e3a8) and rebuilds the names (CDisplay::SetNPCNames
 // FUN_1401a3bf0). The page's name toggles mirror the client's own Display settings (PC / NPC / Pet / Merc / owner
 // names: u8 globals at DAT_140e6e551, applied by forwarding the click to the Display page's handler with its box).
 // Show Self Name and Show Corpse Names (ToB has neither) hide those names by passing a null text to
 // EQPlayer::ChangeBoneStringSprite FUN_1402fa280, the client's own "no name" path
-// (analysis\legends\nameplates-polish\dll-spec.md). Slider labels show the slider position as N% like Legends.
+// Slider labels show the slider position as N%.
 #include "nameplates.h"
 #include "fct.h"
 #include "hud.h"
@@ -104,7 +103,7 @@ const size_t kRendererVtblRva = 0x2c0830;
 const size_t kVtblDrawLine2D = 0x110;
 const size_t kVtblDrawColoredQuad = 0x140;
 
-// Legends colours.
+// Colours.
 const uint32_t kColourHp = 0xFFFF1919;
 const uint32_t kColourMana = 0xFF1919FF;
 const uint32_t kColourCast = 0xFF820082;
@@ -136,7 +135,7 @@ struct Config {
 	bool targetHealth = true;
 	bool cast = true;
 	bool mana = true;
-	bool selfHealth = false;   // Legends defaults both self bars on
+	bool selfHealth = false;   // self bars off by default
 	bool selfMana = false;
 	bool selfCast = true;
 	bool fontShadow = true;
@@ -154,7 +153,7 @@ struct Config {
 	bool occlude = true;           // no bar when the client did not draw the spawn (behind walls)
 	bool selfIgnoresOcclusion = false;
 	float depthBias = 0.0f;        // world units (x actor scale) the depth-tested bars sit toward the camera
-	uint32_t threatColour = 0;     // 0 = Legends pulse
+	uint32_t threatColour = 0;     // 0 = flash to near white
 	bool valueLabels = false;      // SliderLabels=value: the DLL-only Threat Hold slider shows seconds, not N%
 };
 Config g_cfg;
@@ -580,7 +579,7 @@ bool ThreatFlag(uint8_t* spawn, uint32_t id, bool isTarget, uint64_t now) {
 	return g_cfg.threatDisplay == 2 && t->lastHitGroup && now - t->lastHitGroup <= hold;
 }
 
-// ---- depth-tested bars (analysis\legends\nameplates-depth\dll-spec.md) ----
+// ---- depth-tested bars ----
 //
 // Each bar rect is a DLL-owned CStringSprite holding one U+2588 FULL BLOCK, stretched over the rect, queued into the
 // engine's name-tag text list at the name's own depth and sort key, so the "Render Name Tags" pass Z-tests it per
@@ -1379,7 +1378,7 @@ int SliderPosition(int s) {
 	}
 }
 
-// Legends' slider label: the position as a percentage of the track (its CSliderWnd draw), not the setting. Threat
+// Slider label: the position as a percentage of the track (its CSliderWnd draw), not the setting. Threat
 // Hold (DLL only) can show seconds instead (SliderLabels=value).
 void SliderLabel(int s, int position, char* text, size_t size) {
 	if (s == kSThreatHold && g_cfg.valueLabels) {

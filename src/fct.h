@@ -10,7 +10,7 @@ const char* FctPrepare();
 // Called once per frame from the shared DrawWindows hook, after the client's windows are drawn.
 void FctFrame(uint8_t* mgr, bool inGame);
 
-// FCTOptionsPage: Legends' "Combat Text" tab in the Options window (patched EQUI_OptionsWindow.xml), bound to
+// FCTOptionsPage: a "Combat Text" tab in the Options window (patched EQUI_OptionsWindow.xml), bound to
 // the [FloatingCombat] settings. Needs FloatingCombatText applied first.
 extern const HookSite kFctPageHooks[2];
 extern const RefSite kFctPageRefs[6];
