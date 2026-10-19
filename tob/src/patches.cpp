@@ -108,19 +108,19 @@ static const Feature kFeatures[] = {
 	// DrawWindows hook for drawing; reuses the Hud's text refs. See fct.cpp.
 	{ "FloatingCombatText", true, "Damage numbers rising from spawns in the 3D world", nullptr, 0,
 	  kFctHooks, COUNT(kFctHooks), kHudRefs, COUNT(kHudRefs), FctPrepare, kFctRefs, COUNT(kFctRefs) },
-	// Legends' "Combat Text" tab in Options: hooks on COptionsWnd::RefreshDisplayPage (FUN_14049db70, UI load)
+	// A "Combat Text" tab in Options: hooks on COptionsWnd::RefreshDisplayPage (FUN_14049db70, UI load)
 	// and COptionsWnd::WndNotification (FUN_14049f110). Needs the patched EQUI_OptionsWindow.xml. See fct.cpp.
-	{ "FCTOptionsPage",   true, "Combat Text options page (Legends layout)",       nullptr,           0,
+	{ "FCTOptionsPage",   true, "Combat Text options page",                       nullptr,           0,
 	  kFctPageHooks, COUNT(kFctPageHooks), kHudRefs, COUNT(kHudRefs), FctPagePrepare,
 	  kFctPageRefs, COUNT(kFctPageRefs) },
-	// Legends-style HP / mana / cast bars and threat frame under names: hooks on StartCasting (FUN_140293100) and
+	// HP / mana / cast bars and a threat flash under names: hooks on StartCasting (FUN_140293100) and
 	// the packet dispatcher (FUN_1401e4010), plus the DrawWindows and OP_Damage hooks shared with Hud/FCT. See
 	// nameplates.cpp.
 	{ "Nameplates",       true, "HP, mana and cast bars and threat under names",  nullptr,           0,
 	  kNameplatesHooks, COUNT(kNameplatesHooks), kHudRefs, COUNT(kHudRefs), NameplatesPrepare,
 	  kFctRefs, COUNT(kFctRefs), kNameplatesRefs, COUNT(kNameplatesRefs) },
-	// Legends' "Nameplates" tab in Options, on the two COptionsWnd detours of the Combat Text tab.
-	{ "NameplateOptionsPage", true, "Nameplates options page (Legends layout)",   nullptr,           0,
+	// A "Nameplates" tab in Options, on the two COptionsWnd detours of the Combat Text tab.
+	{ "NameplateOptionsPage", true, "Nameplates options page",                   nullptr,           0,
 	  kNameplatePageHooks, COUNT(kNameplatePageHooks), kHudRefs, COUNT(kHudRefs), NameplatePagePrepare,
 	  kFctPageRefs, COUNT(kFctPageRefs), kNameplatePageRefs, COUNT(kNameplatePageRefs) },
 	// Sell / Store / Merge in the Advanced Loot window and per-item auto actions: hooks on its WndNotification

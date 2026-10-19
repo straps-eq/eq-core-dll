@@ -1,6 +1,5 @@
-// AdvLootActions: Sell / Store in the ToB Advanced Loot window, like EverQuest Legends (without its Merge)
-// (analysis\legends\advloot-buttons\dll-spec.md, ui-all-options\dll-spec-addendum.md section 3, server contract in
-// analysis\legends\server\README.md).
+// AdvLootActions: Sell / Store buttons, menu entries and per-item auto actions in the ToB Advanced Loot window,
+// on top of the AdvLoot packet (sub 9 results, sub 0x20 capabilities) the server extends for them.
 //
 // Buttons Store All / Sell All (ADLW_PLL_*AllBtn from the patched EQUI_AdvancedLootWnd.xml) and right-click
 // entries "Sell / Store this item" (ids 0x40-0x41) on the Personal list. Every request goes
@@ -95,7 +94,7 @@ const uint8_t kSetCheckStart[] = { 0x38, 0x91, 0x70, 0x02, 0x00, 0x00, 0x74 };
 const size_t kSpawnName = 0xb4;          // char[0x40]
 
 const int kNotifyClick = 1, kNotifyMenu = 0x14;
-// Merge (Legends' 0x42 / 0x45, action 4, capability bit 3) is left out: this server has no such gameplay.
+// Menu ids 0x42 / 0x45 and action 4 (capability bit 3) are unused: there is no merge gameplay.
 const int kMenuSell = 0x40, kMenuStore = 0x41;
 const int kMenuAutoSell = 0x43, kMenuAutoStore = 0x44, kMenuAutoClear = 0x46;
 const uint8_t kActionSell = 3, kActionStore = 5, kActionDepot = 6;
@@ -1232,7 +1231,7 @@ void AdvLootFrame(bool inGame) {
 		g_ctl = {};
 		return;
 	}
-	// Requests nobody answered (a lost refusal): release them after a while, like Legends' pending expiry.
+	// Requests nobody answered (a lost refusal): release them after a while.
 	const uint64_t now = GetTickCount64();
 	for (Sent& s : g_sent)
 		if (s.used && now - s.when > kRequestTimeoutMs) ReleaseRequest(s);

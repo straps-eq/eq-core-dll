@@ -1,6 +1,6 @@
 #pragma once
-// Nameplates: Legends-style HP / mana / cast bars and a threat frame under spawn names. NameplateOptionsPage:
-// Legends' "Nameplates" tab in the Options window. See nameplates.cpp.
+// Nameplates: HP / mana / cast bars and a threat flash under spawn names. NameplateOptionsPage: a "Nameplates"
+// tab in the Options window. See nameplates.cpp.
 #include <cstdint>
 #include "patches.h"
 

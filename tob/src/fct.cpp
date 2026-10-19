@@ -1,5 +1,4 @@
 // FloatingCombatText: damage numbers and miss words rising from characters and NPCs in the 3D world,
-// matching the Legends client's floating combat text (analysis\legends\fct-legends-parity\behaviour-spec.md).
 // Client-only, fed by the OP_Damage packets the server already sends.
 //
 // Events: detour on the OP_Damage handler FUN_140216190(pkt). The original runs first (HP, chat message),
@@ -11,20 +10,20 @@
 // |dz|, compared with 200.0). Spawns come from the spawn manager's GetSpawnByID (vtbl+0x10), the call the
 // handler itself makes.
 //
-// As in Legends: category Self = the target is me, else You = the attacker is me, else Other (so my pet's
+// Categories: Self = the target is me, else You = the attacker is me, else Other (so my pet's
 // hits are Other). Per category a text mode (0 None, 1 Full, 2 Abbreviated, 3 DMG Only): numbers show in
 // 1-3, words (misses, heal text) in Full and, cut to three characters, in Abbreviated; plain texts ignore
 // the mode. Colours are the chat colours of the message the client prints (user colours through
 // FUN_14050b6d0): hits 0x109 / 0x10a / 0x117, damage shields 0x11b, misses 0x10b / 0x10c / 0x118, Block the
 // fixed white 10. A crit keeps its colour and doubles the category's font scale. Numbers live 4 s (crit
-// 5 s), words 2 s, no fade. The pet/merc colour variants and the DoT green of the Legends builder are not
-// ported (which case is which is not settled). Extras Legends does not have: the server sends a pet owner
+// 5 s), words 2 s, no fade. Pet/merc colour variants and a separate DoT colour are not
+// done. Also: the server sends a pet owner
 // each pet hit twice, so an identical {source, target, damage, type} involving my pet within DedupMs is
 // dropped; MaxEntries; a 1 px outline; FadeMs (0 = off); the toggle key.
-// Other feeders (heals, Ding!, Out of Range, Fizzle, Missed Note, Resist, skill-up, loot/sell) are not
-// hooked yet: their ToB handlers are not mapped. Each only has to call AddText() with its kind.
+// Heals and Advanced Loot sales / loots feed AddText() too (below). Ding!, Out of Range, Fizzle, Missed Note,
+// Resist and skill-up are not hooked yet; each only has to call AddText() with its kind.
 //
-// Motion, in world space like Legends: the text starts at the spawn's head point {spawn+0x74, +0x78,
+// Motion, in world space: the text starts at the spawn's head point {spawn+0x74, +0x78,
 // +0x7c + size(+0x154) * HeadHeight} (memory order) moved 0.5 x size toward the camera, and does not follow
 // the spawn. Direction = cameraRight x cos(A - 90) + cameraUp x sin(A - 90) for a random A in MinAngle..
 // MaxAngle (0 down, 90 right, 180 up, 270 left), speed MinVelocity..MaxVelocity world units/s; fixed 1/60 s
@@ -33,7 +32,7 @@
 // 200 units from the camera.
 //
 // Drawing, 3D route (default): the engine's own world string sprite, the class name tags use, so the text
-// scales with distance like Legends'; see the "3D route" section below. 2D route (Render3D=0, or when a
+// scales with distance; see the "3D route" section below. 2D route (Render3D=0, or when a
 // check of the engine fails):
 // Drawing: from the CXWndManager::DrawWindows hook shared with the Hud (hud.cpp), after the client's
 // windows, while in game. Each frame every entry is projected with the camera's WorldToScreen (EQGraphics
@@ -44,10 +43,10 @@
 // nothing is drawn. Text goes through the Hud's helpers (CTextureFont::DrawWrappedText FUN_1405d1990),
 // centred on the point; the UI font is FontStep x scale rounded (capped at the largest). Entries are dropped when their spawn is gone,
 // and all are dropped when the client leaves the game state or the display, camera or renderer is missing.
-// Settings: Legends' keys under [FloatingCombat] in dinput8.ini, the DLL extras under [FCT]. ToggleKey
+// Settings: [FloatingCombat] in dinput8.ini, the extras under [FCT]. ToggleKey
 // (default Ctrl+Shift+F, game window focused) flips Enabled and shows the new state for two seconds.
 //
-// FCTOptionsPage: Legends' "Combat Text" tab in the Options window (OptionsCombatTextPage from the patched
+// FCTOptionsPage: a "Combat Text" tab in the Options window (OptionsCombatTextPage from the patched
 // EQUI_OptionsWindow.xml; without it nothing happens). COptionsWnd (g_pOptionsWnd DAT_140db5348, 0x28d0
 // bytes); the page and its controls are found with CXWnd::GetChildItem (FUN_14059f8a0, log = 0, silent),
 // once per COptionsWnd instance (a UI reload builds a new one). Hooks: RefreshDisplayPage FUN_14049db70 (end
@@ -115,7 +114,7 @@ const int kColourYouHit = 0x109, kColourSelfHit = 0x10a, kColourOtherHit = 0x117
 const int kColourYouMiss = 0x10b, kColourSelfMiss = 0x10c, kColourOtherMiss = 0x118;
 const int kColourWhite = 10;         // Block
 
-const float kStep = 1.0f / 60.0f;    // Legends' fixed animation step
+const float kStep = 1.0f / 60.0f;    // fixed animation step
 const int kMaxStepsPerFrame = 5;
 const float kDrag = 0.98f;           // horizontal velocity factor per step
 const float kMaxDrawDistance = 200.0f;
@@ -148,10 +147,10 @@ char g_iniPath[MAX_PATH] = {};
 
 // ---- configuration ----
 
-enum Category { kYou, kSelf, kOther, kCategoryCount };          // the order of Legends' three tabs
+enum Category { kYou, kSelf, kOther, kCategoryCount };          // the order of the three groups
 enum TextMode { kModeNone = 0, kModeFull = 1, kModeAbbreviated = 2, kModeDamageOnly = 3 };
 enum Kind { kNumber, kWord, kPlain };                           // what the text mode applies to
-// Legends' float option indices.
+// Float option indices.
 enum FloatOption { kMinVelocity, kMaxVelocity, kGravity, kMinAngle, kMaxAngle, kYouFontScale, kSelfFontScale,
                    kOtherFontScale, kFloatCount };
 
@@ -170,11 +169,11 @@ const FloatInfo kFloats[kFloatCount] = {
 	{ "OtherFontScale", 1.25f, 0.1f, 2.0f },
 };
 const char* const kHitTextKeys[kCategoryCount] = { "YouHitText", "SelfHitText", "OtherHitText" };
-const char* const kSection = "FloatingCombat";   // Legends' keys
+const char* const kSection = "FloatingCombat";   // the main settings
 const char* const kExtras = "FCT";               // DLL extras
 
 struct Config {
-	// Legends
+	// main settings
 	bool enabled = true;
 	bool sellText = true;
 	bool lootText = true;
@@ -186,9 +185,9 @@ struct Config {
 	float headHeight = 1.0f;
 	float fontStep = 4.0f;                  // 2D route: UI font index per unit of font scale
 	bool render3D = true;                   // world text through the engine's string sprite when its checks pass
-	float letterScale = 0.4f;               // 3D: sprite letter scale per unit of font scale (Legends mapping)
-	int minPx = 12;                         // 3D: minimum text height in pixels (Legends)
-	bool occlude = false;                   // 3D: false = drawn over walls (Legends' default)
+	float letterScale = 0.4f;               // 3D: sprite letter scale per unit of font scale
+	int minPx = 12;                         // 3D: minimum text height in pixels
+	bool occlude = false;                   // 3D: false = drawn over walls (default)
 	bool healText = true;                   // green heal numbers
 	bool followChatFilters = true;          // a hit / miss hidden in the Chat tab gets no floating text either
 	bool valueLabels = false;               // SliderLabels=value: the DLL-only sliders show their value, not N%
@@ -278,7 +277,7 @@ void LoadConfig() {
 	g_cfg = c;
 }
 
-// Writes Legends' settings back to [FloatingCombat] (the options page and the toggle key change them).
+// Writes the main settings back to [FloatingCombat] (the options page and the toggle key change them).
 void SaveConfig() {
 	if (!g_iniPath[0]) return;
 	char buf[32];
@@ -386,7 +385,7 @@ bool CamAxis(const uint8_t* cam, size_t x, size_t y, size_t z, float* out) {
 
 // ---- 3D route: the engine's world string sprite (EQGraphics CStringSprite, the name-tag class) ----
 //
-// analysis\legends\fct-3dtext\dll-spec.md. A pool of sprites in our own memory, constructed once when the
+// A pool of sprites in our own memory, constructed once when the
 // EQGraphics.dll functions and vtables check out. Per entry: SetText/SetColor once; per frame the world
 // position (+0x98, spawn memory order) and letter scale (+0x94), then Draw, which queues the text into the
 // engine's name-tag text list; renderer slot +0x158 draws it at the end of this frame's 3D pass. A text
@@ -613,7 +612,7 @@ bool IsDuplicate(uint16_t source, uint16_t target, int64_t damage, uint8_t type)
 	return false;
 }
 
-// Legends' words (eqstr 15557-15564).
+// The miss words (eqstr 15557-15564).
 const char* MissWord(int64_t damage) {
 	switch (damage) {
 	case 0: return "Miss";
@@ -690,8 +689,8 @@ void DamageDetour(uint8_t* pkt) {
 	if (pkt) NameplatesOnDamage(pkt);
 }
 
-// ---- heal numbers (analysis\legends\fct-feeders) ----
-// Legends draws a green number over the healed spawn ("N", or "N (M)" for an overheal), plain (text modes ignored),
+// ---- heal numbers ----
+// A green number over the healed spawn ("N", or "N (M)" for an overheal), plain (text modes ignored),
 // 2 s (crit 2.5 s, double size). Two sources:
 // - OP_CombatText64 (the client's own heal message) through its builder FUN_140286f00(CEverQuest*, rec), when the
 //   server sends it;
@@ -847,7 +846,7 @@ bool Project(uint8_t* cam, Projection proj, const float* world, float* sx, float
 // ---- drawing ----
 
 // Font for a scale: FontStep x scale rounded, capped at the largest UI font. The UI fonts have fixed sizes, so
-// this stands in for Legends' perspective text. The first time, the font count and heights go to dinput8.log.
+// this stands in for perspective-scaled text. The first time, the font count and heights go to dinput8.log.
 void LogFonts(uint8_t* mgr) {
 	static bool logged = false;
 	if (logged || !g_iniPath[0]) return;
@@ -876,7 +875,7 @@ uint8_t* FontForScale(uint8_t* mgr, float scale) {
 	return HudFont(mgr, index);
 }
 
-// Legends' fixed-step motion: gravity on world Z, drag on the horizontal velocity.
+// Fixed-step motion: gravity on world Z, drag on the horizontal velocity.
 void Step(Entry& e, float dt) {
 	e.pending += dt;
 	int steps = 0;
@@ -1096,7 +1095,7 @@ const char* FctPrepare() {
 
 // ---- shared with Nameplates (valid after FctSharedPrepare) ----
 
-// Advanced Loot results (advloot.cpp): the item name over the corpse, as Legends does (sale 0xFFFFDF00, loot
+// Advanced Loot results (advloot.cpp): the item name over the corpse (sale 0xFFFFDF00, loot
 // 0xFF9090FF, 2500 ms, You font scale), gated by [FloatingCombat] SellText / LootText. Over me when the corpse is
 // already gone (its last item was taken).
 void FctShowLootText(uint32_t corpseId, const char* text, bool sale) {
@@ -1178,7 +1177,7 @@ const uint8_t kIsCheckedStart[] = { 0x0F, 0xB6, 0x81, 0x70, 0x02, 0x00, 0x00, 0x
 const uint8_t kSetCheckStart[] = { 0x38, 0x91, 0x70, 0x02, 0x00, 0x00, 0x74 };          // cmp [rcx+270],dl; je
 const int kMsgClick = 1;                 // checkbox click (already toggled), combobox pick (data = row), tab change
 const int kMsgSliderMoved = 0xe;         // data = new position
-const int kSliderSteps = 100;            // Legends: value = min + pos / 100 x (max - min); 101 ticks reach the max
+const int kSliderSteps = 100;            // value = min + pos / 100 x (max - min); 101 ticks reach the max
 
 using RefreshFn = void (*)(uint8_t* opt);
 using NotifyFn = uint64_t (*)(uint8_t* opt, uint8_t* sender, int msg, void* data);
@@ -1293,7 +1292,7 @@ void SetText(uint8_t* wnd, const char* text) {
 	HudCXStrRelease(&str);
 }
 
-// Legends' slider label: the position as a percentage of the track (its CSliderWnd draw), not the setting.
+// Slider label: the position as a percentage of the track (its CSliderWnd draw), not the setting.
 void PercentText(int position, int ticks, char* out, size_t size) {
 	const float pct = ticks > 1 ? static_cast<float>(Clamp(position, 0, ticks - 1)) / (static_cast<float>(ticks) - 1.0f) * 100.0f : 0.0f;
 	snprintf(out, size, "%.0f%%", static_cast<double>(pct));
@@ -1392,7 +1391,7 @@ int ColourRow(uint32_t colour) {
 	return kColourPresetCount;   // Custom (ini)
 }
 
-// Settings -> controls (what Legends' page refresh does).
+// Settings -> controls.
 void Fill() {
 	SetBox(g_page.toggle, g_cfg.enabled);
 	SetBox(g_page.sell, g_cfg.sellText);
