@@ -4,11 +4,11 @@
 #include <cstdint>
 #include "patches.h"
 
-extern const HookSite kNameplatesHooks[4];
+extern const HookSite kNameplatesHooks[5];
 extern const RefSite kNameplatesRefs[4];
 const char* NameplatesPrepare();
-extern const HookSite kNameplatePageHooks[2];
-extern const RefSite kNameplatePageRefs[3];
+extern const HookSite kNameplatePageHooks[3];
+extern const RefSite kNameplatePageRefs[7];
 const char* NameplatePagePrepare();
 
 // Called from the shared hooks (no-ops while the features are off).

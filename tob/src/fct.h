@@ -4,8 +4,8 @@
 #include <cstdint>
 #include "patches.h"
 
-extern const HookSite kFctHooks[2];
-extern const RefSite kFctRefs[9];
+extern const HookSite kFctHooks[4];
+extern const RefSite kFctRefs[11];
 const char* FctPrepare();
 // Called once per frame from the shared DrawWindows hook, after the client's windows are drawn.
 void FctFrame(uint8_t* mgr, bool inGame);

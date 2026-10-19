@@ -88,6 +88,7 @@ const size_t kDmgAmount = 0x08;      // int64
 const size_t kDmgSpecial = 0x10;     // u32, bit 7 = critical
 const size_t kDmgType = 0x28;        // u8
 const uint32_t kSpecialCrit = 0x80;
+const uint8_t kTypeSpell = 0xE7;           // below: a melee skill
 const uint8_t kTypeDamageShield = 0xEC;
 
 // CEverQuest game state, as in hud.cpp.
@@ -129,6 +130,12 @@ uint8_t** g_spawnMgr = nullptr;       // &DAT_140ee4b40
 uint8_t** g_pLocalPlayer = nullptr;   // &DAT_140e66228, as the damage handler loads it
 uint8_t** g_pDisplay = nullptr;       // &DAT_140e65d60, as the damage handler loads it
 DistanceFn g_distance = nullptr;      // FUN_14019b2c0
+// The Chat tab's Show / Hide: the chat manager FUN_1401093c0() and its "is this colour shown" FUN_140108b00(mgr,
+// colour) (filter value != 1 for the filter the colour maps to), the check the damage message makes before printing.
+using ChatMgrFn = uint8_t* (*)();
+using ChatShowsFn = bool (*)(uint8_t* mgr, int colour);
+ChatMgrFn g_chatMgr = nullptr;
+ChatShowsFn g_chatShows = nullptr;
 uint8_t** g_pDisplayCheck = nullptr;  // &DAT_140e65d60 from the game time read, for the cross-check
 int32_t* g_cameraOffsetAt = nullptr;  // the 0x118 inside `lea rdx,[rdi+118]` at the "Camera created." site
 void** g_pRenderer = nullptr;         // &DAT_140f0e910
@@ -182,6 +189,9 @@ struct Config {
 	float letterScale = 0.4f;               // 3D: sprite letter scale per unit of font scale (Legends mapping)
 	int minPx = 12;                         // 3D: minimum text height in pixels (Legends)
 	bool occlude = false;                   // 3D: false = drawn over walls (Legends' default)
+	bool healText = true;                   // green heal numbers
+	bool followChatFilters = true;          // a hit / miss hidden in the Chat tab gets no floating text either
+	bool valueLabels = false;               // SliderLabels=value: the DLL-only sliders show their value, not N%
 	float otherRange = 200.0f;
 	int maxEntries = 32;
 	int dedupMs = 100;
@@ -257,6 +267,11 @@ void LoadConfig() {
 	c.letterScale = ClampF(Float(kExtras, "LetterScale", c.letterScale), 0.01f, 10.0f);
 	c.minPx = Clamp(Int(kExtras, "MinPx", c.minPx), 0, 200);
 	c.occlude = Int(kExtras, "Occlude", c.occlude) != 0;
+	c.followChatFilters = Int(kExtras, "FollowChatFilters", c.followChatFilters) != 0;
+	c.healText = Int(kExtras, "HealText", c.healText) != 0;
+	char labels[16] = {};
+	GetPrivateProfileStringA(kExtras, "SliderLabels", "percent", labels, sizeof(labels), ini);
+	c.valueLabels = _stricmp(labels, "value") == 0;
 	char key[64] = {};
 	GetPrivateProfileStringA(kExtras, "ToggleKey", "Ctrl+Shift+F", key, sizeof(key), ini);
 	ParseHotkey(key, &c);
@@ -617,6 +632,13 @@ bool InGame() {
 	return eq && *reinterpret_cast<int*>(eq + kEverQuestGameState) == 5 && *g_pLocalPlayer;
 }
 
+// The client prints this chat colour (Chat tab filter not set to Hide).
+bool ChatShows(int colour) {
+	if (!g_cfg.followChatFilters) return true;
+	uint8_t* mgr = g_chatMgr();
+	return !mgr || g_chatShows(mgr, colour);
+}
+
 void OnDamage(const uint8_t* pkt) {
 	if (!InGame()) return;
 	uint8_t* me = *g_pLocalPlayer;
@@ -644,15 +666,20 @@ void OnDamage(const uint8_t* pkt) {
 	if (damage > 0) {
 		static const int kHit[kCategoryCount] = { kColourYouHit, kColourSelfHit, kColourOtherHit };
 		const bool crit = (special & kSpecialCrit) != 0;
-		uint32_t colour = g_cfg.colour[cat] ? g_cfg.colour[cat] : HudUserColour(type >= kTypeDamageShield ? kColourNonMelee : kHit[cat]);
+		const int chat = type >= kTypeDamageShield ? kColourNonMelee : kHit[cat];
+		if (!ChatShows(chat)) return;
+		uint32_t colour = g_cfg.colour[cat] ? g_cfg.colour[cat] : HudUserColour(chat);
 		char text[24];
 		snprintf(text, sizeof(text), "%lld", static_cast<long long>(damage));
 		AddText(target, text, colour, cat, crit, crit ? 5000 : 4000, kNumber);
 		return;
 	}
+	// Spells (beneficial ones land as damage 0, type 0xE7) and damage shields have no miss: the client prints none.
+	if (type >= kTypeSpell) return;
 	const char* word = MissWord(damage);
 	if (!word) return;
 	static const int kMiss[kCategoryCount] = { kColourYouMiss, kColourSelfMiss, kColourOtherMiss };
+	if (!ChatShows(kMiss[cat])) return;
 	uint32_t colour = HudUserColour(damage == -1 ? kColourWhite : kMiss[cat]);
 	AddText(target, word, colour, cat, false, 2000, kWord);
 }
@@ -661,6 +688,108 @@ void DamageDetour(uint8_t* pkt) {
 	g_origDamage(pkt);
 	if (g_on && pkt) OnDamage(pkt);
 	if (pkt) NameplatesOnDamage(pkt);
+}
+
+// ---- heal numbers (analysis\legends\fct-feeders) ----
+// Legends draws a green number over the healed spawn ("N", or "N (M)" for an overheal), plain (text modes ignored),
+// 2 s (crit 2.5 s, double size). Two sources:
+// - OP_CombatText64 (the client's own heal message) through its builder FUN_140286f00(CEverQuest*, rec), when the
+//   server sends it;
+// - the heal strings EQEmu sends today, through the OP_FormattedMessage handler FUN_140207ce0(data, size): 9068 "You
+//   have healed %1 for %2", 419 "%1 has healed you for %2", 12976 "You have been healed for %1 hit points by your %2",
+//   12997 "You have healed %1 for %2 hit points with your %3", 12998 "%1 healed you for %2 hit points by %3".
+
+struct HealRecord {
+	uint16_t target, healer;
+	int32_t spell;
+	int64_t healed, total;
+	uint32_t flags;
+};
+using HealFn = void (*)(uint8_t* eq, const HealRecord* rec);
+using FormattedFn = void (*)(const uint8_t* data, uint32_t size);
+HealFn g_origHeal = nullptr;             // trampoline into FUN_140286f00
+FormattedFn g_origFormatted = nullptr;   // trampoline into FUN_140207ce0
+const uint32_t kHealCritical = 4;
+const int kColourGreen = 0xe;
+const size_t kSpawnName = 0xb4;          // char[0x40]
+const size_t kSpawnDisplayed = 0xf4;     // char[0x40], the clean name EQEmu puts in heal strings
+
+void ShowHeal(uint8_t* spawn, int64_t healed, int64_t total, bool crit) {
+	if (!spawn || healed <= 0) return;
+	char text[48];
+	if (total <= 0 || healed == total) snprintf(text, sizeof(text), "%lld", static_cast<long long>(healed));
+	else snprintf(text, sizeof(text), "%lld (%lld)", static_cast<long long>(healed), static_cast<long long>(total));
+	AddText(spawn, text, HudUserColour(kColourGreen), spawn == *g_pLocalPlayer ? kSelf : kYou, crit, crit ? 2500 : 2000, kPlain);
+}
+
+void HealDetour(uint8_t* eq, const HealRecord* rec) {
+	g_origHeal(eq, rec);
+	if (!g_on || !g_cfg.healText || !rec || !InGame()) return;
+	ShowHeal(SpawnById(rec->target), rec->healed, rec->total, (rec->flags & kHealCritical) != 0);
+}
+
+// A spawn by the name in a heal string: my target, then me, then the nearest spawn with that displayed name.
+uint8_t* SpawnByName(const char* name) {
+	auto matches = [name](uint8_t* s) {
+		return s && (!_stricmp(reinterpret_cast<const char*>(s + kSpawnDisplayed), name) ||
+		             !_stricmp(reinterpret_cast<const char*>(s + kSpawnName), name));
+	};
+	uint8_t* me = *g_pLocalPlayer;
+	uint8_t* target = HudTarget();
+	if (matches(target)) return target;
+	if (matches(me)) return me;
+	uint8_t* best = nullptr;
+	float bestD = 0.0f;
+	int guard = 0;
+	for (uint8_t* s = FctFirstSpawn(); s && guard < 4096; s = *reinterpret_cast<uint8_t**>(s + 0x10), ++guard) {
+		if (!matches(s)) continue;
+		const float dx = *reinterpret_cast<float*>(s + 0x74) - *reinterpret_cast<float*>(me + 0x74);
+		const float dy = *reinterpret_cast<float*>(s + 0x78) - *reinterpret_cast<float*>(me + 0x78);
+		if (!best || dx * dx + dy * dy < bestD) {
+			best = s;
+			bestD = dx * dx + dy * dy;
+		}
+	}
+	return best;
+}
+
+void OnFormatted(const uint8_t* data, uint32_t size) {
+	if (size < 4) return;
+	uint32_t len0;
+	memcpy(&len0, data, 4);
+	size_t pos = 4 + static_cast<size_t>(len0);
+	if (pos + 9 > size) return;
+	uint32_t id, colour;
+	memcpy(&id, data + pos + 1, 4);
+	memcpy(&colour, data + pos + 5, 4);
+	pos += 9;
+	if (id != 9068 && id != 419 && id != 12976 && id != 12997 && id != 12998) return;
+	char arg[3][72] = {};
+	for (int i = 0; i < 3 && pos + 4 <= size; ++i) {
+		uint32_t n;
+		memcpy(&n, data + pos, 4);
+		pos += 4;
+		if (n > size - pos) break;
+		const size_t copy = n < sizeof(arg[i]) - 1 ? n : sizeof(arg[i]) - 1;
+		memcpy(arg[i], data + pos, copy);
+		pos += n;
+	}
+	if (!ChatShows(static_cast<int>(colour))) return;
+	uint8_t* spawn = nullptr;
+	const char* amount = nullptr;
+	switch (id) {
+	case 9068: spawn = SpawnByName(arg[0]); amount = arg[1]; break;    // I healed %1 (or myself) for %2
+	case 12997: spawn = SpawnByName(arg[0]); amount = arg[1]; break;   // HoT I cast on %1
+	case 419: case 12998: spawn = *g_pLocalPlayer; amount = arg[1]; break;   // someone healed me
+	default: spawn = *g_pLocalPlayer; amount = arg[0]; break;          // 12976: my own HoT on me
+	}
+	const long long healed = strtoll(amount, nullptr, 10);
+	if (healed > 0) ShowHeal(spawn, healed, 0, false);
+}
+
+void FormattedDetour(const uint8_t* data, uint32_t size) {
+	g_origFormatted(data, size);
+	if (g_on && g_cfg.healText && data && InGame()) OnFormatted(data, size);
 }
 
 // ---- projection ----
@@ -907,13 +1036,19 @@ extern const char kFctDamageSig[] =
 void (*const g_fctDamageDetour)(uint8_t* pkt) = &DamageDetour;
 void (**const g_fctOrigDamageSlot)(uint8_t* pkt) = &g_origDamage;
 
-const HookSite kFctHooks[2] = {
+const HookSite kFctHooks[4] = {
 	// Shared with the Hud (same signature, detour and trampoline): whichever feature is applied first installs it.
 	{ kDrawWindowsSig, 5, reinterpret_cast<void*>(&DrawWindowsDetour), reinterpret_cast<void**>(&g_origDrawWindows) },
 	{ kFctDamageSig, 5, reinterpret_cast<void*>(&DamageDetour), REF(g_origDamage) },
+	// Heal message builder FUN_140286f00(CEverQuest*, rec) (OP_CombatText64). Stolen (5): mov [rsp+8],rbx.
+	{ "48 89 5C 24 08 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8D AC 24 90 FD FF FF 48 81 EC 70 03 00 00",
+	  5, reinterpret_cast<void*>(&HealDetour), REF(g_origHeal) },
+	// OP_FormattedMessage handler FUN_140207ce0(data, size). Stolen (5): mov [rsp+8],rbx.
+	{ "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 55 41 54 41 55 41 56 41 57 48 8D AC 24 50 FA FF FF",
+	  5, reinterpret_cast<void*>(&FormattedDetour), REF(g_origFormatted) },
 };
 
-const RefSite kFctRefs[9] = {
+const RefSite kFctRefs[11] = {
 	{ kDamageGateSig, 3, 7, REF(g_spawnMgr) },
 	{ kDamageGateSig, 30, 34, REF(g_pLocalPlayer) },
 	{ kDamageGateSig, 37, 41, REF(g_pDisplay) },
@@ -928,6 +1063,9 @@ const RefSite kFctRefs[9] = {
 	{ "8B 05 ?? ?? ?? ?? 48 8D 93 A4 54 00 00 0F 28 74 24 30", 2, 6, REF(g_viewport) },
 	// mov rcx,[pEverQuest]; cmp dword [rcx+5e4],5 (the in-game test, as in hud.cpp)
 	{ "48 8B 0D ?? ?? ?? ?? 83 B9 E4 05 00 00 05", 3, 7, REF(g_pEverQuest) },
+	// The damage message's chat gate: call ChatMgr; mov rcx,rax; mov ebx,[rbp-58]; mov edx,ebx; call Shows; test al,al
+	{ "E8 ?? ?? ?? ?? 48 8B C8 8B 5D A8 8B D3 E8 ?? ?? ?? ?? 84 C0 0F", 1, 5, REF(g_chatMgr) },
+	{ "E8 ?? ?? ?? ?? 48 8B C8 8B 5D A8 8B D3 E8 ?? ?? ?? ?? 84 C0 0F", 14, 18, REF(g_chatShows) },
 };
 
 const char* FctSharedPrepare() {
@@ -941,6 +1079,10 @@ const char* FctSharedPrepare() {
 	if (memcmp(reinterpret_cast<const void*>(g_distance), kDistanceStart, sizeof(kDistanceStart)) != 0)
 		return "the damage handler's distance call is not the expected function";
 	if (*g_cameraOffsetAt != 0x118) return "the camera is not at CDisplay+0x118";
+	// FUN_140108b00: mov r8d,edx; lea rdx,[filters]; jmp (the colour -> filter lookup)
+	static const uint8_t kChatShowsStart[] = { 0x44, 0x8B, 0xC2, 0x48, 0x8D, 0x15 };
+	if (memcmp(reinterpret_cast<const void*>(g_chatShows), kChatShowsStart, sizeof(kChatShowsStart)) != 0)
+		return "the damage message's chat filter check is not the expected function";
 	g_cameraOffset = static_cast<size_t>(*g_cameraOffsetAt);
 	return nullptr;
 }
@@ -1151,9 +1293,15 @@ void SetText(uint8_t* wnd, const char* text) {
 	HudCXStrRelease(&str);
 }
 
-void SetLabel(uint8_t* label, int option) {
+// Legends' slider label: the position as a percentage of the track (its CSliderWnd draw), not the setting.
+void PercentText(int position, int ticks, char* out, size_t size) {
+	const float pct = ticks > 1 ? static_cast<float>(Clamp(position, 0, ticks - 1)) / (static_cast<float>(ticks) - 1.0f) * 100.0f : 0.0f;
+	snprintf(out, size, "%.0f%%", static_cast<double>(pct));
+}
+
+void SetLabel(uint8_t* label, int position) {
 	char text[32];
-	snprintf(text, sizeof(text), option == kMinAngle || option == kMaxAngle ? "%.0f" : "%.2f", g_cfg.f[option]);
+	PercentText(position, kSliderSteps + 1, text, sizeof(text));
 	SetText(label, text);
 }
 
@@ -1189,9 +1337,10 @@ void SetExtraValue(int i, float v) {
 	}
 }
 
-void SetExtraLabel(int i) {
+void SetExtraLabel(int i, int position) {
 	char text[32];
-	snprintf(text, sizeof(text), kExtraSliders[i].fmt, ExtraValue(i));
+	if (g_cfg.valueLabels) snprintf(text, sizeof(text), kExtraSliders[i].fmt, ExtraValue(i));
+	else PercentText(position, kExtraSliders[i].ticks, text, sizeof(text));
 	SetText(g_page.xvalue[i], text);
 }
 
@@ -1250,14 +1399,14 @@ void Fill() {
 	SetBox(g_page.loot, g_cfg.lootText);
 	for (int i = 0; i < kFloatCount; ++i) {
 		if (g_page.slider[i]) g_sliderSetValue(g_page.slider[i], PositionOf(i));
-		SetLabel(g_page.value[i], i);
+		SetLabel(g_page.value[i], PositionOf(i));
 	}
 	for (int i = 0; i < kCategoryCount; ++i)
 		if (g_page.combo[i]) g_comboSetChoice(g_page.combo[i], g_cfg.hitText[i]);
 	SetBox(g_page.outline, g_cfg.outline);
 	for (int i = 0; i < kXCount; ++i) {
 		if (g_page.xslider[i]) g_sliderSetValue(g_page.xslider[i], ExtraPosition(i));
-		SetExtraLabel(i);
+		SetExtraLabel(i, ExtraPosition(i));
 	}
 	if (g_page.keyCombo) g_comboSetChoice(g_page.keyCombo, KeyRow());
 	SetKeyLabel();
@@ -1342,7 +1491,7 @@ uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 		for (int i = 0; i < kFloatCount; ++i) {
 			if (sender != g_page.slider[i]) continue;
 			g_cfg.f[i] = ValueOf(i, arg);
-			SetLabel(g_page.value[i], i);
+			SetLabel(g_page.value[i], arg);
 			SaveConfig();
 			return 0;
 		}
@@ -1350,7 +1499,7 @@ uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 			if (sender != g_page.xslider[i]) continue;
 			const ExtraSliderInfo& x = kExtraSliders[i];
 			SetExtraValue(i, x.min + static_cast<float>(Clamp(arg, 0, x.ticks - 1)) * x.step);
-			SetExtraLabel(i);
+			SetExtraLabel(i, arg);
 			if (i == kXMaxEntries && g_count > g_cfg.maxEntries) {
 				// keep the newest
 				const int drop = g_count - g_cfg.maxEntries;

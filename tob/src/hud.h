@@ -25,6 +25,7 @@ int HudTextWidth(uint8_t* font, const char* text);
 int HudLineHeight(uint8_t* font);
 uint32_t HudUserColour(int index);                  // the client's user colour (Options > Colors), opaque ARGB
 uint8_t** HudLocalPlayerRef();                      // &pLocalPlayer as kHudRefs resolved it
+uint8_t* HudTarget();                               // the current target, or nullptr
 void HudCXStr(void** str, const char* text);        // CXStr::CXStr(const char*)
 void HudCXStrRelease(void** str);
 void* HudLocalPC();                                 // *pLocalPC

@@ -1,6 +1,6 @@
 // Nameplates: EverQuest Legends-style bars under spawn names (analysis\legends\nameplates-parity\dll-spec.md,
 // behaviour-spec.md): an HP row, then a cast-or-mana row 1 px below, a 500 ms red flash in the cast row when a
-// cast is interrupted, and a pulsing red frame around the bars of NPCs that have aggro on me (or my group).
+// cast is interrupted, and a flashing HP bar on NPCs that have aggro on me (or my group) (Legends: a pulsing frame).
 //
 // Drawing: from the CXWndManager::DrawWindows hook shared with the Hud and FCT, after the client's windows, with
 // the renderer's DrawColoredQuad (vtbl +0x140) and DrawLine2D (+0x110), checked once against the EQGraphics.dll
@@ -37,7 +37,11 @@
 // on the two COptionsWnd detours the Combat Text tab uses (fct.cpp). Settings in dinput8.ini [NameplateOptions]
 // with Legends' key names; ConColor switches the ConNameTags feature live ([Features] ConNameTags); Name Filters
 // sets the client's own /shownames level (DAT_140e6e3a8) and rebuilds the names (CDisplay::SetNPCNames
-// FUN_1401a3bf0). SelfName is stored only (phase 2).
+// FUN_1401a3bf0). The page's name toggles mirror the client's own Display settings (PC / NPC / Pet / Merc / owner
+// names: u8 globals at DAT_140e6e551, applied by forwarding the click to the Display page's handler with its box).
+// Show Self Name and Show Corpse Names (ToB has neither) hide those names by passing a null text to
+// EQPlayer::ChangeBoneStringSprite FUN_1402fa280, the client's own "no name" path
+// (analysis\legends\nameplates-polish\dll-spec.md). Slider labels show the slider position as N% like Legends.
 #include "nameplates.h"
 #include "fct.h"
 #include "hud.h"
@@ -123,6 +127,7 @@ void** g_spellMgr = nullptr;                   // &DAT_140ee6480
 MayShowNameFn g_mayShowName = nullptr;         // FUN_1402fa230
 IsInvisibleToFn g_isInvisibleTo = nullptr;     // FUN_140315770
 bool g_on = false;
+bool g_nameHookOn = false;                     // Nameplates or its page applied: the name text hook acts
 char g_iniPath[MAX_PATH] = {};
 
 // ---- configuration ([NameplateOptions]) ----
@@ -137,6 +142,7 @@ struct Config {
 	bool fontShadow = true;
 	bool fontOutline = true;
 	bool selfName = true;
+	bool corpseNames = true;       // DLL setting: ToB names corpses whenever NPC names are on
 	float drawDistance = 200.0f;   // 50..400
 	float size = 1.0f;             // 0.2..2.0
 	int threatDisplay = 0;         // 0 off, 1 aggro on me, 2 aggro on me / my group / my pet
@@ -149,6 +155,7 @@ struct Config {
 	bool selfIgnoresOcclusion = false;
 	float depthBias = 0.0f;        // world units (x actor scale) the depth-tested bars sit toward the camera
 	uint32_t threatColour = 0;     // 0 = Legends pulse
+	bool valueLabels = false;      // SliderLabels=value: the DLL-only Threat Hold slider shows seconds, not N%
 };
 Config g_cfg;
 const char* const kSection = "NameplateOptions";
@@ -180,6 +187,7 @@ void LoadConfig() {
 	c.fontShadow = Int("FontShadow", c.fontShadow) != 0;
 	c.fontOutline = Int("FontOutline", c.fontOutline) != 0;
 	c.selfName = Int("SelfName", c.selfName) != 0;
+	c.corpseNames = Int("CorpseNames", c.corpseNames) != 0;
 	c.drawDistance = ClampF(Float("DrawDistance", c.drawDistance), 50.0f, 400.0f);
 	c.size = ClampF(Float("Size", c.size), 0.2f, 2.0f);
 	c.threatDisplay = Clamp(Int("ThreatDisplay", c.threatDisplay), 0, 2);
@@ -195,6 +203,8 @@ void LoadConfig() {
 	char* end = nullptr;
 	unsigned long v = strtoul(buf, &end, 16);
 	c.threatColour = end != buf ? static_cast<uint32_t>(v) | 0xFF000000u : 0u;
+	GetPrivateProfileStringA(kSection, "SliderLabels", "percent", buf, sizeof(buf), ini);
+	c.valueLabels = _stricmp(buf, "value") == 0;
 	g_cfg = c;
 }
 
@@ -454,15 +464,18 @@ void Quad(float x0, float y0, float x1, float y1, uint32_t argb) {
 	g_drawQuad(g_renderer, q, argb);
 }
 
-// Legends' threat pulse: red, alpha 190, brightness 50..100 % on a 2 s triangle, fading beyond 80 units.
-uint32_t ThreatColour(float distance) {
-	float alpha = 190.0f * (distance > 80.0f ? 80.0f / distance : 1.0f);
-	if (g_cfg.threatColour) return (static_cast<uint32_t>(alpha) << 24) | (g_cfg.threatColour & 0x00FFFFFFu);
-	const uint64_t t = Now();
-	const float phase = static_cast<float>(t % 1000) / 1000.0f;
-	const float tri = (t % 2000 < 1000) ? phase : 1.0f - phase;
-	const uint32_t red = static_cast<uint32_t>(255.0f * (1.0f - 0.5f * tri));
-	return (static_cast<uint32_t>(alpha) << 24) | (red << 16);
+// Threat: the HP bar's fill flashes between its colour and the flash colour (ThreatFrameColour, else near white)
+// on a 0.8 s triangle, so an NPC that is on you stands out without anything drawn around its name.
+uint32_t ThreatFlash(uint32_t fill) {
+	const uint32_t flash = g_cfg.threatColour ? (g_cfg.threatColour | 0xFF000000u) : 0xFFFFE0E0u;
+	const uint64_t t = Now() % 800;
+	const float k = t < 400 ? t / 400.0f : (800 - t) / 400.0f;
+	uint32_t out = 0xFF000000u;
+	for (int shift = 0; shift < 24; shift += 8) {
+		const float a = static_cast<float>((fill >> shift) & 0xFF), b = static_cast<float>((flash >> shift) & 0xFF);
+		out |= static_cast<uint32_t>(a + (b - a) * k + 0.5f) << shift;
+	}
+	return out;
 }
 
 // Text the DLL draws next to the bars, with the FontShadow / FontOutline layers.
@@ -499,7 +512,7 @@ bool NameBox(uint8_t* spawn, uint8_t* mgr, float* box) {
 	const int32_t* vp = FctViewport();
 	uint8_t* actor = *reinterpret_cast<uint8_t**>(spawn + kSpawnActor);
 	uint8_t* sprite = actor ? *reinterpret_cast<uint8_t**>(actor + kActorNameSprite) : nullptr;
-	if (sprite && *reinterpret_cast<int*>(sprite + kSpriteFont) == kSpriteFontName) {
+	if (sprite && *reinterpret_cast<int*>(sprite + kSpriteFont) == kSpriteFontName && *reinterpret_cast<void**>(sprite + kSpriteText)) {
 		const int* r = reinterpret_cast<const int*>(sprite + kSpriteRect);
 		const int w = r[2] - r[0], h = r[3] - r[1];
 		if (w >= 1 && w <= vp[2] && h >= 1 && h <= vp[3] / 2 && r[0] >= -64 && r[2] <= vp[2] + 64 && r[1] >= -64 &&
@@ -574,7 +587,7 @@ bool ThreatFlag(uint8_t* spawn, uint32_t id, bool isTarget, uint64_t now) {
 // pixel exactly like the name. Queued from the renderer's post-visibility callback (renderer vtbl +0x198 setter,
 // called inside +0x158 after this frame's names are queued and before their flush). A spawn gets depth bars only
 // when its name sprite is queued this frame (+0x70 != 0). Items still queued from a skipped flush are unlinked at
-// the start of each callback. Labels (HP %, spell name) stay 2D in the DrawWindows hook. When a check fails, the
+// the start of each callback. Labels (HP %, spell name) are text items of their own pool, queued after the bars. When a check fails, the
 // block glyph looks wrong or no callback arrives, the 2D path (with the WasVisibleThisFrame gate) draws the bars.
 
 const size_t kRendererSetPostVis = 0x198;
@@ -615,6 +628,24 @@ Item g_items[kMaxItems];
 int g_itemsBuilt = 0;
 int g_itemsUsed = 0;
 bool g_poolFullLogged = false;
+
+// HP % and spell-name labels in the name pass: a separate pool keyed by spawn and kind. Each slot holds the text
+// item and up to 4 black copies (outline, or 1 for the shadow). SetText re-measures the text, so it runs only when
+// the string changes; a slot is queued at most once per callback.
+const int kLabelSlots = 96, kLabelLayers = 5;
+enum LabelKind : uint8_t { kLabelHp = 1, kLabelSpell = 2 };
+struct LabelSlot {
+	Item item[kLabelLayers];
+	uint32_t spawnId;
+	uint8_t kind;
+	char text[79];                               // sized so the slot is a multiple of the items' 16-byte alignment
+	int w84, h88;                                // the text's font-10 width and line height
+	uint32_t usedAt;                             // callback number it was last queued in
+};
+LabelSlot g_labels[kLabelSlots];
+bool g_labelsReady = false;
+uint32_t g_callbacks = 1;                        // post-visibility callbacks so far (slots start at 0: free)
+bool g_labelsFullLogged = false;
 enum DepthState { kDepthUnchecked, kDepthReady, kDepthWaiting, kDepthOff };   // Waiting: no callbacks, retry on a new renderer
 DepthState g_depth = kDepthUnchecked;
 volatile uint64_t g_lastCallback = 0;            // GetTickCount64 of the last callback
@@ -623,6 +654,8 @@ uint32_t g_frameAtCallback = 0;                  // the renderer's frame number 
 const size_t kRendererFrame = 0xb8e0;            // u32, bumped by +0x158 for every world frame
 const uint32_t kMissedFrames = 120;              // world frames without our callback before we give up
 void* g_failedRenderer = nullptr;                // renderer that never called back (Waiting)
+void* g_reattachedOn = nullptr;                  // renderer whose slot someone replaced and we re-attached to once
+thread_local bool t_inCallback = false;          // re-entry guard: chained callbacks that call each other stop here
 
 struct NameRef {
 	float depth, key;
@@ -715,6 +748,28 @@ bool AttachCallback(void* renderer) {
 	return true;
 }
 
+// The label items, made like the bar items. A failed metric check leaves the labels on the 2D path.
+void BuildLabels() {
+	for (LabelSlot& l : g_labels) {
+		l.spawnId = 0;
+		l.kind = 0;
+		l.text[0] = '\0';
+		l.w84 = l.h88 = 0;
+		l.usedAt = 0;
+		for (Item& it : l.item) g_itemCtor(it.mem);
+	}
+	g_itemSetText(g_labels[0].item[0].mem, "100%", "100%");
+	strcpy_s(g_labels[0].text, "100%");
+	const int h = *reinterpret_cast<int*>(g_labels[0].item[0].mem + kItemTextH);
+	if (h < 30 || h > 60) {
+		LogOnce("HP % / spell labels stay 2D: the name font's line height is not what was mapped");
+		return;
+	}
+	g_labels[0].w84 = *reinterpret_cast<int*>(g_labels[0].item[0].mem + kItemTextW);
+	g_labels[0].h88 = h;
+	g_labelsReady = true;
+}
+
 // Builds the pool and installs the callback once all checks pass (first in-game frame).
 void InstallDepthBars() {
 	if (g_depth != kDepthUnchecked) return;
@@ -770,6 +825,7 @@ void InstallDepthBars() {
 			}
 		}
 	}
+	BuildLabels();
 	AttachCallback(renderer);
 	LogOnce(g_prevPostVis ? "depth bars on (chained to an existing post-visibility callback)" : "depth bars on");
 }
@@ -801,9 +857,19 @@ void KeepCallbackAttached() {
 		if (renderer != g_failedRenderer && AttachCallback(renderer)) LogOnce("depth bars on (new world renderer)");
 		return;
 	}
-	if (renderer != g_cbRenderer || PostVisSlot(renderer) != reinterpret_cast<void*>(&PostVisibleCallback)) {
-		AttachCallback(renderer);
+	if (renderer != g_cbRenderer) {
+		AttachCallback(renderer);   // a new world renderer (zoning)
 		return;
+	}
+	if (PostVisSlot(renderer) != reinterpret_cast<void*>(&PostVisibleCallback)) {
+		// Another module put its callback in the slot after we attached. Re-attach once on this renderer, chaining
+		// it; if it takes the slot again, stay where we are (it may chain us) instead of fighting over the slot.
+		if (g_reattachedOn != renderer) {
+			LogOnce("another module replaced the post-visibility callback; chaining it");
+			g_reattachedOn = renderer;
+			AttachCallback(renderer);
+			return;
+		}
 	}
 	// Counted in world frames, not time: a zone load or UI-only frames render no world and call nothing.
 	const uint32_t frame = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(renderer) + kRendererFrame);
@@ -826,6 +892,8 @@ float BiasDepth(float z, float bias) {
 	return zc2 > 0.01f ? c14 - c14 * c10 / zc2 : z;
 }
 
+void QueueItem(uint8_t* s, const NameRef& n, int l, int t, int r, int b, uint32_t argb);
+
 void QueueRect(const NameRef& n, int l, int t, int r, int b, uint32_t argb) {
 	if (r - l < 1 || b <= t) return;
 	if (g_itemsUsed >= g_itemsBuilt) {
@@ -833,7 +901,11 @@ void QueueRect(const NameRef& n, int l, int t, int r, int b, uint32_t argb) {
 		g_poolFullLogged = true;
 		return;
 	}
-	uint8_t* s = g_items[g_itemsUsed++].mem;
+	QueueItem(g_items[g_itemsUsed++].mem, n, l, t, r, b, argb);
+}
+
+// One item into the name-tag list over the rect, at the name's depth and key, faded with the name.
+void QueueItem(uint8_t* s, const NameRef& n, int l, int t, int r, int b, uint32_t argb) {
 	int* rc = reinterpret_cast<int*>(s + kSpriteRect);
 	rc[0] = l;
 	rc[1] = t;
@@ -846,6 +918,59 @@ void QueueRect(const NameRef& n, int l, int t, int r, int b, uint32_t argb) {
 	*reinterpret_cast<float*>(s + kItemKey) = n.key;           // equal keys draw in queue order
 	s[kItemDirty] = 1;
 	g_batchAdd(g_getBatch(), s + 8);
+}
+
+// The slot for this spawn's label of `kind`, or the least recently used one; null if it was queued this callback.
+LabelSlot* LabelFor(uint32_t id, uint8_t kind) {
+	LabelSlot* lru = &g_labels[0];
+	for (LabelSlot& l : g_labels) {
+		if (l.spawnId == id && l.kind == kind) return l.usedAt == g_callbacks ? nullptr : &l;
+		if (l.usedAt < lru->usedAt) lru = &l;
+	}
+	if (lru->usedAt == g_callbacks) {
+		if (!g_labelsFullLogged) LogOnce("more labels than the label pool holds this frame; the rest are skipped");
+		g_labelsFullLogged = true;
+		return nullptr;
+	}
+	lru->spawnId = id;
+	lru->kind = kind;
+	return lru;
+}
+
+void SetLabelText(LabelSlot& l, const char* text) {
+	if (!strcmp(l.text, text)) return;
+	for (Item& it : l.item) g_itemSetText(it.mem, text, text);
+	strcpy_s(l.text, text);
+	l.w84 = *reinterpret_cast<int*>(l.item[0].mem + kItemTextW);
+	l.h88 = *reinterpret_cast<int*>(l.item[0].mem + kItemTextH);
+}
+
+// A label `h` px high at (left, top) (`centre`: left is its middle), dark layers first, at the name's depth.
+void QueueLabel(const NameRef& n, uint32_t id, uint8_t kind, const char* text, float left, float top, float h, bool centre) {
+	if (!text[0]) return;
+	LabelSlot* l = LabelFor(id, kind);
+	if (!l) return;
+	char copy[79];
+	strncpy_s(copy, text, _TRUNCATE);
+	SetLabelText(*l, copy);
+	if (l->h88 <= 0 || l->w84 <= 0) return;
+	l->usedAt = g_callbacks;
+	const int H = static_cast<int>(h);
+	const int W = static_cast<int>(lroundf(h * static_cast<float>(l->w84) / static_cast<float>(l->h88)));
+	if (W > FctViewport()[2] / 2) return;
+	const int x = static_cast<int>(centre ? left - W * 0.5f : left), y = static_cast<int>(top);
+	const int o = H / 14 > 1 ? H / 14 : 1;
+	if (g_cfg.fontOutline) {
+		static const int kOffsets[4][2] = { { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } };
+		for (int i = 0; i < 4; ++i) {
+			const int dx = kOffsets[i][0] * o, dy = kOffsets[i][1] * o;
+			QueueItem(l->item[1 + i].mem, n, x + dx, y + dy, x + W + dx, y + H + dy, 0xFF000000u);
+		}
+	}
+	else if (g_cfg.fontShadow) {
+		QueueItem(l->item[1].mem, n, x + o, y + o, x + W + o, y + H + o, 0xFF000000u);
+	}
+	QueueItem(l->item[0].mem, n, x, y, x + W, y + H, 0xFFFFFFFFu);
 }
 
 // ---- one spawn's bars, shared by both paths ----
@@ -890,6 +1015,7 @@ bool PlanSpawn(uint8_t* spawn, uint8_t* me, uint8_t* target, float camX, float c
 	q.mana = manaMax > 0 ? static_cast<float>(manaCur) / static_cast<float>(manaMax) : 1.0f;
 	q.showMana = manaOn && !q.casting && manaCur >= 0 && (q.mana < 1.0f || isTarget) && (manaMax > 0 || isTarget) && q.mana > 0.0f;
 	q.threat = !isMe && type == 1 && ThreatFlag(spawn, id, isTarget, now);
+	if (q.threat) q.showHp = true;   // the flashing HP bar is the indicator, even at full health
 	if (!q.showHp && !q.casting && !q.flashing && !q.showMana && !q.threat) return false;
 	*p = q;
 	return true;
@@ -906,21 +1032,13 @@ void PutRect(const Sink& s, float l, float t, float r, float b, uint32_t argb) {
 	else Quad(l, t, r, b, argb);
 }
 
-void PutFrame(const Sink& s, float x0, float y0, float x1, float y1, uint32_t argb) {
-	PutRect(s, x0, y0, x1, y0 + 1, argb);
-	PutRect(s, x0, y1 - 1, x1, y1, argb);
-	PutRect(s, x0, y0, x0 + 1, y1, argb);
-	PutRect(s, x1 - 1, y0, x1, y1, argb);
-}
-
-void PutBar(const Sink& s, float cx, float y, float w, float h, float pct, uint32_t fill, bool threat, uint32_t threatColour) {
+void PutBar(const Sink& s, float cx, float y, float w, float h, float pct, uint32_t fill) {
 	const float x0 = floorf(cx - w * 0.5f);
 	w = floorf(w);
 	h = floorf(h);
 	y = floorf(y);
 	PutRect(s, x0 + 1, y - 1, x0 + w + 1, y + h + 1, kColourBacking);
 	if (pct > 0.0f) PutRect(s, x0, y, x0 + roundf(w * ClampF(pct, 0.0f, 1.0f)), y + h, fill);
-	if (threat) PutFrame(s, x0 - 1, y - 2, x0 + w + 2, y + h + 2, threatColour);
 }
 
 // Lays out a spawn's bars under the name box; `mgr` non-null draws the 2D labels too, `bars` false skips the rects.
@@ -931,32 +1049,40 @@ void Layout(const Sink& s, const Plan& p, const float* box, uint8_t* mgr, bool b
 	const float w = ClampF(roundf(nameH * 4.5f * g_cfg.size), 24.0f, viewportW / 4.0f > 24.0f ? viewportW / 4.0f : 24.0f);
 	const float cx = (box[0] + box[2]) * 0.5f;
 	float y = box[3];
-	const uint32_t threatColour = p.threat ? ThreatColour(p.dist) : 0;
+	const bool depthLabels = s.depth && g_labelsReady;
+	const float labelH = ClampF(roundf(nameH * 0.5f * g_cfg.size), 8.0f, 32.0f);   // half the name's height
+	const uint32_t id = *reinterpret_cast<uint32_t*>(p.spawn + kSpawnId);
 	if (p.showHp) {
-		const uint32_t fill = g_cfg.hpByCon && p.type == 1 ? HudConColour(p.spawn) : kColourHp;
-		if (bars) PutBar(s, cx, y, w, h, p.hp, fill, p.threat, threatColour);
-		if (mgr && g_cfg.hpText) {
+		uint32_t fill = g_cfg.hpByCon && p.type == 1 ? HudConColour(p.spawn) : kColourHp;
+		if (p.threat) fill = ThreatFlash(fill);
+		if (bars) PutBar(s, cx, y, w, h, p.hp, fill);
+		if (g_cfg.hpText && (mgr || depthLabels)) {
 			char text[16];
 			snprintf(text, sizeof(text), "%d%%", static_cast<int>(p.hp * 100.0f + 0.5f));
-			DrawLabel(mgr, text, static_cast<int>(cx + w * 0.5f + 4.0f), static_cast<int>(y + h * 0.5f) - 6, 0xFFFFFFFFu, false);
+			if (depthLabels) {
+				const float right = floorf(cx - w * 0.5f) + floorf(w);
+				const float gap = labelH / 4.0f > 2.0f ? floorf(labelH / 4.0f) : 2.0f;
+				QueueLabel(s.name, id, kLabelHp, text, right + gap, floorf(y) + floorf(h) * 0.5f - labelH * 0.5f, labelH, false);
+			}
+			else DrawLabel(mgr, text, static_cast<int>(cx + w * 0.5f + 4.0f), static_cast<int>(y + h * 0.5f) - 6, 0xFFFFFFFFu, false);
 		}
 		y += h + 1.0f;
 	}
 	if (p.flashing) {
-		if (bars) PutBar(s, cx, y, w, h, 1.0f, kColourHp, p.threat, threatColour);
+		if (bars) PutBar(s, cx, y, w, h, 1.0f, kColourHp);
 		y += h + 1.0f;
 	}
 	else if (p.casting) {
-		if (bars) PutBar(s, cx, y, w, h, p.castLeft, kColourCast, p.threat, threatColour);
+		if (bars) PutBar(s, cx, y, w, h, p.castLeft, kColourCast);
 		y += h + 1.0f;
-		if (mgr && g_cfg.castSpellName) {
-			if (const char* name = SpellName(p.spell))
-				DrawLabel(mgr, name, static_cast<int>(cx), static_cast<int>(y), 0xFFFFFFFFu, true);
+		if (g_cfg.castSpellName && (mgr || depthLabels)) {
+			if (const char* name = SpellName(p.spell)) {
+				if (depthLabels) QueueLabel(s.name, id, kLabelSpell, name, cx, floorf(y) + 1.0f, labelH, true);
+				else DrawLabel(mgr, name, static_cast<int>(cx), static_cast<int>(y), 0xFFFFFFFFu, true);
+			}
 		}
 	}
-	if (p.showMana && bars) PutBar(s, cx, y, w, h, p.mana, kColourMana, p.threat, threatColour);
-	if (p.threat && bars && !p.showHp && !p.casting && !p.flashing && !p.showMana)
-		PutFrame(s, box[0] - 1, box[1] - 1, box[2] + 1, box[3] + 1, threatColour);
+	if (p.showMana && bars) PutBar(s, cx, y, w, h, p.mana, kColourMana);
 }
 
 void TrackTarget() {
@@ -968,8 +1094,19 @@ void TrackTarget() {
 	}
 }
 
-// Renderer post-visibility callback: this frame's names are queued, the flush has not run yet.
+void PostVisibleBody();
+
+// Renderer post-visibility callback. Guarded against re-entry: if a chained callback calls back into us, that inner
+// call returns at once without chaining again.
 void PostVisibleCallback() {
+	if (t_inCallback) return;
+	t_inCallback = true;
+	PostVisibleBody();
+	t_inCallback = false;
+}
+
+// This frame's names are queued, the flush has not run yet.
+void PostVisibleBody() {
 	if (g_prevPostVis) g_prevPostVis();
 	g_lastCallback = Now();
 	if (g_cbRenderer) g_frameAtCallback = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(g_cbRenderer) + kRendererFrame);
@@ -978,6 +1115,12 @@ void PostVisibleCallback() {
 		uint8_t* s = g_items[i].mem;
 		if (*reinterpret_cast<void**>(s + kItemQueued)) g_batchRemove(batch, s + 8);   // the flush was skipped
 	}
+	if (g_labelsReady) {
+		for (LabelSlot& l : g_labels)
+			for (Item& it : l.item)
+				if (*reinterpret_cast<void**>(it.mem + kItemQueued)) g_batchRemove(batch, it.mem + 8);
+	}
+	++g_callbacks;
 	g_itemsUsed = 0;
 	if (batch) {
 		int* count = reinterpret_cast<int*>(static_cast<uint8_t*>(batch) + kBatchCount);
@@ -996,7 +1139,7 @@ void PostVisibleCallback() {
 	     spawn = *reinterpret_cast<uint8_t**>(spawn + kSpawnNext), ++guard) {
 		Plan p;
 		if (!PlanSpawn(spawn, me, target, camX, camY, now, &p)) continue;
-		if (p.isMe && g_cfg.selfIgnoresOcclusion) continue;   // 2D path
+		if (p.isMe && (g_cfg.selfIgnoresOcclusion || !g_cfg.selfName)) continue;   // 2D path (no name to anchor to)
 		uint8_t* actor = *reinterpret_cast<uint8_t**>(spawn + kSpawnActor);
 		uint8_t* name = actor ? *reinterpret_cast<uint8_t**>(actor + kActorNameSprite) : nullptr;
 		if (!name || !*reinterpret_cast<void**>(name + kItemQueued)) continue;   // the name is not drawn this frame
@@ -1031,9 +1174,9 @@ void DrawNameplates(uint8_t* mgr) {
 	     spawn = *reinterpret_cast<uint8_t**>(spawn + kSpawnNext), ++guard) {
 		Plan p;
 		if (!PlanSpawn(spawn, me, target, camX, camY, now, &p)) continue;
-		const bool gated = g_cfg.occlude && !(p.isMe && g_cfg.selfIgnoresOcclusion);
-		const bool bars = !(depth && gated);   // the callback draws these bars in the name pass
-		if (!bars && !(g_cfg.hpText || g_cfg.castSpellName)) continue;
+		const bool gated = g_cfg.occlude && !(p.isMe && (g_cfg.selfIgnoresOcclusion || !g_cfg.selfName));
+		const bool bars = !(depth && gated);   // the callback draws these bars (and labels) in the name pass
+		if (!bars && (g_labelsReady || !(g_cfg.hpText || g_cfg.castSpellName))) continue;
 		if (gated && (g_gateBroken || !NameDrawnLastFrame(spawn, camX, camY))) continue;   // behind a wall, culled or no name
 		float box[4];
 		if (!NameBox(spawn, mgr, box)) continue;
@@ -1041,11 +1184,28 @@ void DrawNameplates(uint8_t* mgr) {
 	}
 }
 
+// ---- Show Self Name / Show Corpse Names ----
+// EQPlayer::ChangeBoneStringSprite FUN_1402fa280(spawn, bone, text): every name text change, from the three sites
+// in SetNameSpriteState FUN_1403004e0. A null text is the client's own "no name" path.
+
+using NameTextFn = uint64_t (*)(uint8_t* spawn, uint64_t bone, const char* text);
+NameTextFn g_origNameText = nullptr;
+
+uint64_t NameTextDetour(uint8_t* spawn, uint64_t bone, const char* text) {
+	if (g_nameHookOn && spawn && text && text[0] && static_cast<uint32_t>(bone) == 0 && FctInGame()) {
+		if (spawn == FctLocalPlayer() ? !g_cfg.selfName : (spawn[kSpawnType] >= 2 && !g_cfg.corpseNames)) text = nullptr;
+	}
+	return g_origNameText(spawn, bone, text);
+}
+
 #define REF(var) reinterpret_cast<void**>(&var)
 
 } // namespace
 
+void NameplatePagePoll();
+
 void NameplatesFrame(uint8_t* mgr, bool inGame) {
+	if (inGame) NameplatePagePoll();
 	if (!g_on) return;
 	if (!inGame || !FctInGame()) {
 		ClearState();
@@ -1077,7 +1237,11 @@ void NameplatesOnDamage(const uint8_t* pkt) {
 	}
 }
 
-const HookSite kNameplatesHooks[4] = {
+// EQPlayer::ChangeBoneStringSprite FUN_1402fa280. Stolen (5 bytes, position independent): mov eax,0x2038; the
+// call __chkstk after it runs in the original with the entry rsp the trampoline jumps back with.
+const char kNameTextSig[] = "B8 38 20 00 00 E8 ?? ?? ?? ?? 48 2B E0 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 20 20 00 00";
+
+const HookSite kNameplatesHooks[5] = {
 	// Shared with the Hud and FCT (same signature, detour and trampoline).
 	{ kDrawWindowsSig, 5, reinterpret_cast<void*>(&DrawWindowsDetour), reinterpret_cast<void**>(&g_origDrawWindows) },
 	// Shared with FCT: the OP_Damage handler FUN_140216190.
@@ -1090,6 +1254,8 @@ const HookSite kNameplatesHooks[4] = {
 	// mov [rsp+20],r9.
 	{ "4C 89 4C 24 20 44 89 44 24 18 48 89 54 24 10 48 89 4C 24 08 56",
 	  5, reinterpret_cast<void*>(&DispatchDetour), REF(g_origDispatch) },
+	// Shared with NameplateOptionsPage: Show Self Name / Show Corpse Names.
+	{ kNameTextSig, 5, reinterpret_cast<void*>(&NameTextDetour), REF(g_origNameText) },
 };
 
 const RefSite kNameplatesRefs[4] = {
@@ -1107,6 +1273,7 @@ const char* NameplatesPrepare() {
 	if (const char* e = FctSharedPrepare()) return e;
 	LoadConfig();
 	g_on = true;
+	g_nameHookOn = true;
 	return nullptr;
 }
 
@@ -1120,6 +1287,31 @@ SetNpcNamesFn g_setNpcNames = nullptr;   // CDisplay::SetNPCNames FUN_1401a3bf0
 uint8_t** g_pDisplayPage = nullptr;      // &DAT_140e65d60
 const size_t kDisplayNpcNames = 0x5512;  // u8, current NPCNames setting
 bool g_pageOn = false;
+
+// The client's name settings: u8 globals [0] PC [1] NPC [2] Pet [3] Merc [4] TargetHealth [5] PetOwner [6] MercOwner
+// (DAT_140e6e551..), set by the Display page's handler FUN_140493690 with the global, the CDisplay setter and
+// eqclient.ini [Options].
+using SetNameSpriteStateFn = uint64_t (*)(uint8_t* spawn, char show);
+uint8_t* g_nameGlobals = nullptr;
+uint8_t* g_npcNamesCheck = nullptr;      // the same block found from the NPC and pet owner setters
+uint8_t* g_petOwnerCheck = nullptr;
+SetNameSpriteStateFn g_setNameSpriteState = nullptr;   // FUN_1403004e0
+
+struct ClientNameBox {
+	const char* id;
+	size_t stockOff;   // COptionsWnd: the Display page's checkbox
+	int global;
+};
+const ClientNameBox kClientNames[] = {
+	{ "ODP_NameplatePCNamesCheckbox", 0x500, 0 },
+	{ "ODP_NameplateNPCNamesCheckbox", 0x508, 1 },
+	{ "ODP_NameplatePetNamesCheckbox", 0x510, 2 },
+	{ "ODP_NameplateMercNamesCheckbox", 0x518, 3 },
+	{ "ODP_NameplatePetOwnerNamesCheckbox", 0x520, 5 },
+	{ "ODP_NameplateMercOwnerNamesCheckbox", 0x528, 6 },
+};
+const int kClientNameCount = static_cast<int>(sizeof(kClientNames) / sizeof(kClientNames[0]));
+const size_t kWndVisible = 0x71;         // u8 (CXWnd), the page is the shown tab
 
 struct BoxInfo {
 	const char* id;
@@ -1136,6 +1328,7 @@ const BoxInfo kBoxes[] = {
 	{ "ODP_NameplateShadowCheckbox", "FontShadow", &Config::fontShadow },
 	{ "ODP_NameplateOutlineCheckbox", "FontOutline", &Config::fontOutline },
 	{ "ODP_NameplateSelfNameCheckbox", "SelfName", &Config::selfName },
+	{ "ODP_NameplateCorpseNamesCheckbox", "CorpseNames", &Config::corpseNames },
 	{ "ODP_NameplateCastSpellNameCheckbox", "CastSpellName", &Config::castSpellName },
 	{ "ODP_NameplateHpTextCheckbox", "HpText", &Config::hpText },
 	{ "ODP_NameplateOccludeCheckbox", "Occlude", &Config::occlude },
@@ -1149,7 +1342,7 @@ const char* const kSliderIds[kSliderCount] = { "ODP_NameplateDrawDistanceSlider"
 const char* const kValueIds[kSliderCount] = { "ODP_NameplateDrawDistanceValueLabel", "ODP_NameplateSizeValueLabel", "ODP_NameplateThreatHoldValueLabel" };
 const int kSliderTicks[kSliderCount] = { 100, 200, 59 };
 
-// Threat frame colour rows: Legends pulse (empty), presets, Custom (ini).
+// Threat flash colour rows: near white (empty), presets, Custom (ini).
 const uint32_t kThreatColours[] = { 0, 0xFF0000, 0xFF8000, 0xFFFF00, 0xFFFFFF, 0xC000FF };
 const int kThreatColourCount = static_cast<int>(sizeof(kThreatColours) / sizeof(kThreatColours[0]));
 
@@ -1163,6 +1356,8 @@ struct Page {
 	uint8_t* nameFilters;
 	uint8_t* threat;
 	uint8_t* threatColour;
+	uint8_t* clientName[kClientNameCount];
+	uint8_t lastNames[kClientNameCount];
 };
 Page g_page = {};
 
@@ -1184,12 +1379,16 @@ int SliderPosition(int s) {
 	}
 }
 
-void SliderLabel(int s, char* text, size_t size) {
-	switch (s) {
-	case kSDrawDistance: snprintf(text, size, "%.0f", g_cfg.drawDistance); break;
-	case kSSize: snprintf(text, size, "%.2f", g_cfg.size); break;
-	default: snprintf(text, size, "%.1f", g_cfg.threatHoldMs / 1000.0f); break;
+// Legends' slider label: the position as a percentage of the track (its CSliderWnd draw), not the setting. Threat
+// Hold (DLL only) can show seconds instead (SliderLabels=value).
+void SliderLabel(int s, int position, char* text, size_t size) {
+	if (s == kSThreatHold && g_cfg.valueLabels) {
+		snprintf(text, size, "%.1f", g_cfg.threatHoldMs / 1000.0f);
+		return;
 	}
+	const int ticks = kSliderTicks[s];
+	const float pct = ticks > 1 ? static_cast<float>(Clamp(position, 0, ticks - 1)) / (static_cast<float>(ticks) - 1.0f) * 100.0f : 0.0f;
+	snprintf(text, size, "%.0f%%", static_cast<double>(pct));
 }
 
 int ThreatColourRow() {
@@ -1209,8 +1408,12 @@ void Fill() {
 	for (int s = 0; s < kSliderCount; ++s) {
 		OptSliderSetValue(g_page.slider[s], SliderPosition(s));
 		char text[32];
-		SliderLabel(s, text, sizeof(text));
+		SliderLabel(s, SliderPosition(s), text, sizeof(text));
 		OptSetText(g_page.value[s], text);
+	}
+	for (int i = 0; i < kClientNameCount; ++i) {
+		g_page.lastNames[i] = g_nameGlobals[kClientNames[i].global];
+		OptSetBox(g_page.clientName[i], g_page.lastNames[i] != 0);
 	}
 	OptComboSetChoice(g_page.nameFilters, Clamp(*g_showNamesLevel - 1, 0, 6));
 	OptComboSetChoice(g_page.threat, g_cfg.threatDisplay);
@@ -1237,6 +1440,10 @@ bool Resolve() {
 	}
 	p.conColour = OptChild(page, "ODP_NameplateConColor");
 	if (p.conColour && !OptLooksLikeCheckbox(opt, p.conColour)) return false;
+	for (int i = 0; i < kClientNameCount; ++i) {
+		p.clientName[i] = OptChild(page, kClientNames[i].id);
+		if (p.clientName[i] && !OptLooksLikeCheckbox(opt, p.clientName[i])) return false;
+	}
 	for (int s = 0; s < kSliderCount; ++s) {
 		p.slider[s] = OptChild(page, kSliderIds[s]);
 		p.value[s] = OptChild(page, kValueIds[s]);
@@ -1274,6 +1481,26 @@ bool NameplatePageNotify(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 			}
 			g_cfg.*kBoxes[i].field = on;
 			SaveKey(kBoxes[i].key, on ? "1" : "0");
+			if (FctInGame() && kBoxes[i].field == &Config::selfName) {
+				uint8_t* me = FctLocalPlayer();
+				if (me) g_setNameSpriteState(me, static_cast<char>(g_nameGlobals[0]));   // rebuild my name
+			}
+			else if (FctInGame() && kBoxes[i].field == &Config::corpseNames) {
+				uint8_t* display = *g_pDisplayPage;
+				if (display) g_setNpcNames(display, display[kDisplayNpcNames]);   // rebuilds every non-PC name
+			}
+			return true;
+		}
+		for (int i = 0; i < kClientNameCount; ++i) {
+			if (sender != g_page.clientName[i]) continue;
+			// A Display click: tick the Display box and hand it to the client's handler (global, setter, eqclient.ini).
+			uint8_t* stock = *reinterpret_cast<uint8_t**>(opt + kClientNames[i].stockOff);
+			if (stock && OptLooksLikeCheckbox(opt, stock)) {
+				OptSetBox(stock, OptIsChecked(sender));
+				(*g_fctOrigNotifySlot)(opt, stock, 1, nullptr);
+			}
+			g_page.lastNames[i] = g_nameGlobals[kClientNames[i].global];
+			OptSetBox(sender, g_page.lastNames[i] != 0);   // what the client applied
 			return true;
 		}
 		if (sender == g_page.conColour) {
@@ -1332,7 +1559,7 @@ bool NameplatePageNotify(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 				snprintf(text, sizeof(text), "%d", g_cfg.threatHoldMs);
 				SaveKey("ThreatHoldMs", text);
 			}
-			SliderLabel(s, text, sizeof(text));
+			SliderLabel(s, arg, text, sizeof(text));
 			OptSetText(g_page.value[s], text);
 			return true;
 		}
@@ -1340,13 +1567,26 @@ bool NameplatePageNotify(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 	return false;
 }
 
-const HookSite kNameplatePageHooks[2] = {
+// While the Nameplates tab is shown: follow the client's name settings (/shownpcnames, the Display page).
+void NameplatePagePoll() {
+	if (!g_pageOn || !g_page.page || g_page.owner != OptOptionsWnd() || !g_page.page[kWndVisible]) return;
+	for (int i = 0; i < kClientNameCount; ++i) {
+		const uint8_t v = g_nameGlobals[kClientNames[i].global];
+		if (v == g_page.lastNames[i]) continue;
+		g_page.lastNames[i] = v;
+		OptSetBox(g_page.clientName[i], v != 0);
+	}
+}
+
+const HookSite kNameplatePageHooks[3] = {
 	// Shared with FCTOptionsPage (same signatures, detours and trampolines).
 	{ kFctRefreshSig, 7, reinterpret_cast<void*>(g_fctRefreshDetour), reinterpret_cast<void**>(g_fctOrigRefreshSlot) },
 	{ kFctNotifySig, 5, reinterpret_cast<void*>(g_fctNotifyDetour), reinterpret_cast<void**>(g_fctOrigNotifySlot) },
+	// Shared with Nameplates: Show Self Name / Show Corpse Names.
+	{ kNameTextSig, 5, reinterpret_cast<void*>(&NameTextDetour), REF(g_origNameText) },
 };
 
-const RefSite kNameplatePageRefs[3] = {
+const RefSite kNameplatePageRefs[7] = {
 	// cmp dword [ShowNamesLevel],0; jg; cmp byte [rdi+135],1 (SetNameSpriteState)
 	{ "83 3D ?? ?? ?? ?? 00 7F ?? 80 BF 35 01 00 00 01", 2, 7, REF(g_showNamesLevel) },
 	// CDisplay::SetNPCNames FUN_1401a3bf0(pDisplay, on): ... mov [rdi+5512],sil
@@ -1354,11 +1594,19 @@ const RefSite kNameplatePageRefs[3] = {
 	  0, 0, REF(g_setNpcNames) },
 	// Game time read: mov rax,[pDisplay]; mov ecx,[rax+16c]; mov [rbx+45c],ecx
 	{ "48 8B 05 ?? ?? ?? ?? 8B 88 6C 01 00 00 89 8B 5C 04 00 00", 3, 7, REF(g_pDisplayPage) },
+	// Zone-in name re-apply FUN_1401a15d0: cmp byte [PCNames],0; je; call [rax+8]; mov byte [rsi+5511],1
+	{ "80 3D ?? ?? ?? ?? 00 74 ?? FF 50 08 C6 86 11 55 00 00 01", 2, 7, REF(g_nameGlobals) },
+	{ "80 3D ?? ?? ?? ?? 00 74 ?? FF 50 08 C6 86 12 55 00 00 01", 2, 7, REF(g_npcNamesCheck) },
+	{ "80 3D ?? ?? ?? ?? 00 74 ?? FF 50 08 C6 86 15 55 00 00 01", 2, 7, REF(g_petOwnerCheck) },
+	// EQPlayer::SetNameSpriteState FUN_1403004e0(spawn, show)
+	{ "48 89 5C 24 18 55 56 57 48 8D AC 24 F0 F9 FF FF", 0, 0, REF(g_setNameSpriteState) },
 };
 
 const char* NameplatePagePrepare() {
 	if (const char* e = FctPageSharedPrepare()) return e;
+	if (g_npcNamesCheck != g_nameGlobals + 1 || g_petOwnerCheck != g_nameGlobals + 5) return "name settings layout differs";
 	if (!g_on) LoadConfig();   // the page edits the settings even when the bars are off
 	g_pageOn = true;
+	g_nameHookOn = true;
 	return nullptr;
 }
