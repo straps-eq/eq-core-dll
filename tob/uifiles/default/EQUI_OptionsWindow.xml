@@ -1,0 +1,5589 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<XML ID="EQInterfaceDefinitionLanguage">
+	<Schema xmlns="EverQuestData" xmlns:dt="EverQuestDataTypes" />
+	<Label item="OGP_ConfirmationsLabel">
+		<ScreenID>OGP_ConfirmationsLabel</ScreenID>
+		<Font>3</Font>
+		<Text>Confirmations</Text>
+		<Size>
+			<CX>84</CX>
+			<CY>15</CY>
+		</Size>
+	</Label>
+	<!-- *********** Options Tab Window, General Options Page *********** -->
+	<!-- Fast Item Destroy -->
+	<Button item="OGP_FastItemDestroyCheckbox">
+		<ScreenID>OGP_FastItemDestroyCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Fast Item Destroy</Text>
+		<TooltipReference>Toggle whether you want to destroy items without a confirmation window.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- AA No Confirm -->
+	<Button item="OGP_AANoConfirmCheckbox">
+		<ScreenID>OGP_AANoConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Fast AA Purchase</Text>
+		<TooltipReference>Toggle whether you want to spend AA points without a confirmation window.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Adventure Merchant No Confirm -->
+	<Button item="OGP_AdvMerchantNoConfirmCheckbox">
+		<ScreenID>OGP_AdvMerchantNoConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Fast Adv Purchase</Text>
+		<TooltipReference>Toggle whether you want to spend Adventure Points without a confirmation window.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Accept guild invites -->
+	<Button item="OGP_GuildInvitesCheckbox">
+		<ScreenID>OGP_GuildInvitesCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Receive Guild Invites</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Autosplit loot -->
+	<Button item="OGP_LootAutosplitCheckbox">
+		<ScreenID>OGP_LootAutosplitCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Autosplit</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Player trade options -->
+	<Label item="OGP_PlayerTradeLabel">
+		<ScreenID>OGP_PlayerTradeLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>237</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Allow trading with:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="OGP_PlayerTradeCombobox">
+		<ScreenID>OGP_PlayerTradeCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>200</X>
+			<Y>252</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>60</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Everyone</Choices>
+		<Choices>Party members only</Choices>
+		<Choices>No one</Choices>
+	</Combobox>
+	<!-- Newbie Left-click text -->
+	<Button item="OGP_LeftClickHelpText">
+		<ScreenID>OGP_LeftClickHelpText</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Target Click Shows Help</Text>
+		<TooltipReference>Show help text when you left click on a target object or player.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="OGP_UseTellWindowsCheckbox">
+		<ScreenID>OGP_UseTellWindowsCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Use Tell Windows</Text>
+		<TooltipReference>Toggle whether you want tells to appear in their own separate chat windows.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Allow/prevent the game from making your character duck to squeeze into small spaces -->
+	<Button item="OGP_AllowAutoDuckCheckbox">
+		<ScreenID>OGP_AllowAutoDuckCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Allow Auto-duck</Text>
+		<TooltipReference>Toggle whether you will let the game make you duck to fit into small spaces.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Allow/prevent the game from making your character stand when you press forward -->
+	<Button item="OGP_AllowAutoStandCheckbox">
+		<ScreenID>OGP_AllowAutoStandCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Allow Auto-stand</Text>
+		<TooltipReference>Toggle whether moving forward automatically makes your character stand up if sitting.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Allow/prevent the game from making your character stand when you press forward -->
+	<Button item="OGP_AutojoinCheckbox">
+		<ScreenID>OGP_Autojoin</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Join General Channels</Text>
+		<TooltipReference>Toggle whether to autojoin general help chat channels.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Auto Show Rewards Window -->
+	<Button item="OGP_AutoShowRewardsWindowCheckbox">
+		<ScreenID>OGP_AutoShowRewardsWindowCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Auto Show Rewards</Text>
+		<TooltipReference>Toggle whether to automatically show the Rewards window when a reward is received and also when logging into the game. Rewards window will still show up if your pending rewards goes over the cap.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Tradeskill Ctrl-Click -->
+	<Button item="OGP_TradeskillCtrlClickCheckbox">
+		<ScreenID>OGP_TradeskillCtrlClickCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>30</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Open Tradeskill List with Ctrl Right Click</Text>
+		<TooltipReference>Open Tradeskill List with Ctrl Right Click.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Load a new UI skin -->
+	<Button item="OGP_LoadSkinButton">
+		<ScreenID>OGP_LoadSkinButton</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>false</Style_Checkbox>
+		<Text>Load UI Skin</Text>
+		<TooltipReference>Load a new look and style for your EverQuest UI.</TooltipReference>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Layout Copy. -->
+	<Button item="OGP_LayoutCopyButton">
+		<ScreenID>OGP_LayoutCopyButton</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>365</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Text>Copy Layout</Text>
+		<TooltipReference>Copy a window layout from any stored layout over the current layout.</TooltipReference>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- auto accept kick requests -->
+	<Button item="OGP_AutoAcceptKickRequests">
+		<ScreenID>OGP_AutoAcceptKickRequests</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Accept kick requests</Text>
+		<TooltipReference>If checked, you will automatically accept any kick requests made by another player logging into your account.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Click through self -->
+	<Button item="OGP_ClickThroughSelf">
+		<ScreenID>OGP_ClickThroughSelf</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Click Through Self</Text>
+		<TooltipReference>Click through yourself.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Click through pets -->
+	<Button item="OGP_ClickThroughPets">
+		<ScreenID>OGP_ClickThroughPets</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Click Through Pets</Text>
+		<TooltipReference>Click through pets.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Click through mercs -->
+	<Button item="OGP_ClickThroughMercs">
+		<ScreenID>OGP_ClickThroughMercs</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Click Through Mercs</Text>
+		<TooltipReference>Click through mercenaries.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Hide First Window user Alerts -->
+	<Button item="OGP_HideFirstWindowAlerts">
+		<ScreenID>OGP_HideFirstWindowAlerts</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>30</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Hide First Window use Alerts</Text>
+		<TooltipReference>Hide first window use alerts.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Hide Player Options -->
+	<Label item="OGP_HidePlayersLabel">
+		<ScreenID>OGP_HidePlayersLabel</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Hide Players:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<!-- Hide Player Combo -->
+	<Combobox item="OGP_HidePlayersComboBox">
+		<ScreenID>OGP_HidePlayersComboBox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Size>
+			<CX>160</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>80</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>AFK In Non-Combat Zones</Choices>
+		<Choices>AFK In All Zones</Choices>
+		<Choices>All In Non-Combat Zones</Choices>
+		<Choices>All</Choices>
+	</Combobox>
+	<!-- Hide Pets Options -->
+	<Label item="OGP_HidePetsLabel">
+		<ScreenID>OGP_HidePetsLabel</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Hide Pets:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<!-- Hide Pets Combo -->
+	<Combobox item="OGP_HidePetsComboBox">
+		<ScreenID>OGP_HidePetsComboBox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Size>
+			<CX>160</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>80</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>AFK In Non-Combat Zones</Choices>
+		<Choices>AFK In All Zones</Choices>
+		<Choices>All In Non-Combat Zones</Choices>
+		<Choices>All</Choices>
+	</Combobox>
+	<!-- Hide Mercs Options -->
+	<Label item="OGP_HideMercsLabel">
+		<ScreenID>OGP_HideMercsLabel</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Hide Mercenaries:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<!-- Hide Mercs Combo -->
+	<Combobox item="OGP_HideMercsComboBox">
+		<ScreenID>OGP_HideMercsComboBox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Size>
+			<CX>160</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>80</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>AFK In Non-Combat Zones</Choices>
+		<Choices>AFK In All Zones</Choices>
+		<Choices>All In Non-Combat Zones</Choices>
+		<Choices>All</Choices>
+	</Combobox>
+	<!-- Hide Familiar Options -->
+	<Label item="OGP_HideFamsLabel">
+		<ScreenID>OGP_HideFamsLabel</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Hide Familiars:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<!-- Hide Familiar Combo -->
+	<Combobox item="OGP_HideFamsComboBox">
+		<ScreenID>OGP_HideFamsComboBox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Size>
+			<CX>160</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>80</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>AFK In Non-Combat Zones</Choices>
+		<Choices>AFK In All Zones</Choices>
+		<Choices>All In Non-Combat Zones</Choices>
+		<Choices>All</Choices>
+	</Combobox>
+	<!-- Auto AFK On -->
+	<Button item="OGP_AutoAFKOnCheckBox">
+		<ScreenID>OGP_AutoAFKOnCheckBox</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Auto Turn On AFK</Text>
+		<TooltipReference>Toggle whether to automatically set the player AFK when inactive</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Auto AFK Off -->
+	<Button item="OGP_AutoAFKOffCheckBox">
+		<ScreenID>OGP_AutoAFKOffCheckBox</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Auto Turn Off AFK</Text>
+		<TooltipReference>Toggle whether to automatically set the player un-AFK when keyboard is active</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Auto Merc Passive -->
+	<Button item="OGP_AutoMercPassiveCheckBox">
+		<ScreenID>OGP_AutoMercPassiveCheckBox</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Auto Merc Passive</Text>
+		<TooltipReference>Toggle whether your mercenaries will set their stance to Passive automatically the next time you are charged for mercenary upkeep and if you are AFK</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Screen item="OGP_TaskOverlayPreSpacer">
+		<RelativePosition>true</RelativePosition>
+		<Size>
+			<CX>1</CX>
+			<CY>10</CY>
+		</Size>
+	</Screen>
+	<!-- Auto add to task overlay -->
+	<Button item="OGP_AutoAddToTaskOverlay">
+		<ScreenID>OGP_AutoAddToTaskOverlay</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Auto Add to Task Overlay</Text>
+		<TooltipReference>Toggle whether newly acquired quests will be added to the task overlay.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show Only Open Steps in task overlay -->
+	<Button item="OGP_ShowOnlyOpenSteps">
+		<ScreenID>OGP_ShowOnlyOpenSteps</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Only Open Steps</Text>
+		<TooltipReference>When true, only steps that havent been completed will show in the task overlay.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Place most recent at top in task overlay -->
+	<Button item="OGP_AddMostRecentToTop">
+		<ScreenID>OGP_AddMostRecentToTop</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Add Most Recent to Top</Text>
+		<TooltipReference>When true, new tasks that are added will be placed at the top instead of the bottom of the list in the task overlay.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Loot All Confirm -->
+	<Button item="OGP_LootAllConfirmCheckbox">
+		<ScreenID>OGP_LootAllConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Loot All</Text>
+		<TooltipReference>Toggle whether you want to loot all with a confirmation window.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Dismiss Mercenary Confirm -->
+	<Button item="OGP_DismissMercenaryConfirmCheckbox">
+		<ScreenID>OGP_DismissMercenaryConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Dismiss Mercenary</Text>
+		<TooltipReference>Toggle whether you want to dismiss your mercenary with a confirmation window.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Raid Invite Confirm -->
+	<Button item="OGP_RaidInviteConfirmCheckbox">
+		<ScreenID>OGP_RaidInviteConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Raid Invite</Text>
+		<TooltipReference>Toggle whether you want to receive a raid invite confirmation window.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Offline Mode Confirm -->
+	<Button item="OGP_OfflineModeConfirmCheckbox">
+		<ScreenID>OGP_OfflineModeConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Offline Mode</Text>
+		<TooltipReference>Toggle whether you want to receive a confirmation window before entering Offline Mode.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Bag Sell Confirmation -->
+	<Button item="OGP_BagSellConfirmCheckbox">
+		<ScreenID>OGP_BagSellConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Bag Sell</Text>
+		<TooltipReference>Toggle whether you want to receive a confirmation window when selling a bag. Note that it will not prompt if you are selling the contents of a bag containing another bag.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Bag Sell Contents Confirm -->
+	<Button item="OGP_BagSellContentsConfirmCheckbox">
+		<ScreenID>OGP_BagSellContentsConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Bag Sell Contents</Text>
+		<TooltipReference>Toggle whether you want to receive a confirmation window when selling the contents of a bag.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Log off over parcel limit Confirm -->
+	<Button item="OGP_LogOutOverParcelLimitConfirmCheckbox">
+		<ScreenID>OGP_LogOutOverParcelLimitConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>180</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Log Out Over Parcel Limit</Text>
+		<TooltipReference>Toggle whether you want to receive a confirmation window when logging out and you are over the parcel limit.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Save Set Confirmation (spells, hotbuttons, etc) -->
+	<Button item="OGP_SaveSetConfirmCheckbox">
+		<ScreenID>OGP_SaveSetConfirmCheckbox</ScreenID>
+		<Size>
+			<CX>180</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Save Set</Text>
+		<TooltipReference>Toggle whether you want to receive a confirmation window when saving over an existing spell set, hot button set, or extended target set.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- No Drop Item -->
+	<Label item="OGP_NoDropItemLabel">
+		<ScreenID>OGP_NoDropItemLabel</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>15</CY>
+		</Size>
+		<Text>No Drop Item:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="OGP_NoDropItemCombobox">
+		<ScreenID>OGP_NoDropItemCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Size>
+			<CX>160</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>60</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Always</Choices>
+		<Choices>Not Usable</Choices>
+		<Choices>Never</Choices>
+	</Combobox>
+	<!-- Item dropping options -->
+	<Label item="OGP_ItemDroppingLabel">
+		<ScreenID>OGP_ItemDroppingLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>192</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Fast Drop:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="OGP_ItemDroppingCombobox">
+		<ScreenID>OGP_ItemDroppingCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>200</X>
+			<Y>208</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>60</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>With confirmation</Choices>
+		<Choices>Without confirmation</Choices>
+		<Choices>Never</Choices>
+	</Combobox>
+	<!-- Font Selection -->
+	<Label item="OGP_FontLabel">
+		<ScreenID>OGP_FontLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>280</Y>
+		</Location>
+		<Size>
+			<CX>80</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Current Font:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="OGP_CurrentFont">
+		<ScreenID>OGP_CurrentFont</ScreenID>
+		<Location>
+			<X>280</X>
+			<Y>280</Y>
+		</Location>
+		<Size>
+			<CX>80</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Arial</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="OGP_FontSelector">
+		<ScreenID>OGP_FontSelector</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<AutoStretchList>true</AutoStretchList>
+		<Location>
+			<X>200</X>
+			<Y>296</Y>
+		</Location>
+		<Size>
+			<CX>110</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>90</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+	</Combobox>
+	<Button item="OGP_ChangeFont">
+		<ScreenID>OGP_ChangeFont</ScreenID>
+		<Location>
+			<X>316</X>
+			<Y>296</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>24</CY>
+		</Size>
+		<Style_Checkbox>false</Style_Checkbox>
+		<Text>Accept</Text>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Anonymous -->
+	<Button item="OGP_AnonymousCheckbox">
+		<ScreenID>OGP_AnonymousCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Anonymous</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Roleplaying -->
+	<Button item="OGP_RoleplayingCheckbox">
+		<ScreenID>OGP_RoleplayingCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Roleplaying</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="OGP_PetWindowPopupCheckbox">
+		<ScreenID>OGP_PetWindowPopupCheckbox</ScreenID>
+		<Size>
+			<CX>175</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Pet Window Auto-Popup</Text>
+		<NoWrap>true</NoWrap>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="OGP_AllowContextMenusCheckbox">
+		<ScreenID>OGP_AllowContextMenusCheckbox</ScreenID>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Allow Context Menus</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Sound realism value -->
+	<Label item="OGP_SoundRealismLabel">
+		<ScreenID>OGP_SoundRealismLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Sound Realism</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="OGP_SoundRealismSlider">
+		<ScreenID>OGP_SoundRealismSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="OGP_SoundRealismValueLabel">
+		<ScreenID>OGP_SoundRealismValueLabel</ScreenID>
+		<Location>
+			<X>300</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- Music volume value -->
+	<Label item="OGP_MusicVolumeLabel">
+		<ScreenID>OGP_MusicVolumeLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>42</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Music Volume</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="OGP_MusicVolumeSlider">
+		<ScreenID>OGP_MusicVolumeSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>56</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="OGP_MusicVolumeValueLabel">
+		<ScreenID>OGP_MusicVolumeValueLabel</ScreenID>
+		<Location>
+			<X>300</X>
+			<Y>56</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- Sound volume value -->
+	<Label item="OGP_SoundVolumeLabel">
+		<ScreenID>OGP_SoundVolumeLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>74</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Sound Volume</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="OGP_SoundVolumeSlider">
+		<ScreenID>OGP_SoundVolumeSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>90</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="OGP_SoundVolumeValueLabel">
+		<ScreenID>OGP_SoundVolumeValueLabel</ScreenID>
+		<Location>
+			<X>300</X>
+			<Y>90</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- Environment sounds -->
+	<Button item="OGP_EnvSoundsCheckbox">
+		<ScreenID>OGP_EnvSoundsCheckbox</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>110</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Environment Sounds</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Combat Music -->
+	<Button item="OGP_CombatMusicCheckbox">
+		<ScreenID>OGP_CombatMusicCheckbox</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>130</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Combat Music</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Randomize Loading Music -->
+	<Button item="OGP_RandomLoadingMusicCheckbox">
+		<ScreenID>OGP_RandomLoadingMusicCheckbox</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>150</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>30</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Randomize Loading Music</Text>
+		<TooltipReference>Toggle whether the music that plays during character selection is randomized.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Placement Options -->
+	<Label item="OGP_ItemPlacementLabel">
+		<ScreenID>OGP_ItemPlacementLabel</ScreenID>
+		<Font>3</Font>
+		<Text>Item Placement</Text>
+		<Size>
+			<CX>120</CX>
+			<CY>15</CY>
+		</Size>
+	</Label>
+	<!-- Item Placement Hide UI -->
+	<Button item="OGP_ItemPlacementHideUICheckbox">
+		<ScreenID>OGP_ItemPlacementHideUICheckbox</ScreenID>
+		<Location>
+			<X>202</X>
+			<Y>535</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Hide UI</Text>
+		<TooltipReference>Toggle whether you want to auto-hide UI when initiating item placement.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Item Placement Default Mode Cursor -->
+	<Button item="OGP_ItemPlacementDefaultModeCursorCheckbox">
+		<ScreenID>OGP_ItemPlacementDefaultModeCursorCheckbox</ScreenID>
+		<Location>
+			<X>202</X>
+			<Y>552</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Default Mode Cursor</Text>
+		<TooltipReference>Toggle whether you want your placement mode to default to cursor mode.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Item Placement Show Overlay -->
+	<Button item="OGP_ItemPlacementShowOverlayCheckbox">
+		<ScreenID>OGP_ItemPlacementShowOverlayCheckbox</ScreenID>
+		<Location>
+			<X>202</X>
+			<Y>569</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Overlay</Text>
+		<TooltipReference>Toggles whether or not you want to display the real estate text overlay on item placement.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Screen item="OGP_TributePreSpacer">
+		<RelativePosition>true</RelativePosition>
+		<Size>
+			<CX>1</CX>
+			<CY>10</CY>
+		</Size>
+	</Screen>
+	<!-- Tribute Log Out Auto-Off -->
+	<Button item="OGP_TributeLogoffAutoOffCheckbox">
+		<ScreenID>OGP_TributeLogoffAutoOffCheckbox</ScreenID>
+		<Size>
+			<CX>180</CX>
+			<CY>16</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Tribute Log Out Auto-Off</Text>
+		<TooltipReference>Toggles whether you want to turn off personal tribute when you log off for your next session.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Trophy Tribute Log Out Auto-Off -->
+	<Button item="OGP_TrophyTributeLogoffAutoOffCheckbox">
+		<ScreenID>OGP_TrophyTributeLogoffAutoOffCheckbox</ScreenID>
+		<Size>
+			<CX>180</CX>
+			<CY>30</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Trophy Tribute Log Out Auto-Off</Text>
+		<TooltipReference>Toggles whether you want to turn off trophy tribute when you log off for your next session.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Blink Active Chat Window -->
+	<Screen item="OGP_BlinkChatWindowPreSpacer">
+		<RelativePosition>true</RelativePosition>
+		<Size>
+			<CX>1</CX>
+			<CY>10</CY>
+		</Size>
+	</Screen>
+	<Button item="OGP_BlinkChatWindowCheckbox">
+		<ScreenID>OGP_BlinkChatWindowCheckbox</ScreenID>
+		<Size>
+			<CX>180</CX>
+			<CY>30</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Blink Active Chat Window</Text>
+		<TooltipReference>Toggles whether or not you want the active chat window to blink when you begin typing.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Tradskill Result Lore Equipped Warning -->
+	<Screen item="OGP_TradeskillLoreEquipWarningPreSpacer">
+		<RelativePosition>true</RelativePosition>
+		<Size>
+			<CX>1</CX>
+			<CY>10</CY>
+		</Size>
+	</Screen>
+	<Button item="OGP_TradeskillLoreEquipWarningCheckbox">
+		<ScreenID>OGP_TradeskillLoreEquipWarningCheckbox</ScreenID>
+		<Size>
+			<CX>180</CX>
+			<CY>30</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Tradeskill Lore Equipped Warning</Text>
+		<TooltipReference>Toggles whether to require confirmation before making a tradeskill combine that would result in a duplicate lore-equipped item.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<VerticalLayoutBox item="OGP_LeftLayout">
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>10</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>175</CX>
+			<CY>710</CY>
+		</Size>
+		<Spacing>0</Spacing>
+		<ResizeLast>false</ResizeLast>
+		<Style_Border>false</Style_Border>
+		<Style_VScroll>false</Style_VScroll>
+		<Style_Transparent>true</Style_Transparent>
+		<Pieces>OGP_GuildInvitesCheckbox</Pieces>
+		<Pieces>OGP_LootAutosplitCheckbox</Pieces>
+		<Pieces>OGP_AnonymousCheckbox</Pieces>
+		<Pieces>OGP_RoleplayingCheckbox</Pieces>
+		<Pieces>OGP_PetWindowPopupCheckbox</Pieces>
+		<Pieces>OGP_AllowContextMenusCheckbox</Pieces>
+		<Pieces>OGP_LeftClickHelpText</Pieces>
+		<Pieces>OGP_UseTellWindowsCheckbox</Pieces>
+		<Pieces>OGP_AllowAutoDuckCheckbox</Pieces>
+		<Pieces>OGP_AllowAutoStandCheckbox</Pieces>
+		<Pieces>OGP_AutojoinCheckbox</Pieces>
+		<Pieces>OGP_AutoShowRewardsWindowCheckbox</Pieces>
+		<Pieces>OGP_TradeskillCtrlClickCheckbox</Pieces>
+		<Pieces>OGP_LoadSkinButton</Pieces>
+		<Pieces>OGP_LayoutCopyButton</Pieces>
+		<Pieces>OGP_AutoAcceptKickRequests</Pieces>
+		<Pieces>OGP_ClickThroughSelf</Pieces>
+		<Pieces>OGP_ClickThroughMercs</Pieces>
+		<Pieces>OGP_ClickThroughPets</Pieces>
+		<Pieces>OGP_HideFirstWindowAlerts</Pieces>
+		<Pieces>OGP_HidePlayersLabel</Pieces>
+		<Pieces>OGP_HidePlayersComboBox</Pieces>
+		<Pieces>OGP_HidePetsLabel</Pieces>
+		<Pieces>OGP_HidePetsComboBox</Pieces>
+		<Pieces>OGP_HideMercsLabel</Pieces>
+		<Pieces>OGP_HideMercsComboBox</Pieces>
+		<Pieces>OGP_HideFamsLabel</Pieces>
+		<Pieces>OGP_HideFamsComboBox</Pieces>
+		<Pieces>OGP_AutoAFKOnCheckBox</Pieces>
+		<Pieces>OGP_AutoAFKOffCheckBox</Pieces>
+		<Pieces>OGP_AutoMercPassiveCheckBox</Pieces>
+		<Pieces>Screen:OGP_TaskOverlayPreSpacer</Pieces>
+		<Pieces>OGP_AutoAddToTaskOverlay</Pieces>
+		<Pieces>OGP_ShowOnlyOpenSteps</Pieces>
+		<Pieces>OGP_AddMostRecentToTop</Pieces>
+		<Pieces>Screen:OGP_TradeskillLoreEquipWarningPreSpacer</Pieces>
+		<Pieces>OGP_TradeskillLoreEquipWarningCheckbox</Pieces>
+	</VerticalLayoutBox>
+	<VerticalLayoutBox item="OGP_RightLayout">
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>200</X>
+			<Y>325</Y>
+		</Location>
+		<Size>
+			<CX>175</CX>
+			<CY>420</CY>
+		</Size>
+		<Spacing>0</Spacing>
+		<ResizeLast>false</ResizeLast>
+		<Style_Border>false</Style_Border>
+		<Style_VScroll>false</Style_VScroll>
+		<Style_Transparent>true</Style_Transparent>
+		<Pieces>OGP_ConfirmationsLabel</Pieces>
+		<Pieces>OGP_FastItemDestroyCheckbox</Pieces>
+		<Pieces>OGP_AANoConfirmCheckbox</Pieces>
+		<Pieces>OGP_AdvMerchantNoConfirmCheckbox</Pieces>
+		<Pieces>OGP_LootAllConfirmCheckbox</Pieces>
+		<Pieces>OGP_DismissMercenaryConfirmCheckbox</Pieces>
+		<Pieces>OGP_RaidInviteConfirmCheckbox</Pieces>
+		<Pieces>OGP_OfflineModeConfirmCheckbox</Pieces>
+		<Pieces>OGP_BagSellConfirmCheckbox</Pieces>
+		<Pieces>OGP_BagSellContentsConfirmCheckbox</Pieces>
+		<Pieces>OGP_LogOutOverParcelLimitConfirmCheckbox</Pieces>
+		<Pieces>OGP_SaveSetConfirmCheckbox</Pieces>
+		<Pieces>OGP_NoDropItemLabel</Pieces>
+		<Pieces>OGP_NoDropItemCombobox</Pieces>
+		<Pieces>OGP_ItemPlacementLabel</Pieces>
+		<Pieces>OGP_ItemPlacementHideUICheckbox</Pieces>
+		<Pieces>OGP_ItemPlacementDefaultModeCursorCheckbox</Pieces>
+		<Pieces>OGP_ItemPlacementShowOverlayCheckbox</Pieces>
+		<Pieces>Screen:OGP_TributePreSpacer</Pieces>
+		<Pieces>OGP_TributeLogoffAutoOffCheckbox</Pieces>
+		<Pieces>OGP_TrophyTributeLogoffAutoOffCheckbox</Pieces>
+		<Pieces>Screen:OGP_BlinkChatWindowPreSpacer</Pieces>
+		<Pieces>OGP_BlinkChatWindowCheckbox</Pieces>
+	</VerticalLayoutBox>
+	<!-- General options page -->
+	<Page item="OptionsGeneralPage">
+		<ScreenID>OptionsGeneralPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<Style_VScroll>true</Style_VScroll>
+		<TooltipReference />
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>General</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Location>
+			<X>0</X>
+			<Y>22</Y>
+		</Location>
+		<Size>
+			<CX>387</CX>
+			<CY>480</CY>
+		</Size>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>VerticalLayoutBox:OGP_LeftLayout</Pieces>
+		<Pieces>VerticalLayoutBox:OGP_RightLayout</Pieces>
+		<Pieces>OGP_EnvSoundsCheckbox</Pieces>
+		<Pieces>OGP_CombatMusicCheckbox</Pieces>
+		<Pieces>OGP_RandomLoadingMusicCheckbox</Pieces>
+		<Pieces>OGP_SoundRealismLabel</Pieces>
+		<Pieces>OGP_SoundRealismSlider</Pieces>
+		<Pieces>OGP_SoundRealismValueLabel</Pieces>
+		<Pieces>OGP_MusicVolumeLabel</Pieces>
+		<Pieces>OGP_MusicVolumeSlider</Pieces>
+		<Pieces>OGP_MusicVolumeValueLabel</Pieces>
+		<Pieces>OGP_SoundVolumeLabel</Pieces>
+		<Pieces>OGP_SoundVolumeSlider</Pieces>
+		<Pieces>OGP_SoundVolumeValueLabel</Pieces>
+		<Pieces>OGP_ItemDroppingLabel</Pieces>
+		<Pieces>OGP_PlayerTradeLabel</Pieces>
+		<Pieces>OGP_FontLabel</Pieces>
+		<Pieces>OGP_CurrentFont</Pieces>
+		<Pieces>OGP_ChangeFont</Pieces>
+		<Pieces>OGP_FontSelector</Pieces>
+		<Pieces>OGP_PlayerTradeCombobox</Pieces>
+		<Pieces>OGP_ItemDroppingCombobox</Pieces>
+	</Page>
+	<!-- *********** Options Tab Window, Display Options Page *********** -->
+	<!-- PCNames -->
+	<Button item="ODP_PCNamesCheckbox">
+		<ScreenID>ODP_PCNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>12</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show PC Names</Text>
+		<TooltipReference>Show/hide the names over other players.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- NPCNames	-->
+	<Button item="ODP_NPCNamesCheckbox">
+		<ScreenID>ODP_NPCNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>30</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show NPC Names</Text>
+		<TooltipReference>Show/hide the names over NPCs.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show Pet Names	-->
+	<Button item="ODP_PetNamesCheckbox">
+		<ScreenID>ODP_PetNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>48</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Pet Names</Text>
+		<TooltipReference>Show/hide the names over pets.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show Merc Names	-->
+	<Button item="ODP_MercNamesCheckbox">
+		<ScreenID>ODP_MercNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>66</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Merc Names</Text>
+		<TooltipReference>Show/hide the names over mercenaries.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show Pet owner Names -->
+	<Button item="ODP_ShowPetOwnerNames">
+		<ScreenID>ODP_ShowPetOwnerNames</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>84</Y>
+		</Location>
+		<Size>
+			<CX>175</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Pet Owner Names</Text>
+		<TooltipReference>Show/hide pet owner names under pet name.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show Merc owner Names -->
+	<Button item="ODP_ShowMercOwnerNames">
+		<ScreenID>ODP_ShowMercOwnerNames</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>102</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Merc Owner Names</Text>
+		<TooltipReference>Show/hide mercenary owner names under mercenary name.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show 3D Target Ring -->
+	<Button item="ODP_ShowTargetRingCheckbox">
+		<ScreenID>ODP_ShowTargetRingCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show 3D Target Ring</Text>
+		<TooltipReference>A colored ring appears around your current target's feet.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show Target Health % -->
+	<Button item="ODP_ShowTargetHealthCheckbox">
+		<ScreenID>ODP_ShowTargetHealthCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>138</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Target Health %</Text>
+		<TooltipReference>Determines whether the health % is displayed above a target.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Level of Detail -->
+	<Button item="ODP_LevelOfDetailCheckbox">
+		<ScreenID>ODP_LevelOfDetailCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>156</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Level of Detail</Text>
+		<TooltipReference>Some models adjust their detail depending on their distance from you.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Toggle Show Helm -->
+	<Button item="ODP_ShowHelmCheckbox">
+		<ScreenID>ODP_ShowHelmCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>174</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show My Helm</Text>
+		<TooltipReference>Toggle whether your helm is visible or not.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Toggle Display of Pre-Luclin Characters on Mounts -->
+	<Button item="ODP_ShowPreLuclinMounts">
+		<ScreenID>ODP_ShowPreLuclinMounts</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>194</Y>
+		</Location>
+		<Size>
+			<CX>175</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Pre-Luclin Mounts</Text>
+		<TooltipReference>Toggle whether you see mounts for other pre-Luclin Player Characters.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Switch to fullscreen mode. -->
+	<Button item="ODP_SetFullscreenButton">
+		<ScreenID>ODP_SetFullscreenButton</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>214</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Text>Switch to Fullscreen</Text>
+		<TooltipReference>Set the current window mode to be full screen.</TooltipReference>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Switch to windowed mode. -->
+	<Button item="ODP_SetWindowedButton">
+		<ScreenID>ODP_SetWindowedButton</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>214</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Text>Switch to Windowed</Text>
+		<TooltipReference>Set the current window mode to be windowed.</TooltipReference>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Video modes. -->
+	<Button item="ODP_VideoModesButton">
+		<ScreenID>ODP_VideoModesButton</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>236</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Text>Video Modes</Text>
+		<TooltipReference>Select your screen's resolution, color, and refresh rate settings.</TooltipReference>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Allow window resizing -->
+	<Button item="ODP_AllowWindowResizingCheckbox">
+		<ScreenID>ODP_AllowWindowResizingCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>256</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Allow window resizing</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Always on top -->
+	<Button item="ODP_AlwaysOnTopCheckbox">
+		<ScreenID>ODP_AlwaysOnTopCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>274</Y>
+		</Location>
+		<Size>
+			<CX>190</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Overlap Windows Taskbar</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show buff timer or not. -->
+	<Button item="ODP_ShowBuffTimerCheckbox">
+		<ScreenID>ODP_ShowBuffTimerCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>292</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Buff Timer</Text>
+		<TooltipReference>Determines whether the buff timer is displayed on the buff.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show buff counters or not. -->
+	<Button item="ODP_ShowBuffCountersCheckbox">
+		<ScreenID>ODP_ShowBuffCountersCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>310</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Buff Counters</Text>
+		<TooltipReference>Determines whether the buff counters are displayed on the buff.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show buff limit use or not. -->
+	<Button item="ODP_ShowBuffLimitUseCheckbox">
+		<ScreenID>ODP_ShowBuffLimitUseCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>328</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Buff Limit Uses</Text>
+		<TooltipReference>Determines whether the buff limit uses are displayed on the buff.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show song countdown or not. -->
+	<Button item="ODP_ShowSongTimerCheckbox">
+		<ScreenID>ODP_ShowSongTimerCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>346</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Song Timer</Text>
+		<TooltipReference>Determines whether the song timer is displayed on the song.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show song counters or not. -->
+	<Button item="ODP_ShowSongCountersCheckbox">
+		<ScreenID>ODP_ShowSongCountersCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>364</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Song Counters</Text>
+		<TooltipReference>Determines whether the song counters are displayed on the song.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Show song limit use or not. -->
+	<Button item="ODP_ShowSongLimitUseCheckbox">
+		<ScreenID>ODP_ShowSongLimitUseCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>382</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Song Limit Uses</Text>
+		<TooltipReference>Determines whether the song limit uses are displayed on the song.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Delay before fading slider -->
+	<Label item="ODP_FadeDelayLabel">
+		<ScreenID>ODP_FadeDelayLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>403</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Fade Delay (seconds)</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_FadeDelaySlider">
+		<ScreenID>ODP_FadeDelaySlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>420</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_FadeDelayValueLabel">
+		<ScreenID>ODP_FadeDelayValueLabel</ScreenID>
+		<Location>
+			<X>110</X>
+			<Y>420</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0.0</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- fade duration slider -->
+	<Label item="ODP_FadeDurationLabel">
+		<ScreenID>ODP_FadeDurationLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>439</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Fade Duration (seconds)</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_FadeDurationSlider">
+		<ScreenID>ODP_FadeDurationSlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>456</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_FadeDurationValueLabel">
+		<ScreenID>ODP_FadeDurationValueLabel</ScreenID>
+		<Location>
+			<X>110</X>
+			<Y>456</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0.5</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- Window alpha slider -->
+	<Label item="ODP_WindowAlphaLabel">
+		<ScreenID>ODP_WindowAlphaLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>475</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Window Transparency</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_WindowAlphaSlider">
+		<ScreenID>ODP_WindowAlphaSlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>492</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_WindowAlphaValueLabel">
+		<ScreenID>ODP_WindowAlphaValueLabel</ScreenID>
+		<Location>
+			<X>110</X>
+			<Y>492</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- Fade-to alpha slider -->
+	<Label item="ODP_FadeToAlphaLabel">
+		<ScreenID>ODP_FadeToAlphaLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>511</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Fade-to Transparency</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_FadeToAlphaSlider">
+		<ScreenID>ODP_FadeToAlphaSlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>528</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_FadeToAlphaValueLabel">
+		<ScreenID>ODP_FadeToAlphaValueLabel</ScreenID>
+		<Location>
+			<X>110</X>
+			<Y>528</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- LOD Bias slider -->
+	<Label item="ODP_LODBiasLabel">
+		<ScreenID>ODP_LODBiasLabel</ScreenID>
+		<Location>
+			<X>190</X>
+			<Y>401</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>LOD Bias</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_LODBiasSlider">
+		<ScreenID>ODP_LODBiasSlider</ScreenID>
+		<Location>
+			<X>190</X>
+			<Y>418</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_LODBiasSliderValueLabel">
+		<ScreenID>ODP_LODBiasSliderValueLabel</ScreenID>
+		<Location>
+			<X>300</X>
+			<Y>418</Y>
+		</Location>
+		<Size>
+			<CX>70</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>10</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- UI Scale slider -->
+	<Label item="ODP_UIScaleLabel">
+		<ScreenID>ODP_UIScaleLabel</ScreenID>
+		<Location>
+			<X>190</X>
+			<Y>439</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>UI Scale</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_UIScaleSlider">
+		<ScreenID>ODP_UIScaleSlider</ScreenID>
+		<Location>
+			<X>190</X>
+			<Y>456</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_UIScaleSliderValueLabel">
+		<ScreenID>ODP_UIScaleSliderValueLabel</ScreenID>
+		<Location>
+			<X>295</X>
+			<Y>456</Y>
+		</Location>
+		<Size>
+			<CX>30</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>1.0</Text>
+		<NoWrap>true</NoWrap>
+	</Label>
+
+	<Button item="ODP_ApplyUIScaleButton">
+		<ScreenID>ODP_ApplyUIScaleButton</ScreenID>
+		<Location>
+			<X>325</X>
+			<Y>450</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>20</CY>
+		</Size>
+		<Text>Apply</Text>
+		<TooltipReference>Apply the change to UI scale. Only applies to converted windows while using the new UI engine.</TooltipReference>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Old UI Engine -->
+	<Button item="ODP_UseNewEngineCheckbox">
+		<ScreenID>ODP_UseNewEngineCheckbox</ScreenID>
+		<Location>
+			<X>190</X>
+			<Y>480</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Use New UI Engine</Text>
+		<TooltipReference>Uncheck this to revert to the old UI engine. REQUIRES GAME RESTART</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Load Screen -->
+	<Label item="ODP_LoadScreenLabel">
+		<ScreenID>ODP_LoadScreenLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>13</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Load Screen</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_LoadScreenCombobox">
+		<ScreenID>ODP_LoadScreenCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>272</X>
+			<Y>8</Y>
+		</Location>
+		<Size>
+			<CX>105</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>200</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>Loading Art</Choices>
+	</Combobox>
+	<!-- Sky Layering -->
+	<Label item="ODP_SkyLabel">
+		<ScreenID>ODP_SkyLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>40</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Sky Type</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_SkyCombobox">
+		<ScreenID>ODP_SkyCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>272</X>
+			<Y>35</Y>
+		</Location>
+		<Size>
+			<CX>105</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Off</Choices>
+		<Choices>Simple</Choices>
+		<Choices>Complex</Choices>
+	</Combobox>
+	<!-- New Armor -->
+	<Label item="ODP_NewArmorLabel">
+		<ScreenID>ODP_NewArmorLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>67</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>New Armor</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_NewArmorFilterCombobox">
+		<ScreenID>ODP_NewArmorFilterCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>272</X>
+			<Y>62</Y>
+		</Location>
+		<Size>
+			<CX>105</CX>
+			<CY>24</CY>
+		</Size>
+		<TooltipReference>Determines the visibility of new armor. If you select None, then no one will appear in new armor.</TooltipReference>
+		<ListHeight>150</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>Me</Choices>
+		<Choices>My Group</Choices>
+		<Choices>My Raid</Choices>
+		<Choices>All PCs</Choices>
+		<Choices>Me + NPCs</Choices>
+		<Choices>Group + NPCs</Choices>
+		<Choices>Raid + NPCs</Choices>
+		<Choices>All</Choices>
+	</Combobox>
+	<!-- BrightnessBias Slider -->
+	<Label item="ODP_BrightnessBiasLabel">
+		<ScreenID>ODP_BrightnessBiasLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>96</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Enhance Vision</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+		<TooltipReference>Enhances your vision and allows you to see better in dim light.</TooltipReference>
+	</Label>
+	<Slider item="ODP_BrightnessBiasSlider">
+		<ScreenID>ODP_BrightnessBiasSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>116</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>Enhances your vision and allows you to see better in dim light.</TooltipReference>
+	</Slider>
+	<Label item="ODP_BrightnessBiasValueLabel">
+		<ScreenID>ODP_BrightnessBiasValueLabel</ScreenID>
+		<Location>
+			<X>300</X>
+			<Y>116</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+		<TooltipReference>Enhances your vision and allows you to see better in dim light.</TooltipReference>
+	</Label>
+	<!-- Clip Plane Slider -->
+	<Label item="ODP_ClipPlaneLabel">
+		<ScreenID>ODP_ClipPlaneLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>136</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Far Clip Plane</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_ClipPlaneSlider">
+		<ScreenID>ODP_ClipPlaneSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>156</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_ClipPlaneValueLabel">
+		<ScreenID>ODP_ClipPlaneValueLabel</ScreenID>
+		<Location>
+			<X>300</X>
+			<Y>156</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- Particles -->
+	<Label item="ODP_ParticlesLabel">
+		<ScreenID>ODP_ParticlesLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>182</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Particles</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<!-- Spell Particles Near Clip Plane-->
+	<Label item="ODP_SpellParticlesNearClipLabel">
+		<ScreenID>ODP_SpellParticlesNearClipLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Near Clip:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_SpellParticlesNearClipCombobox">
+		<ScreenID>ODP_SpellParticlesNearClipCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>75</X>
+			<Y>6</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Near</Choices>
+		<Choices>Medium</Choices>
+		<Choices>Far</Choices>
+		<Choices>Farthest</Choices>
+	</Combobox>
+	<!-- Spell Particles Density -->
+	<Label item="ODP_SpellParticlesDensityLabel">
+		<ScreenID>ODP_SpellParticlesDensityLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>40</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Density:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_SpellParticlesDensityCombobox">
+		<ScreenID>ODP_SpellParticlesDensityCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>75</X>
+			<Y>36</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Off</Choices>
+		<Choices>Low</Choices>
+		<Choices>Medium</Choices>
+		<Choices>High</Choices>
+	</Combobox>
+	<!-- Spell Particles Filter -->
+	<Label item="ODP_SpellParticlesFilterLabel">
+		<ScreenID>ODP_SpellParticlesFilterLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>70</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>On For:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_SpellParticlesFilterCombobox">
+		<ScreenID>ODP_SpellParticlesFilterCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>75</X>
+			<Y>66</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>120</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>My spells</Choices>
+		<Choices>Group spells</Choices>
+		<Choices>Raid spells</Choices>
+		<Choices>All PCs</Choices>
+		<Choices>Me + NPC</Choices>
+		<Choices>Group + NPC</Choices>
+		<Choices>Raid + NPC</Choices>
+		<Choices>All spells</Choices>
+	</Combobox>
+	<!-- Spell Particles Opacity Slider -->
+	<Label item="ODP_SpellParticlesOpacityLabel">
+		<ScreenID>ODP_SpellParticlesOpacityLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>100</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Opacity</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_SpellParticlesOpacitySlider">
+		<ScreenID>ODP_SpellParticlesOpacitySlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_SpellParticlesOpacityValueLabel">
+		<ScreenID>ODP_SpellParticlesOpacityValueLabel</ScreenID>
+		<Location>
+			<X>110</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<Page item="SpellParticlesPage">
+		<ScreenID>SpellParticlesPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Spell</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>ODP_SpellParticlesNearClipLabel</Pieces>
+		<Pieces>ODP_SpellParticlesDensityLabel</Pieces>
+		<Pieces>ODP_SpellParticlesFilterLabel</Pieces>
+		<Pieces>ODP_SpellParticlesOpacityLabel</Pieces>
+		<Pieces>ODP_SpellParticlesOpacitySlider</Pieces>
+		<Pieces>ODP_SpellParticlesOpacityValueLabel</Pieces>
+		<Pieces>ODP_SpellParticlesFilterCombobox</Pieces>
+		<Pieces>ODP_SpellParticlesDensityCombobox</Pieces>
+		<Pieces>ODP_SpellParticlesNearClipCombobox</Pieces>
+	</Page>
+	<!-- Environment Particles Near Clip Plane-->
+	<Label item="ODP_EnvironmentParticlesNearClipLabel">
+		<ScreenID>ODP_EnvironmentParticlesNearClipLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Near Clip:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_EnvironmentParticlesNearClipCombobox">
+		<ScreenID>ODP_EnvironmentParticlesNearClipCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>75</X>
+			<Y>6</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Near</Choices>
+		<Choices>Medium</Choices>
+		<Choices>Far</Choices>
+		<Choices>Farthest</Choices>
+	</Combobox>
+	<!-- Environment Particles Density -->
+	<Label item="ODP_EnvironmentParticlesDensityLabel">
+		<ScreenID>ODP_EnvironmentParticlesDensityLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>40</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Density:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_EnvironmentParticlesDensityCombobox">
+		<ScreenID>ODP_EnvironmentParticlesDensityCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>75</X>
+			<Y>36</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Off</Choices>
+		<Choices>Low</Choices>
+		<Choices>Medium</Choices>
+		<Choices>High</Choices>
+	</Combobox>
+	<!-- Environment Particles Opacity Slider -->
+	<Label item="ODP_EnvironmentParticlesOpacityLabel">
+		<ScreenID>ODP_EnvironmentParticlesOpacityLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>100</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Opacity</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_EnvironmentParticlesOpacitySlider">
+		<ScreenID>ODP_EnvironmentParticlesOpacitySlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_EnvironmentParticlesOpacityValueLabel">
+		<ScreenID>ODP_EnvironmentParticlesOpacityValueLabel</ScreenID>
+		<Location>
+			<X>110</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<Page item="EnvironmentParticlesPage">
+		<ScreenID>EnvironmentParticlesPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Env</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>ODP_EnvironmentParticlesNearClipLabel</Pieces>
+		<Pieces>ODP_EnvironmentParticlesDensityLabel</Pieces>
+		<Pieces>ODP_EnvironmentParticlesOpacityLabel</Pieces>
+		<Pieces>ODP_EnvironmentParticlesOpacitySlider</Pieces>
+		<Pieces>ODP_EnvironmentParticlesOpacityValueLabel</Pieces>
+		<Pieces>ODP_EnvironmentParticlesDensityCombobox</Pieces>
+		<Pieces>ODP_EnvironmentParticlesNearClipCombobox</Pieces>
+	</Page>
+	<!-- Actor Particles Near Clip Plane-->
+	<Label item="ODP_ActorParticlesNearClipLabel">
+		<ScreenID>ODP_ActorParticlesNearClipLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Near Clip:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_ActorParticlesNearClipCombobox">
+		<ScreenID>ODP_ActorParticlesNearClipCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>75</X>
+			<Y>6</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Near</Choices>
+		<Choices>Medium</Choices>
+		<Choices>Far</Choices>
+		<Choices>Farthest</Choices>
+	</Combobox>
+	<!-- Actor Particles Density -->
+	<Label item="ODP_ActorParticlesDensityLabel">
+		<ScreenID>ODP_ActorParticlesDensityLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>40</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Density:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_ActorParticlesDensityCombobox">
+		<ScreenID>ODP_ActorParticlesDensityCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>75</X>
+			<Y>36</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Off</Choices>
+		<Choices>Low</Choices>
+		<Choices>Medium</Choices>
+		<Choices>High</Choices>
+	</Combobox>
+	<!-- Actor Particles Filter -->
+	<Label item="ODP_ActorParticlesFilterLabel">
+		<ScreenID>ODP_ActorParticlesFilterLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>70</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>On For:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_ActorParticlesFilterCombobox">
+		<ScreenID>ODP_ActorParticlesFilterCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>75</X>
+			<Y>66</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>120</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Me</Choices>
+		<Choices>Group</Choices>
+		<Choices>Raid</Choices>
+		<Choices>All PCs</Choices>
+		<Choices>Me + NPC</Choices>
+		<Choices>Group + NPC</Choices>
+		<Choices>Raid + NPC</Choices>
+		<Choices>Everyone</Choices>
+	</Combobox>
+	<!-- Actor Particles Opacity Slider -->
+	<Label item="ODP_ActorParticlesOpacityLabel">
+		<ScreenID>ODP_ActorParticlesOpacityLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>100</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Opacity</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_ActorParticlesOpacitySlider">
+		<ScreenID>ODP_ActorParticlesOpacitySlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="ODP_ActorParticlesOpacityValueLabel">
+		<ScreenID>ODP_ActorParticlesOpacityValueLabel</ScreenID>
+		<Location>
+			<X>110</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<Page item="ActorParticlesPage">
+		<ScreenID>ActorParticlesPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Player</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>ODP_ActorParticlesNearClipLabel</Pieces>
+		<Pieces>ODP_ActorParticlesDensityLabel</Pieces>
+		<Pieces>ODP_ActorParticlesFilterLabel</Pieces>
+		<Pieces>ODP_ActorParticlesOpacityLabel</Pieces>
+		<Pieces>ODP_ActorParticlesOpacitySlider</Pieces>
+		<Pieces>ODP_ActorParticlesOpacityValueLabel</Pieces>
+		<Pieces>ODP_ActorParticlesFilterCombobox</Pieces>
+		<Pieces>ODP_ActorParticlesDensityCombobox</Pieces>
+		<Pieces>ODP_ActorParticlesNearClipCombobox</Pieces>
+	</Page>
+	<TabBox item="ODP_ParticlesTabs">
+		<ScreenID>ODP_ParticlesTabs</ScreenID>
+		<Location>
+			<X>190</X>
+			<Y>196</Y>
+		</Location>
+		<Size>
+			<CX>190</CX>
+			<CY>170</CY>
+		</Size>
+		<AutoStretch>false</AutoStretch>
+		<TopAnchorToTop>false</TopAnchorToTop>
+		<BottomAnchorToTop>false</BottomAnchorToTop>
+		<LeftAnchorToLeft>false</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<TabBorderTemplate>FT_DefTabBorder</TabBorderTemplate>
+		<PageBorderTemplate>FT_DefPageBorder</PageBorderTemplate>
+		<Pages>Page:SpellParticlesPage</Pages>
+		<Pages>Page:EnvironmentParticlesPage</Pages>
+		<Pages>Page:ActorParticlesPage</Pages>
+	</TabBox>
+	<!-- Advanced Display Options -->
+	<Button item="ODP_AdvancedButton">
+		<ScreenID>ODP_AdvancedButton</ScreenID>
+		<Location>
+			<X>190</X>
+			<Y>374</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Text>Advanced</Text>
+		<TooltipReference>Pop up the advanced display options window.</TooltipReference>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Display options page -->
+	<Page item="OptionsDisplayPage">
+		<ScreenID>OptionsDisplayPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<Style_VScroll>true</Style_VScroll>
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Display</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>ODP_PCNamesCheckbox</Pieces>
+		<Pieces>ODP_NPCNamesCheckbox</Pieces>
+		<Pieces>ODP_PetNamesCheckbox</Pieces>
+		<Pieces>ODP_MercNamesCheckbox</Pieces>
+		<Pieces>ODP_ShowPetOwnerNames</Pieces>
+		<Pieces>ODP_ShowMercOwnerNames</Pieces>
+		<Pieces>ODP_ShowTargetRingCheckbox</Pieces>
+		<Pieces>ODP_ShowTargetHealthCheckbox</Pieces>
+		<Pieces>ODP_LevelOfDetailCheckbox</Pieces>
+		<Pieces>ODP_ShowHelmCheckbox</Pieces>
+		<Pieces>ODP_ShowPreLuclinMounts</Pieces>
+		<Pieces>ODP_BrightnessBiasLabel</Pieces>
+		<Pieces>ODP_BrightnessBiasSlider</Pieces>
+		<Pieces>ODP_BrightnessBiasValueLabel</Pieces>
+		<Pieces>ODP_ClipPlaneLabel</Pieces>
+		<Pieces>ODP_ClipPlaneSlider</Pieces>
+		<Pieces>ODP_ClipPlaneValueLabel</Pieces>
+		<Pieces>ODP_SetFullscreenButton</Pieces>
+		<Pieces>ODP_SetWindowedButton</Pieces>
+		<Pieces>ODP_VideoModesButton</Pieces>
+		<Pieces>ODP_AllowWindowResizingCheckbox</Pieces>
+		<Pieces>ODP_AlwaysOnTopCheckbox</Pieces>
+		<Pieces>ODP_ShowBuffTimerCheckbox</Pieces>
+		<Pieces>ODP_ShowBuffCountersCheckbox</Pieces>
+		<Pieces>ODP_ShowBuffLimitUseCheckbox</Pieces>
+		<Pieces>ODP_ShowSongTimerCheckbox</Pieces>
+		<Pieces>ODP_ShowSongCountersCheckbox</Pieces>
+		<Pieces>ODP_ShowSongLimitUseCheckbox</Pieces>
+		<Pieces>ODP_FadeDelayLabel</Pieces>
+		<Pieces>ODP_FadeDelaySlider</Pieces>
+		<Pieces>ODP_FadeDelayValueLabel</Pieces>
+		<Pieces>ODP_FadeDurationLabel</Pieces>
+		<Pieces>ODP_FadeDurationSlider</Pieces>
+		<Pieces>ODP_FadeDurationValueLabel</Pieces>
+		<Pieces>ODP_WindowAlphaLabel</Pieces>
+		<Pieces>ODP_WindowAlphaSlider</Pieces>
+		<Pieces>ODP_WindowAlphaValueLabel</Pieces>
+		<Pieces>ODP_FadeToAlphaLabel</Pieces>
+		<Pieces>ODP_FadeToAlphaSlider</Pieces>
+		<Pieces>ODP_FadeToAlphaValueLabel</Pieces>
+		<Pieces>ODP_LODBiasLabel</Pieces>
+		<Pieces>ODP_LODBiasSlider</Pieces>
+		<Pieces>ODP_LODBiasSliderValueLabel</Pieces>
+		<Pieces>ODP_UIScaleLabel</Pieces>
+		<Pieces>ODP_UIScaleSlider</Pieces>
+		<Pieces>ODP_UIScaleSliderValueLabel</Pieces>
+		<Pieces>ODP_ApplyUIScaleButton</Pieces>
+		<Pieces>ODP_UseNewEngineCheckbox</Pieces>
+		<Pieces>ODP_SkyLabel</Pieces>
+		<Pieces>ODP_ParticlesLabel</Pieces>
+		<Pieces>ODP_AdvancedButton</Pieces>
+		<Pieces>TabBox:ODP_ParticlesTabs</Pieces>
+		<Pieces>ODP_SkyCombobox</Pieces>
+		<Pieces>ODP_LoadScreenLabel</Pieces>
+		<Pieces>ODP_LoadScreenCombobox</Pieces>
+		<Pieces>ODP_NewArmorLabel</Pieces>
+		<Pieces>ODP_NewArmorFilterCombobox</Pieces>
+		<Location>
+			<X>0</X>
+			<Y>22</Y>
+		</Location>
+		<Size>
+			<CX>387</CX>
+			<CY>480</CY>
+		</Size>
+	</Page>
+	<!-- *********** Options Tab Window, Mouse Options Page *********** -->
+	<!-- Invert Y Axis -->
+	<Button item="OMP_InvertYAxisCheckbox">
+		<ScreenID>OMP_InvertYAxisCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Invert Y Axis</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Look Spring	-->
+	<Button item="OMP_LookSpringCheckbox">
+		<ScreenID>OMP_LookSpringCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>30</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Look Spring</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Mouse look -->
+	<Button item="OMP_MouseLookCheckbox">
+		<ScreenID>OMP_MouseLookCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>50</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Mouse Look</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Mouse Wheel Zoom -->
+	<Button item="OMP_MouseWheelZoomCheckbox">
+		<ScreenID>OMP_MouseWheelZoomCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>70</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Mouse Wheel Zoom</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Mouse Turns Zoom Camera -->
+	<Button item="OMP_MouseTurnZoomCamera">
+		<ScreenID>OMP_MouseTurnZoomCamera</ScreenID>
+		<TooltipReference>Toggle this to enable or disable zoom camera turning.</TooltipReference>
+		<Location>
+			<X>10</X>
+			<Y>90</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Turn Zoom Camera</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- Mouse Left and Right Handedness -->
+	<Button item="OMP_MouseHandedness">
+		<ScreenID>OMP_MouseHandedness</ScreenID>
+		<TooltipReference>Toggle this to swap the mouse's left and right buttons.</TooltipReference>
+		<Location>
+			<X>10</X>
+			<Y>110</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Right-handed mouse</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<!-- X Mouse sensitivity -->
+	<Label item="OMP_XMouseSensitivityLabel">
+		<ScreenID>OMP_XMouseSensitivityLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>X Mouse Look Sensitivity</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="OMP_XMouseSensitivitySlider">
+		<ScreenID>OMP_XMouseSensitivitySlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>30</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="OMP_XMouseSensitivityValueLabel">
+		<ScreenID>OMP_XMouseSensitivityValueLabel</ScreenID>
+		<Location>
+			<X>300</X>
+			<Y>30</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- Y Mouse sensitivity -->
+	<Label item="OMP_YMouseSensitivityLabel">
+		<ScreenID>OMP_YMouseSensitivityLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>50</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Y Mouse Look Sensitivity</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="OMP_YMouseSensitivitySlider">
+		<ScreenID>OMP_YMouseSensitivitySlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>70</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="OMP_YMouseSensitivityValueLabel">
+		<ScreenID>OMP_YMouseSensitivityValueLabel</ScreenID>
+		<Location>
+			<X>300</X>
+			<Y>70</Y>
+		</Location>
+		<Size>
+			<CX>50</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0 %</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>true</AlignRight>
+	</Label>
+	<!-- Mouse options page -->
+	<Page item="OptionsMousePage">
+		<ScreenID>OptionsMousePage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<TooltipReference />
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Mouse</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>OMP_InvertYAxisCheckbox</Pieces>
+		<Pieces>OMP_LookSpringCheckbox</Pieces>
+		<Pieces>OMP_MouseLookCheckbox</Pieces>
+		<Pieces>OMP_MouseWheelZoomCheckbox</Pieces>
+		<Pieces>OMP_MouseTurnZoomCamera</Pieces>
+		<Pieces>OMP_MouseHandedness</Pieces>
+		<Pieces>OMP_XMouseSensitivityLabel</Pieces>
+		<Pieces>OMP_XMouseSensitivitySlider</Pieces>
+		<Pieces>OMP_XMouseSensitivityValueLabel</Pieces>
+		<Pieces>OMP_YMouseSensitivityLabel</Pieces>
+		<Pieces>OMP_YMouseSensitivitySlider</Pieces>
+		<Pieces>OMP_YMouseSensitivityValueLabel</Pieces>
+		<Location>
+			<X>0</X>
+			<Y>22</Y>
+		</Location>
+		<Size>
+			<CX>387</CX>
+			<CY>480</CY>
+		</Size>
+	</Page>
+	<!-- *********** Options Tab Window, Keyboard Options Page *********** -->
+	<!-- Keyboard filter list -->
+	<Label item="OKP_KeyboardFilterLabel">
+		<ScreenID>OKP_KeyboardFilterLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>120</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Select category:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="OKP_KeyboardFilterCombobox">
+		<ScreenID>OKP_KeyboardFilterCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>20</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>300</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Movement</Choices>
+		<Choices>Commands</Choices>
+		<Choices>Spell casting</Choices>
+		<Choices>Target</Choices>
+		<Choices>Camera</Choices>
+		<Choices>Chat</Choices>
+		<Choices>UI</Choices>
+		<Choices>Hotbar 1</Choices>
+		<Choices>Hotbar 2</Choices>
+		<Choices>Hotbar 3</Choices>
+		<Choices>Hotbar 4</Choices>
+		<Choices>Hotbar 5</Choices>
+		<Choices>Hotbar 6</Choices>
+		<Choices>Hotbar 7</Choices>
+		<Choices>Hotbar 8</Choices>
+		<Choices>Hotbar 9</Choices>
+		<Choices>Hotbar 10</Choices>
+		<Choices>Hotbar 11</Choices>
+		<Choices>Item Placement</Choices>
+		<Choices>All</Choices>
+	</Combobox>
+	<!-- Default keys button -->
+	<Button item="OKP_DefaultKeysButton">
+		<ScreenID>OKP_DefaultKeysButton</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>15</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Text>Reload defaults</Text>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Keyboard assignment list -->
+	<Listbox item="OKP_KeyboardAssignmentList">
+		<ScreenID>OKP_KeyboardAssignmentList</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<AutoStretch>true</AutoStretch>
+		<TopAnchorToTop>true</TopAnchorToTop>
+		<BottomAnchorToTop>false</BottomAnchorToTop>
+		<LeftAnchorToLeft>true</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<TopAnchorOffset>60</TopAnchorOffset>
+		<LeftAnchorOffset>5</LeftAnchorOffset>
+		<RightAnchorOffset>5</RightAnchorOffset>
+		<BottomAnchorOffset>5</BottomAnchorOffset>
+		<Style_Border>true</Style_Border>
+		<Style_VScroll>true</Style_VScroll>
+		<Columns>
+			<Width>180</Width>
+			<Heading>Command</Heading>
+		</Columns>
+		<Columns>
+			<Width>75</Width>
+			<Heading>Keypress</Heading>
+		</Columns>
+		<Columns>
+			<Width>75</Width>
+			<Heading>Alternate</Heading>
+		</Columns>
+	</Listbox>
+	<!-- Keyboard options page -->
+	<Page item="OptionsKeyboardPage">
+		<ScreenID>OptionsKeyboardPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Keys</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>OKP_KeyboardAssignmentList</Pieces>
+		<Pieces>OKP_DefaultKeysButton</Pieces>
+		<Pieces>OKP_KeyboardFilterLabel</Pieces>
+		<Pieces>OKP_KeyboardFilterCombobox</Pieces>
+		<Location>
+			<X>0</X>
+			<Y>22</Y>
+		</Location>
+		<Size>
+			<CX>387</CX>
+			<CY>480</CY>
+		</Size>
+	</Page>
+	<!-- *********** Options Tab Window, Chat Color and Filter Page *********** -->
+	<!-- Chat filter list -->
+	<Label item="ONP_ChatFilterLabel">
+		<ScreenID>ONP_ChatFilterLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>120</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Select category:</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ONP_ChatFilterCombobox">
+		<ScreenID>ONP_ChatFilterCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>20</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>180</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Achievements</Choices>
+		<Choices>Chat</Choices>
+		<Choices>Combat</Choices>
+		<Choices>Items</Choices>
+		<Choices>Melee</Choices>
+		<Choices>Pets</Choices>
+		<Choices>Slash Commands</Choices>
+		<Choices>Spells</Choices>
+		<Choices>System Messages</Choices>
+		<Choices>UI</Choices>
+		<Choices>Universal Chat</Choices>
+		<Choices>All</Choices>
+	</Combobox>
+	<!-- Reset single color button -->
+	<Button item="ONP_ResetSelectedColorButton">
+		<ScreenID>ONP_ResetSelectedColorButton</ScreenID>
+		<Location>
+			<X>215</X>
+			<Y>10</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Text>Reset Selected Color</Text>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Reset all colors button -->
+	<Button item="ONP_ResetAllColorsButton">
+		<ScreenID>ONP_ResetAllColorsButton</ScreenID>
+		<Location>
+			<X>215</X>
+			<Y>32</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>20</CY>
+		</Size>
+		<Text>Reset All Default Colors</Text>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Chat color and filter list -->
+	<Listbox item="ONP_ChatSettingsList">
+		<ScreenID>ONP_ChatSettingsList</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<AutoStretch>true</AutoStretch>
+		<TopAnchorToTop>true</TopAnchorToTop>
+		<BottomAnchorToTop>false</BottomAnchorToTop>
+		<LeftAnchorToLeft>true</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<TopAnchorOffset>60</TopAnchorOffset>
+		<LeftAnchorOffset>5</LeftAnchorOffset>
+		<RightAnchorOffset>5</RightAnchorOffset>
+		<BottomAnchorOffset>35</BottomAnchorOffset>
+		<Style_Border>true</Style_Border>
+		<Style_VScroll>true</Style_VScroll>
+		<Columns>
+			<Width>187</Width>
+			<Heading>Text Description</Heading>
+		</Columns>
+		<Columns>
+			<Width>95</Width>
+			<Heading>Color</Heading>
+		</Columns>
+		<Columns>
+			<Width>80</Width>
+			<Heading>Filter Setting</Heading>
+		</Columns>
+	</Listbox>
+	<Combobox item="ONP_FilterComboBox">
+		<ScreenID>ONP_FilterComboBox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<AutoStretch>true</AutoStretch>
+		<TopAnchorToTop>false</TopAnchorToTop>
+		<BottomAnchorToTop>false</BottomAnchorToTop>
+		<LeftAnchorToLeft>true</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<TopAnchorOffset>29</TopAnchorOffset>
+		<LeftAnchorOffset>288</LeftAnchorOffset>
+		<RightAnchorOffset>5</RightAnchorOffset>
+		<BottomAnchorOffset>6</BottomAnchorOffset>
+		<ListHeight>80</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+	</Combobox>
+
+
+	<Button item="ONP_SavePersonaChatCheckbox">
+		<ScreenID>ONP_SavePersonaChatCheckbox</ScreenID>
+		<AutoStretch>true</AutoStretch>
+		<TopAnchorToTop>false</TopAnchorToTop>
+		<BottomAnchorToTop>false</BottomAnchorToTop>
+		<LeftAnchorToLeft>true</LeftAnchorToLeft>
+		<RightAnchorToLeft>true</RightAnchorToLeft>
+		<TopAnchorOffset>24</TopAnchorOffset>
+		<BottomAnchorOffset>8</BottomAnchorOffset>
+		<LeftAnchorOffset>10</LeftAnchorOffset>
+		<RightAnchorOffset>198</RightAnchorOffset>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Save Persona Chat</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+
+
+	<Button item="ONP_ChangeSelectedColorButton">
+		<ScreenID>ONP_ChangeSelectedColorButton</ScreenID>
+		<AutoStretch>true</AutoStretch>
+		<TopAnchorToTop>false</TopAnchorToTop>
+		<BottomAnchorToTop>false</BottomAnchorToTop>
+		<LeftAnchorToLeft>true</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<TopAnchorOffset>29</TopAnchorOffset>
+		<LeftAnchorOffset>202</LeftAnchorOffset>
+		<RightAnchorOffset>104</RightAnchorOffset>
+		<BottomAnchorOffset>6</BottomAnchorOffset>
+		<Style_Checkbox>false</Style_Checkbox>
+		<Text>Change Color</Text>
+		<Font>3</Font>
+		<Template>BDT_BigNormal</Template>
+	</Button>
+	<!-- Chat color and filter page -->
+	<Page item="OptionsChatFilterPage">
+		<ScreenID>OptionsChatFilterPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Chat</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>ONP_ChatFilterLabel</Pieces>
+		<Pieces>ONP_ChatFilterCombobox</Pieces>
+		<Pieces>ONP_ResetSelectedColorButton</Pieces>
+		<Pieces>ONP_ResetAllColorsButton</Pieces>
+		<Pieces>ONP_ChatSettingsList</Pieces>
+		<Pieces>ONP_FilterComboBox</Pieces>
+		<Pieces>ONP_ChangeSelectedColorButton</Pieces>
+		<Pieces>ONP_SavePersonaChatCheckbox</Pieces>
+		<Location>
+			<X>0</X>
+			<Y>22</Y>
+		</Location>
+		<Size>
+			<CX>387</CX>
+			<CY>480</CY>
+		</Size>
+	</Page>
+	<!-- MAIL OPTIONS PANEL -->
+	<Label item="OMP_PathToAddressBookLabel">
+		<AutoStretch>true</AutoStretch>
+		<LeftAnchorOffset>12</LeftAnchorOffset>
+		<TopAnchorOffset>10</TopAnchorOffset>
+		<RightAnchorOffset>10</RightAnchorOffset>
+		<BottomAnchorOffset>34</BottomAnchorOffset>
+		<TopAnchorToTop>true</TopAnchorToTop>
+		<BottomAnchorToTop>true</BottomAnchorToTop>
+		<LeftAnchorToLeft>true</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<Text>Address Book Filename</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Editbox item="OMP_PathToAddressbookField">
+		<ScreenID>PathToAddressBookField</ScreenID>
+		<AutoStretch>true</AutoStretch>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Style_Border>true</Style_Border>
+		<LeftAnchorOffset>10</LeftAnchorOffset>
+		<TopAnchorOffset>30</TopAnchorOffset>
+		<RightAnchorOffset>35</RightAnchorOffset>
+		<BottomAnchorOffset>54</BottomAnchorOffset>
+		<TopAnchorToTop>true</TopAnchorToTop>
+		<BottomAnchorToTop>true</BottomAnchorToTop>
+		<LeftAnchorToLeft>true</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+	</Editbox>
+	<Button item="OMP_FileDialogButton">
+		<ScreenID>FileDialogButton</ScreenID>
+		<AutoStretch>true</AutoStretch>
+		<LeftAnchorOffset>34</LeftAnchorOffset>
+		<TopAnchorOffset>31</TopAnchorOffset>
+		<RightAnchorOffset>8</RightAnchorOffset>
+		<BottomAnchorOffset>55</BottomAnchorOffset>
+		<TopAnchorToTop>true</TopAnchorToTop>
+		<BottomAnchorToTop>true</BottomAnchorToTop>
+		<LeftAnchorToLeft>false</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<Style_Checkbox>false</Style_Checkbox>
+		<Text>...</Text>
+		<TooltipReference>File Selector</TooltipReference>
+		<Template>BDT_SmallNormal</Template>
+	</Button>
+	<Button item="OMP_NewMailNotificationCheckbox">
+		<ScreenID>NewMailNotificationCheckbox</ScreenID>
+		<AutoStretch>true</AutoStretch>
+		<LeftAnchorOffset>10</LeftAnchorOffset>
+		<TopAnchorOffset>100</TopAnchorOffset>
+		<RightAnchorOffset>10</RightAnchorOffset>
+		<BottomAnchorOffset>116</BottomAnchorOffset>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Notify me in the chat window when new mail arrives.</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="OMP_NewMailAudioNotificationCheckbox">
+		<ScreenID>NewMailAudioNotificationCheckbox</ScreenID>
+		<AutoStretch>true</AutoStretch>
+		<LeftAnchorOffset>10</LeftAnchorOffset>
+		<TopAnchorOffset>120</TopAnchorOffset>
+		<RightAnchorOffset>10</RightAnchorOffset>
+		<BottomAnchorOffset>136</BottomAnchorOffset>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Play a sound when new mail arrives.</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="OMP_AddressBookConfirmDeletionCheckbox">
+		<ScreenID>AddressBookConfirmDeletionCheckbox</ScreenID>
+		<AutoStretch>true</AutoStretch>
+		<LeftAnchorOffset>10</LeftAnchorOffset>
+		<TopAnchorOffset>140</TopAnchorOffset>
+		<RightAnchorOffset>10</RightAnchorOffset>
+		<BottomAnchorOffset>156</BottomAnchorOffset>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Ask for confirmation before deleting an address book entry.</Text>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Page item="OptionsMailPage">
+		<ScreenID>OptionsMailPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Mail</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>OMP_PathToAddressBookLabel</Pieces>
+		<Pieces>OMP_PathToAddressbookField</Pieces>
+		<Pieces>OMP_FileDialogButton</Pieces>
+		<Pieces>OMP_NewMailNotificationCheckbox</Pieces>
+		<Pieces>OMP_NewMailAudioNotificationCheckbox</Pieces>
+		<Pieces>OMP_AddressBookConfirmDeletionCheckbox</Pieces>
+		<Location>
+			<X>0</X>
+			<Y>22</Y>
+		</Location>
+		<Size>
+			<CX>387</CX>
+			<CY>480</CY>
+		</Size>
+	</Page>
+
+	<!-- *********** Options Tab Window, Top level *********** -->
+	<!-- INTERFACE - COMBAT TEXT (dinput8.dll FCTOptionsPage): the Combat Text page, laid out with absolute
+	     positions and separate value labels because the ToB SIDL schema has no Slider DrawValue, no
+	     BDT_CheckboxWithTextDouble and no WDT_InnerSolid. -->
+	<Button item="FCT_Toggle">
+		<ScreenID>FCT_Toggle</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>12</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Floating Combat Text</Text>
+		<TooltipReference>Toggles floating combat text.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="FCT_SellToggle">
+		<ScreenID>FCT_SellToggle</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>32</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Sell Text</Text>
+		<TooltipReference>Toggles floating text for selling items.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="FCT_LootToggle">
+		<ScreenID>FCT_LootToggle</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>52</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Loot Text</Text>
+		<TooltipReference>Toggles floating text for looting items.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Label item="FCT_MinVelocityLabel">
+		<ScreenID>FCT_MinVelocityLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>80</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Min Velocity</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_MinVelocitySlider">
+		<ScreenID>FCT_MinVelocitySlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>96</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="FCT_MinVelocityValueLabel">
+		<ScreenID>FCT_MinVelocityValueLabel</ScreenID>
+		<Location>
+			<X>114</X>
+			<Y>96</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>2.0</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_MaxVelocityLabel">
+		<ScreenID>FCT_MaxVelocityLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>118</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Max Velocity</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_MaxVelocitySlider">
+		<ScreenID>FCT_MaxVelocitySlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>134</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="FCT_MaxVelocityValueLabel">
+		<ScreenID>FCT_MaxVelocityValueLabel</ScreenID>
+		<Location>
+			<X>114</X>
+			<Y>134</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>4.0</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_MinAngleLabel">
+		<ScreenID>FCT_MinAngleLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>156</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Min Angle</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_MinAngleSlider">
+		<ScreenID>FCT_MinAngleSlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>172</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="FCT_MinAngleValueLabel">
+		<ScreenID>FCT_MinAngleValueLabel</ScreenID>
+		<Location>
+			<X>114</X>
+			<Y>172</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>75</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_MaxAngleLabel">
+		<ScreenID>FCT_MaxAngleLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>194</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Max Angle</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_MaxAngleSlider">
+		<ScreenID>FCT_MaxAngleSlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>210</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="FCT_MaxAngleValueLabel">
+		<ScreenID>FCT_MaxAngleValueLabel</ScreenID>
+		<Location>
+			<X>114</X>
+			<Y>210</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>250</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_GravityLabel">
+		<ScreenID>FCT_GravityLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>232</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Gravity</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_GravitySlider">
+		<ScreenID>FCT_GravitySlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>248</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="FCT_GravityValueLabel">
+		<ScreenID>FCT_GravityValueLabel</ScreenID>
+		<Location>
+			<X>114</X>
+			<Y>248</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>2.5</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_YourFontLabel">
+		<ScreenID>FCT_YourFontLabel</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>8</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Your Hits Font Scale</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_YourFontSlider">
+		<ScreenID>FCT_YourFontSlider</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="FCT_YourFontValueLabel">
+		<ScreenID>FCT_YourFontValueLabel</ScreenID>
+		<Location>
+			<X>112</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>1.25</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_YourTextLabel">
+		<ScreenID>FCT_YourTextLabel</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>56</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Your Hits Text</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="FCT_YourTextCombobox">
+		<ScreenID>FCT_YourTextCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>8</X>
+			<Y>72</Y>
+		</Location>
+		<Size>
+			<CX>110</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>Full</Choices>
+		<Choices>Abbreviated</Choices>
+		<Choices>DMG Only</Choices>
+	</Combobox>
+	<Label item="FCT_YourColourLabel">
+		<ScreenID>FCT_YourColourLabel</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>104</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Your Hits Colour</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="FCT_YourColourCombobox">
+		<ScreenID>FCT_YourColourCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>8</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>110</CX>
+			<CY>24</CY>
+		</Size>
+		<TooltipReference>Colour of these texts. Chat colour = the colour of the matching chat message. Any other colour: RRGGBB in dinput8.ini [FCT].</TooltipReference>
+		<ListHeight>120</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Chat colour</Choices>
+		<Choices>White</Choices>
+		<Choices>Red</Choices>
+		<Choices>Orange</Choices>
+		<Choices>Yellow</Choices>
+		<Choices>Green</Choices>
+		<Choices>Cyan</Choices>
+		<Choices>Blue</Choices>
+		<Choices>Purple</Choices>
+		<Choices>Pink</Choices>
+		<Choices>Custom (ini)</Choices>
+	</Combobox>
+	<Label item="FCT_SelfColourLabel">
+		<ScreenID>FCT_SelfColourLabel</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>104</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Self Hits Colour</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="FCT_SelfColourCombobox">
+		<ScreenID>FCT_SelfColourCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>8</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>110</CX>
+			<CY>24</CY>
+		</Size>
+		<TooltipReference>Colour of these texts. Chat colour = the colour of the matching chat message. Any other colour: RRGGBB in dinput8.ini [FCT].</TooltipReference>
+		<ListHeight>120</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Chat colour</Choices>
+		<Choices>White</Choices>
+		<Choices>Red</Choices>
+		<Choices>Orange</Choices>
+		<Choices>Yellow</Choices>
+		<Choices>Green</Choices>
+		<Choices>Cyan</Choices>
+		<Choices>Blue</Choices>
+		<Choices>Purple</Choices>
+		<Choices>Pink</Choices>
+		<Choices>Custom (ini)</Choices>
+	</Combobox>
+	<Label item="FCT_OtherColourLabel">
+		<ScreenID>FCT_OtherColourLabel</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>104</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Other Hits Colour</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="FCT_OtherColourCombobox">
+		<ScreenID>FCT_OtherColourCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>8</X>
+			<Y>120</Y>
+		</Location>
+		<Size>
+			<CX>110</CX>
+			<CY>24</CY>
+		</Size>
+		<TooltipReference>Colour of these texts. Chat colour = the colour of the matching chat message. Any other colour: RRGGBB in dinput8.ini [FCT].</TooltipReference>
+		<ListHeight>120</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Chat colour</Choices>
+		<Choices>White</Choices>
+		<Choices>Red</Choices>
+		<Choices>Orange</Choices>
+		<Choices>Yellow</Choices>
+		<Choices>Green</Choices>
+		<Choices>Cyan</Choices>
+		<Choices>Blue</Choices>
+		<Choices>Purple</Choices>
+		<Choices>Pink</Choices>
+		<Choices>Custom (ini)</Choices>
+	</Combobox>
+	<Page item="FCTYouPage">
+		<ScreenID>FCTYouPage</ScreenID>
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>You</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>false</Style_Sizable>
+		<Pieces>FCT_YourFontLabel</Pieces>
+		<Pieces>FCT_YourFontSlider</Pieces>
+		<Pieces>FCT_YourFontValueLabel</Pieces>
+		<Pieces>FCT_YourTextLabel</Pieces>
+		<Pieces>FCT_YourTextCombobox</Pieces>
+		<Pieces>FCT_YourColourLabel</Pieces>
+		<Pieces>FCT_YourColourCombobox</Pieces>
+	</Page>
+	<Label item="FCT_SelfFontLabel">
+		<ScreenID>FCT_SelfFontLabel</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>8</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Your Damage Font Scale</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_SelfFontSlider">
+		<ScreenID>FCT_SelfFontSlider</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="FCT_SelfFontValueLabel">
+		<ScreenID>FCT_SelfFontValueLabel</ScreenID>
+		<Location>
+			<X>112</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>1.25</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_SelfTextLabel">
+		<ScreenID>FCT_SelfTextLabel</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>56</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>You Were Hit Text</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="FCT_SelfTextCombobox">
+		<ScreenID>FCT_SelfTextCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>8</X>
+			<Y>72</Y>
+		</Location>
+		<Size>
+			<CX>110</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>Full</Choices>
+		<Choices>Abbreviated</Choices>
+		<Choices>DMG Only</Choices>
+	</Combobox>
+	<Page item="FCTSelfPage">
+		<ScreenID>FCTSelfPage</ScreenID>
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Self</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>false</Style_Sizable>
+		<Pieces>FCT_SelfFontLabel</Pieces>
+		<Pieces>FCT_SelfFontSlider</Pieces>
+		<Pieces>FCT_SelfFontValueLabel</Pieces>
+		<Pieces>FCT_SelfTextLabel</Pieces>
+		<Pieces>FCT_SelfTextCombobox</Pieces>
+		<Pieces>FCT_SelfColourLabel</Pieces>
+		<Pieces>FCT_SelfColourCombobox</Pieces>
+	</Page>
+	<Label item="FCT_OtherFontLabel">
+		<ScreenID>FCT_OtherFontLabel</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>8</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Others Damage Font Scale</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_OtherFontSlider">
+		<ScreenID>FCT_OtherFontSlider</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+	</Slider>
+	<Label item="FCT_OtherFontValueLabel">
+		<ScreenID>FCT_OtherFontValueLabel</ScreenID>
+		<Location>
+			<X>112</X>
+			<Y>24</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>1.25</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_OtherTextLabel">
+		<ScreenID>FCT_OtherTextLabel</ScreenID>
+		<Location>
+			<X>8</X>
+			<Y>56</Y>
+		</Location>
+		<Size>
+			<CX>160</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Others Hit Text</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="FCT_OtherTextCombobox">
+		<ScreenID>FCT_OtherTextCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>8</X>
+			<Y>72</Y>
+		</Location>
+		<Size>
+			<CX>110</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>Full</Choices>
+		<Choices>Abbreviated</Choices>
+		<Choices>DMG Only</Choices>
+	</Combobox>
+	<Page item="FCTOtherPage">
+		<ScreenID>FCTOtherPage</ScreenID>
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Other</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>false</Style_Sizable>
+		<Pieces>FCT_OtherFontLabel</Pieces>
+		<Pieces>FCT_OtherFontSlider</Pieces>
+		<Pieces>FCT_OtherFontValueLabel</Pieces>
+		<Pieces>FCT_OtherTextLabel</Pieces>
+		<Pieces>FCT_OtherTextCombobox</Pieces>
+		<Pieces>FCT_OtherColourLabel</Pieces>
+		<Pieces>FCT_OtherColourCombobox</Pieces>
+	</Page>
+	<TabBox item="FCT_Tabs">
+		<ScreenID>FCT_Tabs</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>12</Y>
+		</Location>
+		<Size>
+			<CX>180</CX>
+			<CY>190</CY>
+		</Size>
+		<TabBorderTemplate>FT_DefTabBorder</TabBorderTemplate>
+		<PageBorderTemplate>FT_DefPageBorder</PageBorderTemplate>
+		<Pages>Page:FCTYouPage</Pages>
+		<Pages>Page:FCTSelfPage</Pages>
+		<Pages>Page:FCTOtherPage</Pages>
+	</TabBox>
+	<!-- Combat Text extras (dinput8.dll FCTOptionsPage, dinput8.ini [FCT] keys) -->
+	<Label item="FCT_ExtrasHeader">
+		<ScreenID>FCT_ExtrasHeader</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>270</Y>
+		</Location>
+		<Size>
+			<CX>370</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Extras</Text>
+		<TextColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TextColor>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Button item="FCT_OutlineToggle">
+		<ScreenID>FCT_OutlineToggle</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>290</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Text Outline</Text>
+		<TooltipReference>Draws a 1 px black outline behind each text.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Label item="FCT_FadeMsLabel">
+		<ScreenID>FCT_FadeMsLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>314</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Fade Out (ms)</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_FadeMsSlider">
+		<ScreenID>FCT_FadeMsSlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>330</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>Fade texts out over their last N milliseconds (0 = no fade).</TooltipReference>
+	</Slider>
+	<Label item="FCT_FadeMsValueLabel">
+		<ScreenID>FCT_FadeMsValueLabel</ScreenID>
+		<Location>
+			<X>114</X>
+			<Y>330</Y>
+		</Location>
+		<Size>
+			<CX>70</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>0</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_DedupMsLabel">
+		<ScreenID>FCT_DedupMsLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>352</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Pet Hit De-dup (ms)</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_DedupMsSlider">
+		<ScreenID>FCT_DedupMsSlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>368</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>A repeat of the same pet hit within this many ms is dropped (the server sends pet owners each hit twice).</TooltipReference>
+	</Slider>
+	<Label item="FCT_DedupMsValueLabel">
+		<ScreenID>FCT_DedupMsValueLabel</ScreenID>
+		<Location>
+			<X>114</X>
+			<Y>368</Y>
+		</Location>
+		<Size>
+			<CX>70</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>100</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_MaxEntriesLabel">
+		<ScreenID>FCT_MaxEntriesLabel</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>390</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Max Texts On Screen</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_MaxEntriesSlider">
+		<ScreenID>FCT_MaxEntriesSlider</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>406</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>At most this many texts at once; the oldest is dropped.</TooltipReference>
+	</Slider>
+	<Label item="FCT_MaxEntriesValueLabel">
+		<ScreenID>FCT_MaxEntriesValueLabel</ScreenID>
+		<Location>
+			<X>114</X>
+			<Y>406</Y>
+		</Location>
+		<Size>
+			<CX>70</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>32</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_ToggleKeyLabel">
+		<ScreenID>FCT_ToggleKeyLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>290</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Toggle Key</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="FCT_ToggleKeyCombobox">
+		<ScreenID>FCT_ToggleKeyCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>200</X>
+			<Y>306</Y>
+		</Location>
+		<Size>
+			<CX>120</CX>
+			<CY>24</CY>
+		</Size>
+		<TooltipReference>Hotkey that turns floating combat text on/off. Any other combination: dinput8.ini [FCT] ToggleKey.</TooltipReference>
+		<ListHeight>110</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>None</Choices>
+		<Choices>Ctrl+Shift+F</Choices>
+		<Choices>Ctrl+Shift+C</Choices>
+		<Choices>Ctrl+Shift+T</Choices>
+		<Choices>Ctrl+Alt+F</Choices>
+		<Choices>Shift+F12</Choices>
+		<Choices>Custom (ini)</Choices>
+	</Combobox>
+	<Label item="FCT_ToggleKeyValueLabel">
+		<ScreenID>FCT_ToggleKeyValueLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>332</Y>
+		</Location>
+		<Size>
+			<CX>180</CX>
+			<CY>14</CY>
+		</Size>
+		<Text></Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_OtherRangeLabel">
+		<ScreenID>FCT_OtherRangeLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>352</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Other Hits Range</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_OtherRangeSlider">
+		<ScreenID>FCT_OtherRangeSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>368</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>Other players hits are shown only within this distance of you.</TooltipReference>
+	</Slider>
+	<Label item="FCT_OtherRangeValueLabel">
+		<ScreenID>FCT_OtherRangeValueLabel</ScreenID>
+		<Location>
+			<X>304</X>
+			<Y>368</Y>
+		</Location>
+		<Size>
+			<CX>70</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>200</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_FontStepLabel">
+		<ScreenID>FCT_FontStepLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>390</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Font Step</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_FontStepSlider">
+		<ScreenID>FCT_FontStepSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>406</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>UI font = Font Step x font scale; higher = bigger text.</TooltipReference>
+	</Slider>
+	<Label item="FCT_FontStepValueLabel">
+		<ScreenID>FCT_FontStepValueLabel</ScreenID>
+		<Location>
+			<X>304</X>
+			<Y>406</Y>
+		</Location>
+		<Size>
+			<CX>70</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>4.00</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="FCT_HeadHeightLabel">
+		<ScreenID>FCT_HeadHeightLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>428</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Start Height</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="FCT_HeadHeightSlider">
+		<ScreenID>FCT_HeadHeightSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>444</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>Start height above the character, in multiples of its size.</TooltipReference>
+	</Slider>
+	<Label item="FCT_HeadHeightValueLabel">
+		<ScreenID>FCT_HeadHeightValueLabel</ScreenID>
+		<Location>
+			<X>304</X>
+			<Y>444</Y>
+		</Location>
+		<Size>
+			<CX>70</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>1.0</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Page item="OptionsCombatTextPage">
+		<ScreenID>OptionsCombatTextPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<Style_VScroll>true</Style_VScroll>
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Combat Text</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>FCT_Toggle</Pieces>
+		<Pieces>FCT_SellToggle</Pieces>
+		<Pieces>FCT_LootToggle</Pieces>
+		<Pieces>FCT_MinVelocityLabel</Pieces>
+		<Pieces>FCT_MinVelocitySlider</Pieces>
+		<Pieces>FCT_MinVelocityValueLabel</Pieces>
+		<Pieces>FCT_MaxVelocityLabel</Pieces>
+		<Pieces>FCT_MaxVelocitySlider</Pieces>
+		<Pieces>FCT_MaxVelocityValueLabel</Pieces>
+		<Pieces>FCT_MinAngleLabel</Pieces>
+		<Pieces>FCT_MinAngleSlider</Pieces>
+		<Pieces>FCT_MinAngleValueLabel</Pieces>
+		<Pieces>FCT_MaxAngleLabel</Pieces>
+		<Pieces>FCT_MaxAngleSlider</Pieces>
+		<Pieces>FCT_MaxAngleValueLabel</Pieces>
+		<Pieces>FCT_GravityLabel</Pieces>
+		<Pieces>FCT_GravitySlider</Pieces>
+		<Pieces>FCT_GravityValueLabel</Pieces>
+		<Pieces>TabBox:FCT_Tabs</Pieces>
+		<Pieces>FCT_ExtrasHeader</Pieces>
+		<Pieces>FCT_OutlineToggle</Pieces>
+		<Pieces>FCT_FadeMsLabel</Pieces>
+		<Pieces>FCT_FadeMsSlider</Pieces>
+		<Pieces>FCT_FadeMsValueLabel</Pieces>
+		<Pieces>FCT_DedupMsLabel</Pieces>
+		<Pieces>FCT_DedupMsSlider</Pieces>
+		<Pieces>FCT_DedupMsValueLabel</Pieces>
+		<Pieces>FCT_MaxEntriesLabel</Pieces>
+		<Pieces>FCT_MaxEntriesSlider</Pieces>
+		<Pieces>FCT_MaxEntriesValueLabel</Pieces>
+		<Pieces>FCT_ToggleKeyLabel</Pieces>
+		<Pieces>FCT_ToggleKeyCombobox</Pieces>
+		<Pieces>FCT_ToggleKeyValueLabel</Pieces>
+		<Pieces>FCT_OtherRangeLabel</Pieces>
+		<Pieces>FCT_OtherRangeSlider</Pieces>
+		<Pieces>FCT_OtherRangeValueLabel</Pieces>
+		<Pieces>FCT_FontStepLabel</Pieces>
+		<Pieces>FCT_FontStepSlider</Pieces>
+		<Pieces>FCT_FontStepValueLabel</Pieces>
+		<Pieces>FCT_HeadHeightLabel</Pieces>
+		<Pieces>FCT_HeadHeightSlider</Pieces>
+		<Pieces>FCT_HeadHeightValueLabel</Pieces>
+	</Page>
+	<!-- INTERFACE - NAMEPLATES (dinput8.dll Nameplates feature): the Nameplates page, with absolute positions and
+	     separate slider value labels (the ToB SIDL schema has no Slider DrawValue, no WDT_InnerSolid).
+	     The name toggles at the top use new ScreenIDs (ODP_Nameplate*NamesCheckbox); the DLL
+	     drives the same client settings as the Display page boxes and keeps both in sync. Faction icons, faction fade and attach-to-head are not reproducible on ToB and are left out. -->
+	<Button item="ODP_NameplateCorpseNamesCheckbox">
+		<ScreenID>ODP_NameplateCorpseNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>12</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Corpse Names</Text>
+		<TooltipReference>Show/hide the names over corpses (also needs Show NPC Names).</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplatePCNamesCheckbox">
+		<ScreenID>ODP_NameplatePCNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>52</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show PC Names</Text>
+		<TooltipReference>Show/hide player names. Same setting as Display > Show PC Names.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateNPCNamesCheckbox">
+		<ScreenID>ODP_NameplateNPCNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>72</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show NPC Names</Text>
+		<TooltipReference>Show/hide NPC names. Same setting as Display > Show NPC Names.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplatePetNamesCheckbox">
+		<ScreenID>ODP_NameplatePetNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>92</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Pet Names</Text>
+		<TooltipReference>Show/hide pet names. Same setting as Display > Show Pet Names.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplatePetOwnerNamesCheckbox">
+		<ScreenID>ODP_NameplatePetOwnerNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>112</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Pet Owner Names</Text>
+		<TooltipReference>Show/hide pet owner names. Same setting as Display > Show Pet Owner Names.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateMercNamesCheckbox">
+		<ScreenID>ODP_NameplateMercNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>132</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Merc Names</Text>
+		<TooltipReference>Show/hide mercenary names. Same setting as Display > Show Merc Names.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateMercOwnerNamesCheckbox">
+		<ScreenID>ODP_NameplateMercOwnerNamesCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>152</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Merc Owner Names</Text>
+		<TooltipReference>Show/hide mercenary owner names. Same setting as Display > Show Merc Owner Names.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateSelfNameCheckbox">
+		<ScreenID>ODP_NameplateSelfNameCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>32</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Self Name</Text>
+		<TooltipReference>Show/hide the name over your player.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateConColor">
+		<ScreenID>ODP_NameplateConColor</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>172</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Consider Colors</Text>
+		<TooltipReference>Enable/disable the NPC consider color</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateShowHealthCheckbox">
+		<ScreenID>ODP_NameplateShowHealthCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>192</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Target Health Bars</Text>
+		<TooltipReference>Draws healthbars</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateShowCastCheckbox">
+		<ScreenID>ODP_NameplateShowCastCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>212</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Target Cast Bar</Text>
+		<TooltipReference>Draws casting bar on nameplates</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateShowManaCheckbox">
+		<ScreenID>ODP_NameplateShowManaCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>232</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Target Mana Bar</Text>
+		<TooltipReference>Draws mana bars on nameplates</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateShowSelfHealthCheckbox">
+		<ScreenID>ODP_NameplateShowSelfHealthCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>252</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Self Health Bar</Text>
+		<TooltipReference>Draws health bar on yourself when your hp isn't full</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateShowSelfManaCheckbox">
+		<ScreenID>ODP_NameplateShowSelfManaCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>272</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Self Mana Bar</Text>
+		<TooltipReference>Draws mana bar on yourself</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateShowSelfCastCheckbox">
+		<ScreenID>ODP_NameplateShowSelfCastCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>292</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Self Cast Bar</Text>
+		<TooltipReference>Draws cast bar on yourself</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateShadowCheckbox">
+		<ScreenID>ODP_NameplateShadowCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>312</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Font Drop Shadow</Text>
+		<TooltipReference>Name string drop shadows.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateOutlineCheckbox">
+		<ScreenID>ODP_NameplateOutlineCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>332</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Font Outline</Text>
+		<TooltipReference>Name string outlining.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Label item="ODP_NameplateDrawDistanceLabel">
+		<ScreenID>ODP_NameplateDrawDistanceLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>12</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Draw Distance</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_NameplateDrawDistanceSlider">
+		<ScreenID>ODP_NameplateDrawDistanceSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>28</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>Changes nameplate render distance.</TooltipReference>
+	</Slider>
+	<Label item="ODP_NameplateDrawDistanceValueLabel">
+		<ScreenID>ODP_NameplateDrawDistanceValueLabel</ScreenID>
+		<Location>
+			<X>304</X>
+			<Y>28</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>42%</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="ODP_NameplateSizeLabel">
+		<ScreenID>ODP_NameplateSizeLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>50</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Size</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_NameplateSizeSlider">
+		<ScreenID>ODP_NameplateSizeSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>66</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>Adjusts the size of the nameplate.</TooltipReference>
+	</Slider>
+	<Label item="ODP_NameplateSizeValueLabel">
+		<ScreenID>ODP_NameplateSizeValueLabel</ScreenID>
+		<Location>
+			<X>304</X>
+			<Y>66</Y>
+		</Location>
+		<Size>
+			<CX>60</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>50%</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="ODP_NameplateNameFiltersLabel">
+		<ScreenID>ODP_NameplateNameFiltersLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>90</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Name Filters</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_NameplateNameFilters">
+		<ScreenID>ODP_NameplateNameFilters</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>200</X>
+			<Y>106</Y>
+		</Location>
+		<Size>
+			<CX>150</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>First Only</Choices>
+		<Choices>First/Last Only</Choices>
+		<Choices>First/Last/Guild</Choices>
+		<Choices>All</Choices>
+		<Choices>Title/First</Choices>
+		<Choices>Title/First/Last</Choices>
+		<Choices>First/Guild</Choices>
+	</Combobox>
+	<Label item="ODP_NameplateThreatLabel">
+		<ScreenID>ODP_NameplateThreatLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>136</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Threat Indicators</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_NameplateThreatOptions">
+		<ScreenID>ODP_NameplateThreatOptions</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>200</X>
+			<Y>152</Y>
+		</Location>
+		<Size>
+			<CX>150</CX>
+			<CY>24</CY>
+		</Size>
+		<ListHeight>100</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Off</Choices>
+		<Choices>Aggro Mode</Choices>
+		<Choices>No Aggro Mode</Choices>
+	</Combobox>
+	<!-- Nameplates extras (dinput8.dll NameplateOptionsPage, dinput8.ini [NameplateOptions] keys) -->
+	<Label item="ODP_NameplateExtrasHeader">
+		<ScreenID>ODP_NameplateExtrasHeader</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>372</Y>
+		</Location>
+		<Size>
+			<CX>370</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Extras</Text>
+		<TextColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TextColor>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Button item="ODP_NameplateCastSpellNameCheckbox">
+		<ScreenID>ODP_NameplateCastSpellNameCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>392</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Cast Spell Name</Text>
+		<TooltipReference>Writes the spell name under the cast bar.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateHpTextCheckbox">
+		<ScreenID>ODP_NameplateHpTextCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>412</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Show Health Percent</Text>
+		<TooltipReference>Writes NN% right of the health bar.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateHpByConCheckbox">
+		<ScreenID>ODP_NameplateHpByConCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>432</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Health Bar In Con Colour</Text>
+		<TooltipReference>Colours the health bar with the consider colour instead of red.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Button item="ODP_NameplateOccludeCheckbox">
+		<ScreenID>ODP_NameplateOccludeCheckbox</ScreenID>
+		<Location>
+			<X>10</X>
+			<Y>452</Y>
+		</Location>
+		<Size>
+			<CX>185</CX>
+			<CY>18</CY>
+		</Size>
+		<Style_Checkbox>true</Style_Checkbox>
+		<Text>Hide Bars Behind Walls</Text>
+		<TooltipReference>No bars for characters the game is not drawing (behind walls or terrain), just like their names.</TooltipReference>
+		<Template>BDT_CheckboxWithText</Template>
+		<DecalSize>
+			<CX>16</CX>
+			<CY>16</CY>
+		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
+		<TextOffsetX>20</TextOffsetX>
+	</Button>
+	<Label item="ODP_NameplateThreatHoldLabel">
+		<ScreenID>ODP_NameplateThreatHoldLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>392</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Threat Memory (s)</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Slider item="ODP_NameplateThreatHoldSlider">
+		<ScreenID>ODP_NameplateThreatHoldSlider</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>408</Y>
+		</Location>
+		<Size>
+			<CX>100</CX>
+			<CY>16</CY>
+		</Size>
+		<SliderArt>SDT_DefSlider</SliderArt>
+		<TooltipReference>How long an NPC stays flagged after it last swung at you or your group.</TooltipReference>
+	</Slider>
+	<Label item="ODP_NameplateThreatHoldValueLabel">
+		<ScreenID>ODP_NameplateThreatHoldValueLabel</ScreenID>
+		<Location>
+			<X>304</X>
+			<Y>408</Y>
+		</Location>
+		<Size>
+			<CX>70</CX>
+			<CY>16</CY>
+		</Size>
+		<Text>17%</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Label item="ODP_NameplateThreatColourLabel">
+		<ScreenID>ODP_NameplateThreatColourLabel</ScreenID>
+		<Location>
+			<X>200</X>
+			<Y>430</Y>
+		</Location>
+		<Size>
+			<CX>170</CX>
+			<CY>14</CY>
+		</Size>
+		<Text>Threat Flash Colour</Text>
+		<NoWrap>true</NoWrap>
+		<AlignCenter>false</AlignCenter>
+		<AlignRight>false</AlignRight>
+	</Label>
+	<Combobox item="ODP_NameplateThreatColourCombobox">
+		<ScreenID>ODP_NameplateThreatColourCombobox</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<Location>
+			<X>200</X>
+			<Y>446</Y>
+		</Location>
+		<Size>
+			<CX>150</CX>
+			<CY>24</CY>
+		</Size>
+		<TooltipReference>The colour an NPC's HP bar flashes to while it is on you. Any other colour: RRGGBB in dinput8.ini [NameplateOptions] ThreatFrameColour.</TooltipReference>
+		<ListHeight>110</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>Default</Choices>
+		<Choices>Red</Choices>
+		<Choices>Orange</Choices>
+		<Choices>Yellow</Choices>
+		<Choices>White</Choices>
+		<Choices>Purple</Choices>
+		<Choices>Custom (ini)</Choices>
+	</Combobox>
+	<Page item="OptionsNamePlatesPage">
+		<ScreenID>OptionsNamePlatesPage</ScreenID>
+		<!-- Pages are sized and positioned by their parent tab -->
+		<Style_VScroll>true</Style_VScroll>
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<TabText>Nameplates</TabText>
+		<TabTextActiveColor>
+			<R>255</R>
+			<G>255</G>
+			<B>0</B>
+		</TabTextActiveColor>
+		<Style_Sizable>true</Style_Sizable>
+		<Pieces>ODP_NameplateCorpseNamesCheckbox</Pieces>
+		<Pieces>ODP_NameplateSelfNameCheckbox</Pieces>
+		<Pieces>ODP_NameplatePCNamesCheckbox</Pieces>
+		<Pieces>ODP_NameplateNPCNamesCheckbox</Pieces>
+		<Pieces>ODP_NameplatePetNamesCheckbox</Pieces>
+		<Pieces>ODP_NameplatePetOwnerNamesCheckbox</Pieces>
+		<Pieces>ODP_NameplateMercNamesCheckbox</Pieces>
+		<Pieces>ODP_NameplateMercOwnerNamesCheckbox</Pieces>
+		<Pieces>ODP_NameplateConColor</Pieces>
+		<Pieces>ODP_NameplateShowHealthCheckbox</Pieces>
+		<Pieces>ODP_NameplateShowCastCheckbox</Pieces>
+		<Pieces>ODP_NameplateShowManaCheckbox</Pieces>
+		<Pieces>ODP_NameplateShowSelfHealthCheckbox</Pieces>
+		<Pieces>ODP_NameplateShowSelfManaCheckbox</Pieces>
+		<Pieces>ODP_NameplateShowSelfCastCheckbox</Pieces>
+		<Pieces>ODP_NameplateShadowCheckbox</Pieces>
+		<Pieces>ODP_NameplateOutlineCheckbox</Pieces>
+		<Pieces>ODP_NameplateDrawDistanceLabel</Pieces>
+		<Pieces>ODP_NameplateDrawDistanceSlider</Pieces>
+		<Pieces>ODP_NameplateDrawDistanceValueLabel</Pieces>
+		<Pieces>ODP_NameplateSizeLabel</Pieces>
+		<Pieces>ODP_NameplateSizeSlider</Pieces>
+		<Pieces>ODP_NameplateSizeValueLabel</Pieces>
+		<Pieces>ODP_NameplateNameFiltersLabel</Pieces>
+		<Pieces>ODP_NameplateNameFilters</Pieces>
+		<Pieces>ODP_NameplateThreatLabel</Pieces>
+		<Pieces>ODP_NameplateThreatOptions</Pieces>
+		<Pieces>ODP_NameplateExtrasHeader</Pieces>
+		<Pieces>ODP_NameplateCastSpellNameCheckbox</Pieces>
+		<Pieces>ODP_NameplateHpTextCheckbox</Pieces>
+		<Pieces>ODP_NameplateHpByConCheckbox</Pieces>
+		<Pieces>ODP_NameplateOccludeCheckbox</Pieces>
+		<Pieces>ODP_NameplateThreatHoldLabel</Pieces>
+		<Pieces>ODP_NameplateThreatHoldSlider</Pieces>
+		<Pieces>ODP_NameplateThreatHoldValueLabel</Pieces>
+		<Pieces>ODP_NameplateThreatColourLabel</Pieces>
+		<Pieces>ODP_NameplateThreatColourCombobox</Pieces>
+	</Page>
+	<TabBox item="OPTW_OptionsSubwindows">
+		<ScreenID>OPTW_OptionsSubwindows</ScreenID>
+		<AutoStretch>true</AutoStretch>
+		<TopAnchorToTop>true</TopAnchorToTop>
+		<BottomAnchorToTop>false</BottomAnchorToTop>
+		<LeftAnchorToLeft>true</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<TabBorderTemplate>FT_DefTabBorder</TabBorderTemplate>
+		<PageBorderTemplate>FT_DefPageBorder</PageBorderTemplate>
+		<Pages>OptionsGeneralPage</Pages>
+		<Pages>OptionsDisplayPage</Pages>
+		<Pages>OptionsCombatTextPage</Pages>
+		<Pages>OptionsNamePlatesPage</Pages>
+		<Pages>OptionsMousePage</Pages>
+		<Pages>OptionsKeyboardPage</Pages>
+		<Pages>OptionsChatFilterPage</Pages>
+		<Pages>OptionsMailPage</Pages>
+	</TabBox>
+	<Screen item="OptionsWindow">
+		<ScreenID />
+		<RelativePosition>false</RelativePosition>
+		<Location>
+			<X>90</X>
+			<Y>47</Y>
+		</Location>
+		<Size>
+			<CX>400</CX>
+			<CY>530</CY>
+		</Size>
+		<Text>Options</Text>
+		<TooltipReference />
+		<DrawTemplate>WDT_Def</DrawTemplate>
+		<Style_Titlebar>true</Style_Titlebar>
+		<Style_Closebox>true</Style_Closebox>
+		<Style_Minimizebox>true</Style_Minimizebox>
+		<Style_Border>true</Style_Border>
+		<Style_Sizable>true</Style_Sizable>
+		<Style_SizableBorderLeft>false</Style_SizableBorderLeft>
+		<Style_SizableBorderRight>false</Style_SizableBorderRight>
+		<Style_SizableBorderTopLeft>false</Style_SizableBorderTopLeft>
+		<Style_SizableBorderTopRight>false</Style_SizableBorderTopRight>
+		<Style_SizableBorderBottomLeft>false</Style_SizableBorderBottomLeft>
+		<Style_SizableBorderBottomRight>false</Style_SizableBorderBottomRight>
+		<Pieces>OPTW_OptionsSubwindows</Pieces>
+	</Screen>
+</XML>

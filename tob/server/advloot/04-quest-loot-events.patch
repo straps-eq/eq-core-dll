@@ -1,0 +1,61 @@
+From e1c77f45fcd70e873e97e80f9f73ad490b180e6c Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sun, 18 Oct 2026 16:37:34 -0500
+Subject: [PATCH] TOB: Advanced Loot sell and store run the quest loot events
+ only once the item qualifies
+
+The loot events (which quests use for vetoes and for flags such as epic chests)
+ran before the sell or store checks, so a refused sale could still consume a
+quest global or spawn a chest while the item stayed on the corpse. They now run
+after the item is known to be sellable or storable, right before it leaves.
+---
+ zone/corpse_advloot.cpp | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/zone/corpse_advloot.cpp b/zone/corpse_advloot.cpp
+index be09886ca6..b328a1973f 100644
+--- a/zone/corpse_advloot.cpp
++++ b/zone/corpse_advloot.cpp
+@@ -718,12 +718,7 @@ void Corpse::AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence, uint8
+ 		case AdvLootActionStore:
+ 		case AdvLootActionStoreDepot:
+ 		case AdvLootActionStoreDepotStack:
+-			// the item still leaves the corpse, so quest vetoes apply
+-			if (LootPreventedByEvents(c, inst.get())) {
+-				RefuseAdvLootRequest(c, GetID(), item_id, sequence);
+-				return;
+-			}
+-
++			// quest loot events run inside, once the item is known to be sellable or storable
+ 			if (action == AdvLootActionSell) {
+ 				AdvancedLootSell(c, inst.get(), item_data, bag_item_data, sequence);
+ 			}
+@@ -798,6 +793,12 @@ void Corpse::AdvancedLootSell(Client *c, EQ::ItemInstance *inst, LootItem *item_
+ 		return;
+ 	}
+ 
++	// the item still leaves the corpse, so it counts as a loot for quests (and they may veto it)
++	if (LootPreventedByEvents(c, inst)) {
++		RefuseAdvLootRequest(c, GetID(), item->ID, sequence);
++		return;
++	}
++
+ 	c->AddMoneyToPP(price, true);
+ 
+ 	// name the item: auto-sell and Sell All give the player no other way to tell what went
+@@ -843,6 +844,12 @@ void Corpse::AdvancedLootStore(Client *c, EQ::ItemInstance *inst, LootItem *item
+ 		return;
+ 	}
+ 
++	// the item still leaves the corpse, so it counts as a loot for quests (and they may veto it)
++	if (LootPreventedByEvents(c, inst)) {
++		RefuseAdvLootRequest(c, GetID(), item->ID, sequence);
++		return;
++	}
++
+ 	// a full depot falls back to the hoard; the helpers tell the player why a store failed
+ 	const bool in_depot = depot_ok && c->StoreInTradeskillDepot(inst, !hoard_ok);
+ 	const bool in_hoard = !in_depot && hoard_ok && c->StoreInDragonHoard(inst, false);
+-- 
+2.51.0.windows.2
+

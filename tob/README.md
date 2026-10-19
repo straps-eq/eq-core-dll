@@ -49,7 +49,9 @@ Most features are client-only and work on any server. These need something from 
 | `AdvLootActions` | The server must announce the feature (it sends its capabilities after each loot sync) and handle the sell / store actions. Stock EQEmu does neither, so on a stock server the loot window stays stock. |
 | `BuffTooltips` | The "Caster:" line only appears when the server includes the caster's name in the buff data. |
 
-`FloatingCombatText` needs nothing extra: it uses the damage packets every server sends (the pet-owner duplicate that EQEmu sends for pet hits is filtered out client-side).
+`FloatingCombatText` needs nothing extra for damage: it uses the damage packets every server sends (the pet-owner duplicate that EQEmu sends for pet hits is filtered out client-side). Heal numbers work from the heal chat strings stock EQEmu sends; with the server's ToB heal message (`server/heal-messages`) they also show crits, overheal and other people's heals.
+
+The server changes (wire contracts, rules and `git am` patches) are in [`server/`](server/README.md). The patched UI files are in [`uifiles/default/`](uifiles/default): copy them into the client's `uifiles\default`.
 
 The options tabs (`FCTOptionsPage`, `NameplateOptionsPage`) need a patched `uifiles\default\EQUI_OptionsWindow.xml` on the client, not a server change. The AS / ST columns of `AdvLootActions` need the patched `uifiles\default\EQUI_LootFiltersWnd.xml` (two columns after Remove) and `EQUI_AdvancedLootWnd.xml` (two columns after NPC Name); without them those windows stay stock.
 
