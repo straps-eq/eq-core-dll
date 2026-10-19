@@ -1,0 +1,530 @@
+From a3e13f45a354431cc4a1b4628061b704b934f9f8 Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sat, 17 Oct 2026 12:04:15 -0500
+Subject: [PATCH 1/2] Dragon's Hoard and Tradeskill Depot: store an item that
+ is not on the cursor
+
+---
+ zone/client.h             |  4 +++
+ zone/dragon_hoard.cpp     | 64 +++++++++++++++++++++++++++------------
+ zone/tradeskill_depot.cpp | 25 +++++++++++++++
+ 3 files changed, 73 insertions(+), 20 deletions(-)
+
+diff --git a/zone/client.h b/zone/client.h
+index 86e297dcf9..2fb8028f90 100644
+--- a/zone/client.h
++++ b/zone/client.h
+@@ -1163,6 +1163,8 @@ public:
+ 	void SendDragonHoardAction(uint32 action, uint64 item_index = 0, uint32 value = 0);
+ 	void SendDragonHoardList();
+ 	void FinishDragonHoardRequest();
++	bool CanStoreInDragonHoard(EQ::ItemInstance *inst);
++	bool StoreInDragonHoard(EQ::ItemInstance *inst, bool from_cursor);
+ 	void DepositDragonHoardItem(uint64 item_index);
+ 	void WithdrawDragonHoardItem(uint64 item_index, uint32 quantity);
+ 	// TOB+ Tradeskill Depot, stackable components kept as item id -> quantity (rule Character:TradeskillDepotSlots, 0 = off)
+@@ -1172,6 +1174,8 @@ public:
+ 	const std::map<uint32, uint32> &GetTradeskillDepotItems();
+ 	bool AddTradeskillDepotItem(uint32 item_id, uint32 quantity);
+ 	bool RemoveTradeskillDepotItem(uint32 item_id, uint32 quantity);
++	bool CanStoreInTradeskillDepot(EQ::ItemInstance *inst);
++	bool StoreInTradeskillDepot(EQ::ItemInstance *inst, bool say_full);
+ 	void SendTradeskillDepotAction(uint32 action, uint32 value = 0);
+ 	void SendTradeskillDepotList();
+ 	void DepositTradeskillDepotItem(uint64 item_index);
+diff --git a/zone/dragon_hoard.cpp b/zone/dragon_hoard.cpp
+index 438db8b6e9..dae51c2893 100644
+--- a/zone/dragon_hoard.cpp
++++ b/zone/dragon_hoard.cpp
+@@ -117,32 +117,31 @@ void Client::FinishDragonHoardRequest()
+ 	SendDragonHoardList();
+ }
+ 
+-void Client::DepositDragonHoardItem(uint64 item_index)
++bool Client::CanStoreInDragonHoard(EQ::ItemInstance *inst)
+ {
+-	// a refusal still has to answer, or the client stays busy
+-	const auto refuse = [this]() {
+-		SendDragonHoardAction(DragonHoardDone);
+-	};
++	return IsDragonHoardEnabled() && CanDeposit(inst);
++}
+ 
+-	const auto cursor = m_inv.GetCursorItem();
+-	if (!IsInBankerRange() || !cursor || !HasSerial(cursor, item_index) || !CanDeposit(cursor)) {
+-		return refuse();
++bool Client::StoreInDragonHoard(EQ::ItemInstance *inst, bool from_cursor)
++{
++	if (!CanDeposit(inst)) {
++		return false;
+ 	}
+ 
+-	const auto item = cursor->GetItem();
++	const auto item = inst->GetItem();
+ 	const auto &rows = m_inv.GetDragonHoardItems();
+ 
+ 	if (HoardHoldsLore(rows, item)) {
+ 		MessageString(Chat::Red, DRAGON_HOARD_LORE);
+-		return refuse();
++		return false;
+ 	}
+ 
+-	const int deposit_count = cursor->IsStackable() ? std::max<int>(cursor->GetCharges(), 1) : 1;
++	const int deposit_count = inst->IsStackable() ? std::max<int>(inst->GetCharges(), 1) : 1;
+ 
+ 	// a stack joins a row of the same item that has room for it
+ 	EQ::ItemInstance *merge_row  = nullptr;
+ 	int16             merge_slot = INVALID_INDEX;
+-	if (cursor->IsStackable()) {
++	if (inst->IsStackable()) {
+ 		for (const auto &[slot_id, row] : rows) {
+ 			if (row && row->GetID() == item->ID && row->GetCharges() + deposit_count <= item->StackSize) {
+ 				merge_row  = row;
+@@ -164,23 +163,33 @@ void Client::DepositDragonHoardItem(uint64 item_index)
+ 
+ 		if (hoard_slot == INVALID_INDEX) {
+ 			MessageString(Chat::Red, DRAGON_HOARD_FULL);
+-			return refuse();
++			return false;
+ 		}
+ 	}
+ 
+-	// the row after the move, written together with the cursor behind the deposited item
++	// the row after the move
+ 	std::unique_ptr<EQ::ItemInstance> merged;
+ 	if (merge_row) {
+ 		merged.reset(merge_row->Clone());
+ 		merged->SetCharges(merge_row->GetCharges() + deposit_count);
+ 	}
+ 
+-	std::list<EQ::ItemInstance *> queue(std::next(m_inv.cursor_cbegin()), m_inv.cursor_cend());
+-	auto queue_begin = queue.cbegin();
+-	auto queue_end   = queue.cend();
++	const EQ::ItemInstance *hoard_row = merge_row ? merged.get() : inst;
+ 
+-	if (!database.SaveDragonHoardMove(CharacterID(), hoard_slot, merge_row ? merged.get() : cursor, queue_begin, queue_end)) {
+-		return refuse();
++	bool saved = false;
++	if (from_cursor) {
++		// written together with the cursor behind the deposited item
++		std::list<EQ::ItemInstance *> queue(std::next(m_inv.cursor_cbegin()), m_inv.cursor_cend());
++		auto queue_begin = queue.cbegin();
++		auto queue_end   = queue.cend();
++
++		saved = database.SaveDragonHoardMove(CharacterID(), hoard_slot, hoard_row, queue_begin, queue_end);
++	} else {
++		saved = database.SaveInventory(CharacterID(), hoard_row, hoard_slot);
++	}
++
++	if (!saved) {
++		return false;
+ 	}
+ 
+ 	LogInventory(
+@@ -195,7 +204,22 @@ void Client::DepositDragonHoardItem(uint64 item_index)
+ 	if (merge_row) {
+ 		merge_row->SetCharges(merged->GetCharges());
+ 	} else {
+-		m_inv.PutItem(hoard_slot, *cursor);
++		m_inv.PutItem(hoard_slot, *inst);
++	}
++
++	return true;
++}
++
++void Client::DepositDragonHoardItem(uint64 item_index)
++{
++	// a refusal still has to answer, or the client stays busy
++	const auto refuse = [this]() {
++		SendDragonHoardAction(DragonHoardDone);
++	};
++
++	const auto cursor = m_inv.GetCursorItem();
++	if (!IsInBankerRange() || !cursor || !HasSerial(cursor, item_index) || !StoreInDragonHoard(cursor, true)) {
++		return refuse();
+ 	}
+ 
+ 	// the cursor item is gone after this
+diff --git a/zone/tradeskill_depot.cpp b/zone/tradeskill_depot.cpp
+index 580cfdbe50..35a1213416 100644
+--- a/zone/tradeskill_depot.cpp
++++ b/zone/tradeskill_depot.cpp
+@@ -76,6 +76,31 @@ bool Client::AddTradeskillDepotItem(uint32 item_id, uint32 quantity)
+ 	return SetTradeskillDepotQuantity(item_id, stored + quantity);
+ }
+ 
++bool Client::CanStoreInTradeskillDepot(EQ::ItemInstance *inst)
++{
++	return IsTradeskillDepotEnabled() && CanDeposit(inst);
++}
++
++bool Client::StoreInTradeskillDepot(EQ::ItemInstance *inst, bool say_full)
++{
++	if (!CanStoreInTradeskillDepot(inst)) {
++		return false;
++	}
++
++	const auto   item     = inst->GetItem();
++	const uint32 quantity = static_cast<uint32>(std::max<int16>(inst->GetCharges(), 1));
++
++	if (!AddTradeskillDepotItem(item->ID, quantity)) {
++		if (say_full) {
++			MessageString(Chat::Red, TRADESKILL_DEPOT_FULL, item->Name, PERSONAL_DEPOT);
++		}
++		return false;
++	}
++
++	MessageString(Chat::White, TRADESKILL_DEPOT_DEPOSITED, std::to_string(quantity).c_str(), item->Name, PERSONAL_DEPOT);
++	return true;
++}
++
+ bool Client::RemoveTradeskillDepotItem(uint32 item_id, uint32 quantity)
+ {
+ 	const uint32 stored = GetTradeskillDepotQuantity(item_id);
+-- 
+2.51.0.windows.2
+
+
+From 3d88c15c045e158cc15a5daaa7b738b4f080664d Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sat, 17 Oct 2026 12:10:47 -0500
+Subject: [PATCH 2/2] TOB: Advanced Loot Sell, Store and Merge actions (rule
+ Character:AdvancedLootActions)
+
+---
+ common/ruletypes.h      |   1 +
+ zone/client_packet.cpp  |   5 +-
+ zone/corpse.h           |   5 +-
+ zone/corpse_advloot.cpp | 193 +++++++++++++++++++++++++++++++++++++++-
+ 4 files changed, 198 insertions(+), 6 deletions(-)
+
+diff --git a/common/ruletypes.h b/common/ruletypes.h
+index d108442f53..29d38cc5f5 100644
+--- a/common/ruletypes.h
++++ b/common/ruletypes.h
+@@ -134,6 +134,7 @@ RULE_BOOL(Character, CheckCursorEmptyWhenLooting, true, "If true, a player canno
+ RULE_BOOL(Character, EnableAdvancedLoot, true, "If true, TOB+ clients with Use Advanced Looting on loot NPC kills from the Advanced Loot window (solo, or groups/raids where everyone uses it)")
+ RULE_INT(Character, AdvancedLootUnlockSeconds, 600, "Advanced Loot: how long the window keeps a corpse reserved for its group/killer before it unlocks for everyone (0 = use NPC:CorpseUnlockTimer); the corpse is kept at least 2 minutes longer")
+ RULE_INT(Character, AdvancedLootAskSeconds, 60, "Advanced Loot: how long a master looter's need/greed ask runs before it completes or auto-rolls (Live: 60)")
++RULE_BOOL(Character, AdvancedLootActions, false, "Advanced Loot (TOB+): Sell, Store (Tradeskill Depot or Dragon's Hoard) and Merge actions from the loot window; needs the client-side buttons")
+ RULE_INT(Character, AdvancedLootPresenceRange, 500, "Advanced Loot: group/raid members farther than this from the corpse at the kill must right-click it before looting (0 = off)")
+ RULE_BOOL(Character, MaintainIntoxicationAcrossZones, true, "If true, alcohol effects are maintained across zoning and logging out/in")
+ RULE_BOOL(Character, EnableDiscoveredItems, true, "If enabled, it enables EVENT_DISCOVER_ITEM and also saves character names and timestamps for the first time an item is discovered")
+diff --git a/zone/client_packet.cpp b/zone/client_packet.cpp
+index 6de445ce82..ed165c0b03 100644
+--- a/zone/client_packet.cpp
++++ b/zone/client_packet.cpp
+@@ -2255,7 +2255,7 @@ void Client::Handle_OP_AdvLoot(const EQApplicationPacket *app)
+ 
+ 	LogLoot("[{}] OP_AdvLoot subtype [{}] size [{}] [{}]", GetCleanName(), subtype, app->size, hex);
+ 
+-	// Loot (8): u16, u64 item, u32 corpse, u32 quantity, u32 sequence, u8 flag (Live adds a u32 before the flag)
++	// Loot (8): u16, u64 item, u32 corpse, u32 quantity, u32 sequence, u8 action (Live adds a u32 before the action)
+ 	// Leave (7): u16, u64 item, u32 corpse, u32 quantity (Live adds a u32)
+ 	const uint32 item_id   = app->size >= 10 ? (uint32) *(const uint64 *)(app->pBuffer + 2) : 0;
+ 	uint32 corpse_id = app->size >= 14 ? *(const uint32 *)(app->pBuffer + 10) : 0;
+@@ -2288,9 +2288,10 @@ void Client::Handle_OP_AdvLoot(const EQApplicationPacket *app)
+ 
+ 	if (subtype == 8 && app->size >= 23 && corpse_id != m_advloot_test_corpse) {
+ 		const uint32 sequence = *(const uint32 *)(app->pBuffer + 18);
++		const uint8  action   = app->pBuffer[22];
+ 		Corpse *corpse = entity_list.GetCorpseByID(corpse_id);
+ 		if (corpse) {
+-			corpse->AdvancedLootItem(this, item_id, sequence);
++			corpse->AdvancedLootItem(this, item_id, sequence, action);
+ 		}
+ 		else {
+ 			// corpse is gone: result 7 lets the window drop the request
+diff --git a/zone/corpse.h b/zone/corpse.h
+index 36efeefd4c..ed9624c6ca 100644
+--- a/zone/corpse.h
++++ b/zone/corpse.h
+@@ -237,7 +237,7 @@ public:
+ 	bool HasAdvancedLootItemsFor(Client *c);
+ 	bool HasAdvancedLootTransaction(uint32 transaction_id);
+ 	void SendAdvancedLootItems(Client *c);
+-	void AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence);
++	void AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence, uint8 action);
+ 	void AdvancedLeaveItem(Client *c, uint32 item_id);
+ 	void AdvancedGiveItem(Client *c, uint32 transaction_id, uint32 item_id, uint16 quantity, bool leave, const std::string &to_name);
+ 	void AdvancedChoice(Client *c, uint32 transaction_id, uint32 item_id, uint32 choice);
+@@ -312,6 +312,9 @@ private:
+ 	LootItem *FindAdvancedLootItem(uint32 item_id, uint32 owner_character_id, bool skip_asked = false);
+ 	uint32 GetAdvancedLootOwner(const LootItem *item);
+ 	void GetAdvancedLootBagContents(LootItem *item, LootItem **bag_item_data);
++	void AdvancedLootSell(Client *c, EQ::ItemInstance *inst, LootItem *item_data, LootItem **bag_item_data, uint32 sequence);
++	void AdvancedLootStore(Client *c, EQ::ItemInstance *inst, LootItem *item_data, LootItem **bag_item_data, uint32 sequence, uint8 action);
++	void TakeAdvancedLootItem(LootItem *item_data);
+ 	bool IsAdvancedLootItemListed(const LootItem *item);
+ 	bool IsAdvancedLootItemInAsk(const LootItem *item);
+ 	uint32 DropAdvancedLootAsks(const LootItem *item);
+diff --git a/zone/corpse_advloot.cpp b/zone/corpse_advloot.cpp
+index b9f580c2c5..ddb8b7d1ad 100644
+--- a/zone/corpse_advloot.cpp
++++ b/zone/corpse_advloot.cpp
+@@ -18,6 +18,7 @@
+ #include "zone/corpse.h"
+ 
+ #include "common/data_verification.h"
++#include "common/events/player_event_logs.h"
+ #include "common/rulesys.h"
+ #include "common/say_link.h"
+ #include "common/serialize_buffer.h"
+@@ -59,6 +60,25 @@ enum AdvLootSubtype : uint16 {
+ 	AdvLootClearPending = 0x10,
+ 	AdvLootState        = 0x11,
+ 	AdvLootRollResult   = 0x13,
++	AdvLootCapabilities = 0x20, // not a client message: tells the client-side buttons what the server supports
++};
++
++// the loot request's trailing byte; the stock client only sends Loot and Loot All
++enum AdvLootAction : uint8 {
++	AdvLootActionLoot            = 0,
++	AdvLootActionLootAll         = 1,
++	AdvLootActionSell            = 3,
++	AdvLootActionMerge           = 4,
++	AdvLootActionStore           = 5, // Tradeskill Depot for components, else Dragon's Hoard
++	AdvLootActionStoreDepot      = 6,
++	AdvLootActionStoreDepotStack = 7, // Tradeskill Depot, only onto a stack that is already there
++};
++
++enum AdvLootCapability : uint32 {
++	AdvLootCanSell       = 1 << 0,
++	AdvLootCanStoreDepot = 1 << 1,
++	AdvLootCanStoreHoard = 1 << 2,
++	AdvLootCanMerge      = 1 << 3,
+ };
+ 
+ enum AdvLootResult : uint16 {
+@@ -94,15 +114,23 @@ uint32 AdvancedLootAskMilliseconds()
+ 
+ constexpr uint32 ADVLOOT_ROLL_MAX = 1000;  // Live roll seen: 530
+ 
+-void SendAdvLootResult(Client *c, uint16 result, uint32 sequence)
++// the same cap as a merchant sale, and the client's own id for Krono
++constexpr double ADVLOOT_SELL_PRICE_CAP = 4000000000.0;
++constexpr uint32 ADVLOOT_KRONO_ITEM_ID  = 88888;
++
++void SendAdvLootResult(Client *c, uint16 result, uint32 sequence, uint64 copper = 0)
+ {
+-	// u16 subtype, u16 result, u32 (Live: always 1), u32 the client's request sequence, u8
++	// u16 subtype, u16 result, u32 (Live: always 1), u32 the client's request sequence, u8; a sale adds the
++	// proceeds as a u64 that only the client-side buttons read
+ 	SerializeBuffer buf;
+ 	buf.WriteUInt16(AdvLootLootResult);
+ 	buf.WriteUInt16(result);
+ 	buf.WriteUInt32(1);
+ 	buf.WriteUInt32(sequence);
+ 	buf.WriteUInt8(0);
++	if (copper) {
++		buf.WriteUInt64(copper);
++	}
+ 
+ 	auto outapp = new EQApplicationPacket(OP_AdvLoot, std::move(buf));
+ 	c->QueuePacket(outapp);
+@@ -123,6 +151,31 @@ void SendAdvLootClearPending(Client *c, uint32 corpse_id, uint32 item_id)
+ 	safe_delete(outapp);
+ }
+ 
++void SendAdvLootCapabilities(Client *c)
++{
++	if (!RuleB(Character, AdvancedLootActions)) {
++		return;
++	}
++
++	uint32 flags = AdvLootCanSell | AdvLootCanMerge;
++	if (c->IsTradeskillDepotEnabled()) {
++		flags |= AdvLootCanStoreDepot;
++	}
++	if (c->IsDragonHoardEnabled()) {
++		flags |= AdvLootCanStoreHoard;
++	}
++
++	LogLoot("[{}] Advanced Loot actions announced, flags [{}]", c->GetCleanName(), flags);
++
++	SerializeBuffer buf;
++	buf.WriteUInt16(AdvLootCapabilities);
++	buf.WriteUInt32(flags);
++
++	auto outapp = new EQApplicationPacket(OP_AdvLoot, std::move(buf));
++	c->QueuePacket(outapp);
++	safe_delete(outapp);
++}
++
+ void SendAdvLootMasterLooter(Client *c, const std::string &name)
+ {
+ 	SerializeBuffer buf;
+@@ -134,6 +187,13 @@ void SendAdvLootMasterLooter(Client *c, const std::string &name)
+ 	safe_delete(outapp);
+ }
+ 
++bool HasBagContents(LootItem *const *bag_item_data)
++{
++	return std::any_of(bag_item_data, bag_item_data + EQ::invbag::SLOT_COUNT, [](const LootItem *content) {
++		return content != nullptr;
++	});
++}
++
+ bool IsBagContent(const LootItem *item)
+ {
+ 	return EQ::ValueWithin(item->equip_slot, EQ::invbag::GENERAL_BAGS_BEGIN, EQ::invbag::CURSOR_BAG_END);
+@@ -583,7 +643,7 @@ void Corpse::SendAdvancedLootItems(Client *c)
+ 	}
+ }
+ 
+-void Corpse::AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence)
++void Corpse::AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence, uint8 action)
+ {
+ 	if (!IsAdvancedLootFor(c) || m_player_corpse_depop) {
+ 		SendAdvLootResult(c, AdvLootResultGone, sequence);
+@@ -634,6 +694,44 @@ void Corpse::AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence)
+ 		return;
+ 	}
+ 
++	if (!RuleB(Character, AdvancedLootActions)) {
++		action = AdvLootActionLoot;
++	}
++
++	switch (action) {
++		case AdvLootActionLoot:
++		case AdvLootActionLootAll:
++			break;
++		case AdvLootActionMerge:
++			if (!inst->IsStackable() || c->GetInv().HasItem(item_id, 1, invWherePersonal) == INVALID_INDEX) {
++				c->Message(Chat::Red, "There are no valid merges for this item."); // no client string for this
++				SendAdvLootClearPending(c, GetID(), item_id);
++				return;
++			}
++			break;
++		case AdvLootActionSell:
++		case AdvLootActionStore:
++		case AdvLootActionStoreDepot:
++		case AdvLootActionStoreDepotStack:
++			// the item still leaves the corpse, so quest vetoes apply
++			if (LootPreventedByEvents(c, inst.get())) {
++				SendAdvLootClearPending(c, GetID(), item_id);
++				return;
++			}
++
++			if (action == AdvLootActionSell) {
++				AdvancedLootSell(c, inst.get(), item_data, bag_item_data, sequence);
++			}
++			else {
++				AdvancedLootStore(c, inst.get(), item_data, bag_item_data, sequence, action);
++			}
++			return;
++		default:
++			LogLoot("[{}] unknown Advanced Loot action [{}] for item [{}]", c->GetCleanName(), action, item_id);
++			SendAdvLootClearPending(c, GetID(), item_id);
++			return;
++	}
++
+ 	if (HasLootLoreConflict(c, inst.get())) {
+ 		SendAdvLootResult(c, AdvLootResultLore, sequence);
+ 		return;
+@@ -663,6 +761,93 @@ void Corpse::AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence)
+ 	CheckAdvancedLootDone();
+ }
+ 
++// the item leaves the corpse without going to the player's inventory (sold or stored); frees item_data
++void Corpse::TakeAdvancedLootItem(LootItem *item_data)
++{
++	database.DeleteItemOffCharacterCorpse(m_corpse_db_id, item_data->equip_slot, item_data->item_id);
++	RemoveItem(item_data);
++	CheckAdvancedLootDone();
++}
++
++void Corpse::AdvancedLootSell(Client *c, EQ::ItemInstance *inst, LootItem *item_data, LootItem **bag_item_data, uint32 sequence)
++{
++	const auto *item = inst->GetItem();
++
++	const uint32 quantity  = inst->IsStackable() ? std::max<int16>(inst->GetCharges(), 1) : 1;
++	const double raw_price = static_cast<double>(item->Price) * quantity * RuleR(Merchant, BuyCostMod) + 0.5;
++	const uint64 price     = static_cast<uint64>(std::clamp(raw_price, 0.0, ADVLOOT_SELL_PRICE_CAP));
++
++	const bool unsellable =
++		!item->NoDrop ||
++		!item->Price ||
++		!price ||
++		item_data->attuned ||
++		inst->IsAugmented() ||
++		HasBagContents(bag_item_data) ||
++		zone->GetCurrencyID(item->ID) != 0 ||
++		item->ID == ADVLOOT_KRONO_ITEM_ID;
++	if (unsellable) {
++		c->Message(Chat::Red, "That item cannot be sold from the loot window."); // no client string for this
++		SendAdvLootClearPending(c, GetID(), item->ID);
++		return;
++	}
++
++	c->AddMoneyToPP(price, true);
++
++	const std::string money = Strings::Money(price / 1000, (price / 100) % 10, (price / 10) % 10, price % 10);
++	c->MessageString(Chat::MoneySplit, YOU_RECEIVE, money.c_str());
++
++	if (PlayerEventLogs::Instance()->IsEventEnabled(PlayerEvent::MERCHANT_SELL)) {
++		auto e = PlayerEvent::MerchantSellEvent{
++			.npc_id                  = 0,
++			.merchant_name           = "Advanced Loot",
++			.merchant_type           = 0,
++			.item_id                 = item->ID,
++			.item_name               = item->Name,
++			.charges                 = static_cast<int16>(quantity),
++			.cost                    = static_cast<uint32>(price),
++			.alternate_currency_id   = 0,
++			.player_money_balance    = c->GetCarriedMoney(),
++			.player_currency_balance = 0,
++		};
++
++		c->RecordPlayerEventLog(PlayerEvent::MERCHANT_SELL, e);
++	}
++
++	LogLoot("[{}] sold [{}] x [{}] from [{}] for [{}] copper", c->GetCleanName(), item->Name, quantity, GetCleanName(), price);
++
++	TakeAdvancedLootItem(item_data);
++	SendAdvLootResult(c, AdvLootResultLooted, sequence, price);
++}
++
++void Corpse::AdvancedLootStore(Client *c, EQ::ItemInstance *inst, LootItem *item_data, LootItem **bag_item_data, uint32 sequence, uint8 action)
++{
++	const auto *item = inst->GetItem();
++
++	const bool depot_ok = c->CanStoreInTradeskillDepot(inst) &&
++		(action != AdvLootActionStoreDepotStack || c->GetTradeskillDepotQuantity(item->ID) > 0);
++	const bool hoard_ok = action == AdvLootActionStore && c->CanStoreInDragonHoard(inst);
++
++	if (HasBagContents(bag_item_data) || (!depot_ok && !hoard_ok)) {
++		c->Message(Chat::Red, "That item cannot be stored from the loot window."); // no client string for this
++		SendAdvLootClearPending(c, GetID(), item->ID);
++		return;
++	}
++
++	// a full depot falls back to the hoard; the helpers tell the player why a store failed
++	const bool stored = (depot_ok && c->StoreInTradeskillDepot(inst, !hoard_ok)) ||
++		(hoard_ok && c->StoreInDragonHoard(inst, false));
++	if (!stored) {
++		SendAdvLootClearPending(c, GetID(), item->ID);
++		return;
++	}
++
++	LogLoot("[{}] stored [{}] from [{}] (action [{}])", c->GetCleanName(), item->Name, GetCleanName(), action);
++
++	TakeAdvancedLootItem(item_data);
++	SendAdvLootResult(c, AdvLootResultLooted, sequence);
++}
++
+ namespace {
+ 	constexpr uint32 ADVLOOT_YOU_LEFT_ON_CORPSE    = 11309; // --You left %1 %2 on %3.--
+ 	constexpr uint32 ADVLOOT_PLAYER_LEFT_ON_CORPSE = 11313; // --%1 left %2 %3 on %4.--
+@@ -1317,6 +1502,8 @@ void Corpse::SendAdvancedLootSync(Client *c)
+ 	c->QueuePacket(outapp);
+ 	safe_delete(outapp);
+ 
++	SendAdvLootCapabilities(c);
++
+ 	if (raid || group) {
+ 		AnnounceAdvancedLootMasterLooter(c, master_looter_name);
+ 	}
+-- 
+2.51.0.windows.2
+

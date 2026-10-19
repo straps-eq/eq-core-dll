@@ -1,0 +1,58 @@
+From 52c85e286e446e36bbc585cc4b3854283c3b95ac Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sun, 18 Oct 2026 10:58:05 -0500
+Subject: [PATCH] TOB: Advanced Loot sale and Dragon's Hoard store lines name
+ the item
+
+A loot-window sale printed only the coins and a hoard store printed nothing, so
+players could not tell what Sell All or an auto action did. A sale now reads
+"You sold 5 Coarse Silk for 25 copper." and a hoard store "You have added Orc
+Skull to your Dragon's Hoard." (with the count for stacks). The depot keeps its
+own deposit line.
+---
+ zone/corpse_advloot.cpp | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/zone/corpse_advloot.cpp b/zone/corpse_advloot.cpp
+index 92dc924ffc..be09886ca6 100644
+--- a/zone/corpse_advloot.cpp
++++ b/zone/corpse_advloot.cpp
+@@ -800,8 +800,10 @@ void Corpse::AdvancedLootSell(Client *c, EQ::ItemInstance *inst, LootItem *item_
+ 
+ 	c->AddMoneyToPP(price, true);
+ 
++	// name the item: auto-sell and Sell All give the player no other way to tell what went
+ 	const std::string money = Strings::Money(price / 1000, (price / 100) % 10, (price / 10) % 10, price % 10);
+-	c->MessageString(Chat::MoneySplit, YOU_RECEIVE, money.c_str());
++	const std::string sold  = quantity > 1 ? fmt::format("{} {}", quantity, item->Name) : std::string(item->Name);
++	c->Message(Chat::MoneySplit, fmt::format("You sold {} for {}.", sold, money).c_str());
+ 
+ 	if (PlayerEventLogs::Instance()->IsEventEnabled(PlayerEvent::MERCHANT_SELL)) {
+ 		auto e = PlayerEvent::MerchantSellEvent{
+@@ -842,13 +844,20 @@ void Corpse::AdvancedLootStore(Client *c, EQ::ItemInstance *inst, LootItem *item
+ 	}
+ 
+ 	// a full depot falls back to the hoard; the helpers tell the player why a store failed
+-	const bool stored = (depot_ok && c->StoreInTradeskillDepot(inst, !hoard_ok)) ||
+-		(hoard_ok && c->StoreInDragonHoard(inst, false));
+-	if (!stored) {
++	const bool in_depot = depot_ok && c->StoreInTradeskillDepot(inst, !hoard_ok);
++	const bool in_hoard = !in_depot && hoard_ok && c->StoreInDragonHoard(inst, false);
++	if (!in_depot && !in_hoard) {
+ 		RefuseAdvLootRequest(c, GetID(), item->ID, sequence);
+ 		return;
+ 	}
+ 
++	// the depot prints its own deposit line; the hoard prints nothing when nothing is on the cursor
++	if (in_hoard) {
++		const int16 count = inst->IsStackable() ? std::max<int16>(inst->GetCharges(), 1) : 1;
++		const std::string added = count > 1 ? fmt::format("{} {}", count, item->Name) : std::string(item->Name);
++		c->Message(Chat::White, fmt::format("You have added {} to your Dragon's Hoard.", added).c_str());
++	}
++
+ 	LogLoot("[{}] stored [{}] from [{}] (action [{}])", c->GetCleanName(), item->Name, GetCleanName(), action);
+ 
+ 	TakeAdvancedLootItem(item_data);
+-- 
+2.51.0.windows.2
+

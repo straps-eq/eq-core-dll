@@ -1,0 +1,507 @@
+From 2c485c2440106f7df3ed72f84f5b562b967718a4 Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sun, 18 Oct 2026 15:14:09 -0500
+Subject: [PATCH 1/3] ToB: heal message packet in the message component
+
+---
+ common/patches/IMessage.h    |  4 ++++
+ common/patches/titanium.cpp  |  6 ++++++
+ common/patches/titanium.h    |  3 +++
+ common/patches/tob.cpp       | 15 +++++++++++++++
+ common/patches/tob.h         |  3 +++
+ common/patches/tob_structs.h | 16 ++++++++++++++++
+ utils/patches/patch_TOB.conf |  2 +-
+ 7 files changed, 48 insertions(+), 1 deletion(-)
+
+diff --git a/common/patches/IMessage.h b/common/patches/IMessage.h
+index 0e8fa1930c..27d582f152 100644
+--- a/common/patches/IMessage.h
++++ b/common/patches/IMessage.h
+@@ -46,6 +46,10 @@ public:
+ 		const char* spell_link) const = 0;
+ 	virtual std::unique_ptr<EQApplicationPacket> InterruptSpellOther(Mob* sender, uint32_t message, uint32_t spawn_id,
+ 		const char* name, const char* spell_link) const = 0;
++
++	// nullptr: the client has no heal message and gets the heal strings instead
++	virtual std::unique_ptr<EQApplicationPacket> HealMessage(uint16_t target_id, uint16_t caster_id, int32_t spell_id,
++		int64_t healed, int64_t total, bool over_time, bool critical) const = 0;
+ };
+ 
+ } // namespace Message
+diff --git a/common/patches/titanium.cpp b/common/patches/titanium.cpp
+index 83cf4cecab..d4a21431b1 100644
+--- a/common/patches/titanium.cpp
++++ b/common/patches/titanium.cpp
+@@ -3953,6 +3953,12 @@ std::unique_ptr<EQApplicationPacket> MessageComponent::InterruptSpellOther(Mob*
+ 	return outapp;
+ }
+ 
++std::unique_ptr<EQApplicationPacket> MessageComponent::HealMessage(uint16_t target_id, uint16_t caster_id,
++	int32_t spell_id, int64_t healed, int64_t total, bool over_time, bool critical) const
++{
++	return nullptr;
++}
++
+ // A value of 0 means that the string isn't mapped in this client, valid string ids start at 1
+ uint32_t MessageComponent::ResolveID(uint32_t id) const
+ {
+diff --git a/common/patches/titanium.h b/common/patches/titanium.h
+index 4fa4c2add7..2a2b04537e 100644
+--- a/common/patches/titanium.h
++++ b/common/patches/titanium.h
+@@ -58,6 +58,9 @@ public:
+ 		const char* name,
+ 		const char* spell_link) const override;
+ 
++	std::unique_ptr<EQApplicationPacket> HealMessage(uint16_t target_id, uint16_t caster_id, int32_t spell_id,
++		int64_t healed, int64_t total, bool over_time, bool critical) const override;
++
+ protected:
+ 	[[nodiscard]] virtual uint32_t ResolveID(uint32_t id) const;
+ 	virtual void ResolveArguments(uint32_t id, std::array<const char*, 9>& args) const;
+diff --git a/common/patches/tob.cpp b/common/patches/tob.cpp
+index e52f8b6d09..ac8f1ec8ce 100644
+--- a/common/patches/tob.cpp
++++ b/common/patches/tob.cpp
+@@ -12352,6 +12352,21 @@ std::unique_ptr<EQApplicationPacket> MessageComponent::InterruptSpellOther(Mob*
+ 	return outapp;
+ }
+ 
++std::unique_ptr<EQApplicationPacket> MessageComponent::HealMessage(uint16_t target_id, uint16_t caster_id,
++	int32_t spell_id, int64_t healed, int64_t total, bool over_time, bool critical) const
++{
++	auto outapp = std::make_unique<EQApplicationPacket>(OP_CombatText64, sizeof(structs::HealMessage_Struct));
++	auto heal = reinterpret_cast<structs::HealMessage_Struct*>(outapp->pBuffer);
++	heal->target_id = target_id;
++	heal->caster_id = caster_id;
++	heal->spell_id = spell_id;
++	heal->healed = healed;
++	heal->total = total;
++	heal->flags = (over_time ? structs::HealMessageOverTime : 0) | (critical ? structs::HealMessageCritical : 0);
++
++	return outapp;
++}
++
+ std::unique_ptr<EQApplicationPacket> BuffComponent::BuffDefinition(Mob* mob, const Buffs_Struct& buff, uint32_t slot, bool fade) const
+ {
+ 	auto packet = std::make_unique<EQApplicationPacket>(OP_BuffDefinition, sizeof(structs::EQAffectPacket_Struct));
+diff --git a/common/patches/tob.h b/common/patches/tob.h
+index 881addccbd..2c8945616d 100644
+--- a/common/patches/tob.h
++++ b/common/patches/tob.h
+@@ -56,6 +56,9 @@ public:
+ 	std::unique_ptr<EQApplicationPacket> InterruptSpellOther(Mob* sender, uint32_t message, uint32_t spawn_id,
+ 		const char* name, const char* spell_link) const override;
+ 
++	std::unique_ptr<EQApplicationPacket> HealMessage(uint16_t target_id, uint16_t caster_id, int32_t spell_id,
++		int64_t healed, int64_t total, bool over_time, bool critical) const override;
++
+ protected:
+ 	[[nodiscard]] uint32_t ResolveID(uint32_t id) const override;
+ 	void ResolveArguments(uint32_t id, std::array<const char*, 9>& args) const override;
+diff --git a/common/patches/tob_structs.h b/common/patches/tob_structs.h
+index 239500e4f4..8ed6e307a0 100644
+--- a/common/patches/tob_structs.h
++++ b/common/patches/tob_structs.h
+@@ -2693,8 +2693,24 @@ namespace TOB {
+ 		/*1125*/
+ 	};
+ 
++	// the client builds the heal chat line itself and shows "healed (total)" when the two differ
++	struct HealMessage_Struct {
++		/*00*/ uint16 target_id;
++		/*02*/ uint16 caster_id;
++		/*04*/ int32  spell_id;    // -1 leaves the "by <spell>" part out
++		/*08*/ int64  healed;
++		/*16*/ int64  total;
++		/*24*/ uint32 flags;       // HealMessageFlags
++		/*28*/
++	};
++
+ #pragma pack()
+ 
++	enum HealMessageFlags : uint32 {
++		HealMessageOverTime = 1,
++		HealMessageCritical = 4
++	};
++
+ 
+ 	// These task structs are not directly serialized because they have variable sized members. They are used
+ 	// as intermediate structs to deserialize server values
+diff --git a/utils/patches/patch_TOB.conf b/utils/patches/patch_TOB.conf
+index a3d62fc2f0..7270daa5f9 100644
+--- a/utils/patches/patch_TOB.conf
++++ b/utils/patches/patch_TOB.conf
+@@ -1052,7 +1052,7 @@ OP_RealEstatePlotTransferResult_5113=0x5113     # S2C, high, housing
+ OP_MercenaryUiEvent7=0x513e                     # S2C, medium, merc
+ OP_MarketplaceItemText=0x5184                   # S2C, high, marketplace
+ OP_ClientBusyReport=0x51bf                      # C2S, high, misc
+-OP_CombatText64=0x51c1                          # S2C, guess, combat
++OP_CombatText64=0x51c1                          # S2C heal message; the client prints the heal line and its floating number
+ OP_DisplayFlag_0x51c5=0x51c5                    # S2C, guess, ui
+ OP_ManaSet=0x51ec                               # S2C, guess, vitals
+ OP_DisplayFlag_0x522e=0x522e                    # S2C, guess, ui
+-- 
+2.51.0.windows.2
+
+
+From 06211fd7f3a685e78c6835f3a28e68b44f9f0556 Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sun, 18 Oct 2026 15:16:27 -0500
+Subject: [PATCH 2/3] Send ToB clients the heal message for spell heals
+ (Spells:ToBHealMessages, Spells:ToBOtherHealMessageRange)
+
+---
+ common/ruletypes.h      |  2 ++
+ zone/attack.cpp         | 39 ++++++++++++++++++++++++++++++++++-----
+ zone/client_version.cpp | 22 ++++++++++++++++++++++
+ zone/client_version.h   |  7 +++++++
+ zone/effects.cpp        |  9 +++++++++
+ zone/mob.cpp            |  9 +++++++++
+ zone/mob.h              | 10 ++++++++++
+ 7 files changed, 93 insertions(+), 5 deletions(-)
+
+diff --git a/common/ruletypes.h b/common/ruletypes.h
+index 7b6f8592d6..ff1ae76fcc 100644
+--- a/common/ruletypes.h
++++ b/common/ruletypes.h
+@@ -576,6 +576,8 @@ RULE_BOOL(Spells, UseClassicHarmTouchDamage, false, "Use pre 2007 Harm Touch cal
+ RULE_BOOL(Spells, UseClassicSpellFocus, false, "Enabling will tell the server to handle random focus damage as classic spell imports lack the limit values.")
+ RULE_BOOL(Spells, ManaTapsOnAnyClass, false, "Enabling this will allow you to cast mana taps on any class, this will bypass ManaTapsRequireNPCMana rule.")
+ RULE_INT(Spells, HealAmountMessageFilterThreshold, 100, "Lifetaps below this threshold will not have a message sent to the client (Heal will still process) 0 to Disable.")
++RULE_BOOL(Spells, ToBHealMessages, false, "TOB+ clients get heals they cast or receive as the client's own heal message (live chat line and floating heal number) instead of the older heal strings")
++RULE_INT(Spells, ToBOtherHealMessageRange, 0, "TOB+ clients also get heal messages for other people's heals within this distance (0 = off; needs Spells:ToBHealMessages; uses the PC/NPC spell filters)")
+ RULE_BOOL(Spells, SnareOverridesSpeedBonuses, false, "Enabling will allow snares to override any speed bonuses the entity may have. Default: False")
+ RULE_INT(Spells, TargetedAOEMaxTargets, 4, "Max number of targets a Targeted AOE spell can cast on. Set to 0 for no limit.")
+ RULE_INT(Spells, PointBlankAOEMaxTargets, 0, "Max number of targets a Point-Blank AOE spell can cast on. Set to 0 for no limit.")
+diff --git a/zone/attack.cpp b/zone/attack.cpp
+index 64b8c6891b..793e6a1e10 100644
+--- a/zone/attack.cpp
++++ b/zone/attack.cpp
+@@ -26,6 +26,7 @@
+ #include "common/strings.h"
+ #include "zone/bot.h"
+ #include "zone/client.h"
++#include "zone/client_version.h"
+ #include "zone/fastmath.h"
+ #include "zone/lua_parser.h"
+ #include "zone/mob.h"
+@@ -4929,10 +4930,38 @@ void Mob::HealDamage(uint64 amount, Mob* caster, int32 spell_id)
+ 		acthealed = amount;
+ 
+ 	if (acthealed > RuleI(Spells, HealAmountMessageFilterThreshold)) {
++		// TOB+ clients print the heal line and its floating number from the heal message
++		bool caster_has_message = false;
++		bool target_has_message = false;
++		if (caster && RuleB(Spells, ToBHealMessages)) {
++			const auto context        = caster->TakeHealMessageContext(GetID(), spell_id);
++			const int32 message_spell = IsValidSpell(spell_id) ? spell_id : context.spell_id;
++			const int32 wire_spell    = IsValidSpell(message_spell) ? message_spell : -1;
++			const bool over_time      = context.over_time || IsBuffSpell(spell_id);
++			const eqFilterType filter = over_time ? FilterHealOverTime : FilterSpellDamage;
++			const int64 healed        = static_cast<int64>(acthealed);
++			const int64 total         = static_cast<int64>(amount);
++
++			if (caster->IsClient()) {
++				caster_has_message = ClientPatch::SendHealMessage(caster->CastToClient(), caster, filter, GetID(),
++					caster->GetID(), wire_spell, healed, total, over_time, context.critical);
++			}
++
++			if (IsClient() && caster != this) {
++				target_has_message = ClientPatch::SendHealMessage(CastToClient(), caster, filter, GetID(),
++					caster->GetID(), wire_spell, healed, total, over_time, context.critical);
++			}
++
++			if (RuleI(Spells, ToBOtherHealMessageRange) > 0) {
++				ClientPatch::BroadcastHealMessage(this, caster, static_cast<float>(RuleI(Spells, ToBOtherHealMessageRange)),
++					wire_spell, healed, total, over_time, context.critical);
++			}
++		}
++
+ 		if (caster) {
+ 			if (IsBuffSpell(spell_id)) { // hots
+ 				// message to caster
+-				if ((caster->IsClient() && caster == this)) {
++				if (!caster_has_message && caster->IsClient() && caster == this) {
+ 					if (caster->CastToClient()->ClientVersionBit() & EQ::versions::maskSoFAndLater) {
+ 						FilteredMessageString(caster, Chat::NonMelee, FilterHealOverTime,
+ 							HOT_HEAL_SELF, itoa(acthealed), spells[spell_id].name);
+@@ -4941,7 +4970,7 @@ void Mob::HealDamage(uint64 amount, Mob* caster, int32 spell_id)
+ 						FilteredMessageString(caster, Chat::NonMelee, FilterHealOverTime,
+ 							YOU_HEALED, GetCleanName(), itoa(acthealed));
+ 				}
+-				else if ((caster->IsClient() && caster != this)) {
++				else if (!caster_has_message && caster->IsClient() && caster != this) {
+ 					if (caster->CastToClient()->ClientVersionBit() & EQ::versions::maskSoFAndLater)
+ 						caster->FilteredMessageString(caster, Chat::NonMelee, FilterHealOverTime,
+ 							HOT_HEAL_OTHER, GetCleanName(), itoa(acthealed),
+@@ -4952,7 +4981,7 @@ void Mob::HealDamage(uint64 amount, Mob* caster, int32 spell_id)
+ 				}
+ 
+ 				// message to target
+-				if (IsClient() && caster != this) {
++				if (!target_has_message && IsClient() && caster != this) {
+ 					if (CastToClient()->ClientVersionBit() & EQ::versions::maskSoFAndLater)
+ 						FilteredMessageString(caster, Chat::NonMelee, FilterHealOverTime,
+ 							HOT_HEALED_OTHER, caster->GetCleanName(),
+@@ -4964,14 +4993,14 @@ void Mob::HealDamage(uint64 amount, Mob* caster, int32 spell_id)
+ 			}
+ 			else { // normal heals
+ 				// Message to caster
+-				if (caster->IsClient()) {
++				if (!caster_has_message && caster->IsClient()) {
+ 					caster->FilteredMessageString(caster, Chat::NonMelee,
+ 						FilterSpellDamage, YOU_HEAL, GetCleanName(),
+ 						itoa(acthealed));
+ 					}
+ 
+ 				// Message to target
+-				if (IsClient() && caster != this) {
++				if (!target_has_message && IsClient() && caster != this) {
+ 					FilteredMessageString(caster, Chat::NonMelee,
+ 					FilterSpellDamage, YOU_HEALED, caster->GetCleanName(),
+ 					itoa(acthealed));
+diff --git a/zone/client_version.cpp b/zone/client_version.cpp
+index d7eae06295..3958f2ae50 100644
+--- a/zone/client_version.cpp
++++ b/zone/client_version.cpp
+@@ -39,6 +39,28 @@ void ClientPatch::InterruptSpellOther(Mob* sender, uint32_t message, uint32_t sp
+ 		&IMessage::InterruptSpellOther, GetClientComponent<IMessage>, sender, message, spawn_id, name, spell_link);
+ }
+ 
++bool ClientPatch::SendHealMessage(Client* c, Mob* sender, eqFilterType filter, uint16 target_id, uint16 caster_id,
++	int32 spell_id, int64 healed, int64 total, bool over_time, bool critical) {
++	auto component = GetClientComponent<IMessage>(c);
++	auto packet = component ? component->HealMessage(target_id, caster_id, spell_id, healed, total, over_time, critical) : nullptr;
++	if (!packet) {
++		return false;
++	}
++
++	if (c->ShouldGetPacket(sender, filter)) {
++		c->QueuePacket(packet.get());
++	}
++
++	return true;
++}
++
++void ClientPatch::BroadcastHealMessage(Mob* healed_mob, Mob* caster, float range, int32 spell_id, int64 healed,
++	int64 total, bool over_time, bool critical) {
++	QueueCloseClients(caster, true, range, healed_mob, true, caster->IsClient() ? FilterPCSpells : FilterNPCSpells)(
++		&IMessage::HealMessage, GetClientComponent<IMessage>, healed_mob->GetID(), caster->GetID(), spell_id, healed,
++		total, over_time, critical);
++}
++
+ static bool ShouldSendTargetBuffs(Client* c) {
+ 	// this function checks for server rules against LAA and GM status to determine if a buffs packet should be sent
+ 	// to a client (c) for targeted mobs
+diff --git a/zone/client_version.h b/zone/client_version.h
+index 5083e892b9..64fa743324 100644
+--- a/zone/client_version.h
++++ b/zone/client_version.h
+@@ -191,6 +191,13 @@ void InterruptSpell(Client* c, uint32_t message, uint32_t spawn_id, const char*
+ void InterruptSpellOther(Mob* sender, uint32_t message, uint32_t spawn_id, const char* name,
+ 	const char* spell_link);
+ 
++// true when the client has its own heal message (queued unless the filter hides it); false means send the heal strings
++bool SendHealMessage(Client* c, Mob* sender, eqFilterType filter, uint16 target_id, uint16 caster_id, int32 spell_id,
++	int64 healed, int64 total, bool over_time, bool critical);
++// close ToB clients other than the caster and the healed mob; the caster's spell filters decide who gets it
++void BroadcastHealMessage(Mob* healed_mob, Mob* caster, float range, int32 spell_id, int64 healed, int64 total,
++	bool over_time, bool critical);
++
+ void SendFullBuffRefresh(Mob* sender, bool remove = false, bool ackreq = true, bool with_definitions = false);
+ void SendSingleBuffChange(Mob* sender, const Buffs_Struct& buff, int slot, bool remove = false, bool ackreq = true);
+ 
+diff --git a/zone/effects.cpp b/zone/effects.cpp
+index 18c7f12d60..588b775c10 100644
+--- a/zone/effects.cpp
++++ b/zone/effects.cpp
+@@ -695,6 +695,15 @@ int64 Mob::GetActSpellHealing(int32 spell_id, int64 value, Mob* target, bool fro
+ 		}
+ 	}
+ 
++	if (RuleB(Spells, ToBHealMessages)) {
++		m_heal_message_context = {
++			target ? target->GetID() : uint16(0),
++			spell_id,
++			critical_modifier > 1,
++			from_buff_tic || spells[spell_id].buff_duration >= 1
++		};
++	}
++
+ 	if (GetClass() == Class::Cleric) {
+ 		value += int64(base_value*RuleI(Spells, ClericInnateHealFocus) / 100);  //confirmed on live parsing clerics get an innate 5 pct heal focus
+ 	}
+diff --git a/zone/mob.cpp b/zone/mob.cpp
+index ee127d265f..ee7f78050e 100644
+--- a/zone/mob.cpp
++++ b/zone/mob.cpp
+@@ -4183,6 +4183,15 @@ void Mob::SendAppearancePacket(
+ 	safe_delete(outapp);
+ }
+ 
++Mob::HealMessageContext Mob::TakeHealMessageContext(uint16 target_id, int32 spell_id)
++{
++	const HealMessageContext context = m_heal_message_context;
++	m_heal_message_context = {};
++
++	const bool matches = context.target_id ? context.target_id == target_id : context.spell_id == spell_id;
++	return matches ? context : HealMessageContext{};
++}
++
+ void Mob::SendLevelAppearance(){
+ 	auto outapp = new EQApplicationPacket(OP_LevelAppearance, sizeof(LevelAppearance_Struct));
+ 	LevelAppearance_Struct* la = (LevelAppearance_Struct*)outapp->pBuffer;
+diff --git a/zone/mob.h b/zone/mob.h
+index f949eaa797..dbfda61191 100644
+--- a/zone/mob.h
++++ b/zone/mob.h
+@@ -358,6 +358,15 @@ public:
+ 	int64 GetActSpellDamage(int32 spell_id, int64 value, Mob* target = nullptr);
+ 	int64 GetActDoTDamage(int32 spell_id, int64 value, Mob* target, bool from_buff_tic = true);
+ 	int64 GetActSpellHealing(int32 spell_id, int64 value, Mob* target = nullptr, bool from_buff_tic = false);
++
++	// what the last GetActSpellHealing worked out, for the ToB heal message sent from HealDamage
++	struct HealMessageContext {
++		uint16 target_id = 0; // 0 for a heal over time tick, which has no target there
++		int32  spell_id  = SPELL_UNKNOWN;
++		bool   critical  = false;
++		bool   over_time = false;
++	};
++	HealMessageContext TakeHealMessageContext(uint16 target_id, int32 spell_id);
+ 	int32 GetActSpellCost(int32 spell_id, int32 cost);
+ 	virtual int32 GetActSpellDuration(int32 spell_id, int32 duration);
+ 	int32 GetActSpellCasttime(int32 spell_id, int32 casttime);
+@@ -1942,6 +1951,7 @@ private:
+ 	std::shared_ptr<HealRotation> m_target_of_heal_rotation;
+ 	bool m_manual_follow;
+ 	bool m_destroying;
++	HealMessageContext m_heal_message_context;
+ 
+ 	void SetHeroicStrBonuses(StatBonuses* n);
+ 	void SetHeroicStaBonuses(StatBonuses* n);
+-- 
+2.51.0.windows.2
+
+
+From d5e014a7180e62e66280cd175e1966ca9b9f2c05 Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sun, 18 Oct 2026 15:16:53 -0500
+Subject: [PATCH 3/3] Level-up appearance for nearby ToB clients
+ (Character:ToBLevelUpAppearance)
+
+---
+ common/ruletypes.h |  1 +
+ zone/exp.cpp       |  4 ++++
+ zone/mob.cpp       | 39 +++++++++++++++++++++++++++++++++++----
+ zone/mob.h         |  1 +
+ 4 files changed, 41 insertions(+), 4 deletions(-)
+
+diff --git a/common/ruletypes.h b/common/ruletypes.h
+index ff1ae76fcc..789d67c800 100644
+--- a/common/ruletypes.h
++++ b/common/ruletypes.h
+@@ -136,6 +136,7 @@ RULE_INT(Character, AdvancedLootUnlockSeconds, 600, "Advanced Loot: how long the
+ RULE_INT(Character, AdvancedLootAskSeconds, 60, "Advanced Loot: how long a master looter's need/greed ask runs before it completes or auto-rolls (Live: 60)")
+ RULE_BOOL(Character, AdvancedLootActions, false, "Advanced Loot (TOB+): Sell and Store (Tradeskill Depot or Dragon's Hoard) actions from the loot window; needs the client-side buttons")
+ RULE_INT(Character, AdvancedLootPresenceRange, 500, "Advanced Loot: group/raid members farther than this from the corpse at the kill must right-click it before looting (0 = off)")
++RULE_BOOL(Character, ToBLevelUpAppearance, false, "On a player's level-up, nearby TOB+ clients get the level-up appearance (their client shows the level-up effect and 'Ding!')")
+ RULE_INT(Character, ToBNameplateVitalsRange, 0, "TOB+ clients get the HP and mana percent of NPCs within this distance even when they do not target them, for the client-side nameplate bars (0 = off; limited by Range:MobCloseScanDistance)")
+ RULE_BOOL(Character, MaintainIntoxicationAcrossZones, true, "If true, alcohol effects are maintained across zoning and logging out/in")
+ RULE_BOOL(Character, EnableDiscoveredItems, true, "If enabled, it enables EVENT_DISCOVER_ITEM and also saves character names and timestamps for the first time an item is discovered")
+diff --git a/zone/exp.cpp b/zone/exp.cpp
+index 01e38cc111..a32833d694 100644
+--- a/zone/exp.cpp
++++ b/zone/exp.cpp
+@@ -826,6 +826,10 @@ void Client::SetEXP(ExpSource exp_source, uint64 set_exp, uint64 set_aaxp, bool
+ 
+ 		SetLevel(check_level);
+ 
++		if (level_increase && RuleB(Character, ToBLevelUpAppearance)) {
++			SendLevelAppearanceToToB();
++		}
++
+ 		if (RuleB(Bots, Enabled) && RuleB(Bots, BotLevelsWithOwner)) {
+ 			// hack way of doing this..but, least invasive... (same criteria as gain level for sendlvlapp)
+ 			Bot::LevelBotWithClient(this, GetLevel(), (myoldlevel == check_level - 1));
+diff --git a/zone/mob.cpp b/zone/mob.cpp
+index ee7f78050e..5bf10a8d0b 100644
+--- a/zone/mob.cpp
++++ b/zone/mob.cpp
+@@ -4192,15 +4192,14 @@ Mob::HealMessageContext Mob::TakeHealMessageContext(uint16 target_id, int32 spel
+ 	return matches ? context : HealMessageContext{};
+ }
+ 
+-void Mob::SendLevelAppearance(){
+-	auto outapp = new EQApplicationPacket(OP_LevelAppearance, sizeof(LevelAppearance_Struct));
+-	LevelAppearance_Struct* la = (LevelAppearance_Struct*)outapp->pBuffer;
++static void FillLevelAppearance(LevelAppearance_Struct* la, uint16 spawn_id)
++{
+ 	la->parm1 = 0x4D;
+ 	la->parm2 = la->parm1 + 1;
+ 	la->parm3 = la->parm2 + 1;
+ 	la->parm4 = la->parm3 + 1;
+ 	la->parm5 = la->parm4 + 1;
+-	la->spawn_id = GetID();
++	la->spawn_id = spawn_id;
+ 	la->value1a = 1;
+ 	la->value2a = 2;
+ 	la->value3a = 1;
+@@ -4208,10 +4207,42 @@ void Mob::SendLevelAppearance(){
+ 	la->value4a = 1;
+ 	la->value4b = 1;
+ 	la->value5a = 2;
++}
++
++void Mob::SendLevelAppearance(){
++	auto outapp = new EQApplicationPacket(OP_LevelAppearance, sizeof(LevelAppearance_Struct));
++	FillLevelAppearance(reinterpret_cast<LevelAppearance_Struct*>(outapp->pBuffer), GetID());
+ 	entity_list.QueueCloseClients(this,outapp);
+ 	safe_delete(outapp);
+ }
+ 
++// only ToB clients need this on a level-up; the player's own client gets its level-up from OP_LevelUpdate
++void Mob::SendLevelAppearanceToToB()
++{
++	EQApplicationPacket outapp(OP_LevelAppearance, sizeof(LevelAppearance_Struct));
++	FillLevelAppearance(reinterpret_cast<LevelAppearance_Struct*>(outapp.pBuffer), GetID());
++
++	constexpr float range = 200.0f;
++	const float range_squared = range * range;
++	for (auto& e : GetCloseMobList(range)) {
++		Mob* mob = e.second;
++		if (!mob || mob == this || !mob->IsClient()) {
++			continue;
++		}
++
++		Client* client = mob->CastToClient();
++		if (client->ClientVersion() < EQ::versions::ClientVersion::TOB || !client->Connected()) {
++			continue;
++		}
++
++		if (DistanceSquared(client->GetPosition(), GetPosition()) >= range_squared) {
++			continue;
++		}
++
++		client->QueuePacket(&outapp, true, Client::CLIENT_CONNECTED);
++	}
++}
++
+ void Mob::SendAppearanceEffect(uint32 parm1, uint32 parm2, uint32 parm3, uint32 parm4, uint32 parm5, Client *specific_target,
+ 	uint32 value1slot, uint32 value1ground, uint32 value2slot, uint32 value2ground, uint32 value3slot, uint32 value3ground,
+ 	uint32 value4slot, uint32 value4ground, uint32 value5slot, uint32 value5ground){
+diff --git a/zone/mob.h b/zone/mob.h
+index dbfda61191..ff529c2f8f 100644
+--- a/zone/mob.h
++++ b/zone/mob.h
+@@ -341,6 +341,7 @@ public:
+ 	void SendAppearanceEffect(uint32 parm1, uint32 parm2, uint32 parm3, uint32 parm4, uint32 parm5, Client *specific_target=nullptr, uint32 value1slot = 1, uint32 value1ground = 1, uint32 value2slot = 1, uint32 value2ground = 1,
+ 		uint32 value3slot = 1, uint32 value3ground = 1, uint32 value4slot = 1, uint32 value4ground = 1, uint32 value5slot = 1, uint32 value5ground = 1);
+ 	void SendLevelAppearance();
++	void SendLevelAppearanceToToB();
+ 	void SendTargetable(bool on, Client *specific_target = nullptr);
+ 	void SetMobTextureProfile(uint8 material_slot, uint32 texture, uint32 color = 0, uint32 hero_forge_model = 0);
+ 
+-- 
+2.51.0.windows.2
+

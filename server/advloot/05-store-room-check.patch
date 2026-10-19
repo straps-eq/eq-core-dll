@@ -1,0 +1,198 @@
+From e1afc46c7ffcfd196940ac0208c0ebb3e802f208 Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sun, 18 Oct 2026 16:44:42 -0500
+Subject: [PATCH] TOB: Advanced Loot store checks for room before the quest
+ loot events
+
+A store could still fail after the loot events had run (full Dragon's Hoard, a
+lore copy already in it, a full depot). The events had already done their work,
+so quests that clear a flag on loot locked the player out and quests that signal
+on loot could be repeated by retrying. The depot and hoard now expose the checks
+their store functions make, and the loot window asks them first.
+---
+ zone/client.h             |  2 +
+ zone/corpse_advloot.cpp   |  8 ++--
+ zone/dragon_hoard.cpp     | 81 ++++++++++++++++++++++++++-------------
+ zone/tradeskill_depot.cpp | 17 ++++++++
+ 4 files changed, 79 insertions(+), 29 deletions(-)
+
+diff --git a/zone/client.h b/zone/client.h
+index 1d584a5cfd..ec9bad2408 100644
+--- a/zone/client.h
++++ b/zone/client.h
+@@ -1165,6 +1165,7 @@ public:
+ 	void FinishDragonHoardRequest();
+ 	bool CanStoreInDragonHoard(EQ::ItemInstance *inst);
+ 	bool StoreInDragonHoard(EQ::ItemInstance *inst, bool from_cursor);
++	bool DragonHoardHasRoomFor(EQ::ItemInstance *inst);
+ 	void DepositDragonHoardItem(uint64 item_index);
+ 	void WithdrawDragonHoardItem(uint64 item_index, uint32 quantity);
+ 	// TOB+ Tradeskill Depot, stackable components kept as item id -> quantity (rule Character:TradeskillDepotSlots, 0 = off)
+@@ -1176,6 +1177,7 @@ public:
+ 	bool RemoveTradeskillDepotItem(uint32 item_id, uint32 quantity);
+ 	bool CanStoreInTradeskillDepot(EQ::ItemInstance *inst);
+ 	bool StoreInTradeskillDepot(EQ::ItemInstance *inst, bool say_full);
++	bool TradeskillDepotHasRoomFor(EQ::ItemInstance *inst);
+ 	void SendTradeskillDepotAction(uint32 action, uint32 value = 0);
+ 	void SendTradeskillDepotList();
+ 	void DepositTradeskillDepotItem(uint64 item_index);
+diff --git a/zone/corpse_advloot.cpp b/zone/corpse_advloot.cpp
+index b328a1973f..b7a4e044b5 100644
+--- a/zone/corpse_advloot.cpp
++++ b/zone/corpse_advloot.cpp
+@@ -833,12 +833,14 @@ void Corpse::AdvancedLootStore(Client *c, EQ::ItemInstance *inst, LootItem *item
+ {
+ 	const auto *item = inst->GetItem();
+ 
+-	const bool depot_ok = c->CanStoreInTradeskillDepot(inst) &&
++	// room is checked up front: once the quest loot events below have run, the store must not fail for a reason
++	// we could have seen (a full hoard or depot, a lore copy already in the hoard)
++	const bool depot_ok = c->TradeskillDepotHasRoomFor(inst) &&
+ 		(action != AdvLootActionStoreDepotStack || c->GetTradeskillDepotQuantity(item->ID) > 0);
+-	const bool hoard_ok = action == AdvLootActionStore && c->CanStoreInDragonHoard(inst);
++	const bool hoard_ok = action == AdvLootActionStore && c->DragonHoardHasRoomFor(inst);
+ 
+ 	if (HasBagContents(bag_item_data) || (!depot_ok && !hoard_ok)) {
+-		c->Message(Chat::Red, fmt::format("{} cannot be stored from the loot window.", item->Name).c_str()); // no client string for this
++		c->Message(Chat::Red, fmt::format("{} cannot be stored from the loot window, or there is no room for it.", item->Name).c_str()); // no client string for this
+ 		LogLoot("[{}] store of [{}] from [{}] refused", c->GetCleanName(), item->Name, GetCleanName());
+ 		RefuseAdvLootRequest(c, GetID(), item->ID, sequence);
+ 		return;
+diff --git a/zone/dragon_hoard.cpp b/zone/dragon_hoard.cpp
+index dae51c2893..486eb2e7ac 100644
+--- a/zone/dragon_hoard.cpp
++++ b/zone/dragon_hoard.cpp
+@@ -61,6 +61,40 @@ namespace {
+ 
+ 		return false;
+ 	}
++
++	// a stack joins a row of the same item that has room for it, anything else takes the first free row
++	bool FindHoardRow(
++		const std::map<int16, EQ::ItemInstance *> &rows,
++		EQ::ItemInstance *inst,
++		int capacity,
++		EQ::ItemInstance *&merge_row,
++		int16 &hoard_slot
++	)
++	{
++		const auto *item          = inst->GetItem();
++		const int   deposit_count = inst->IsStackable() ? std::max<int>(inst->GetCharges(), 1) : 1;
++
++		merge_row  = nullptr;
++		hoard_slot = INVALID_INDEX;
++		if (inst->IsStackable()) {
++			for (const auto &[slot_id, row] : rows) {
++				if (row && row->GetID() == item->ID && row->GetCharges() + deposit_count <= item->StackSize) {
++					merge_row  = row;
++					hoard_slot = slot_id;
++					return true;
++				}
++			}
++		}
++
++		for (int index = 0; index < capacity; index++) {
++			if (!rows.contains(EQ::invslot::DragonHoardSlot(index))) {
++				hoard_slot = EQ::invslot::DragonHoardSlot(index);
++				return true;
++			}
++		}
++
++		return false;
++	}
+ }
+ 
+ bool Client::IsDragonHoardEnabled()
+@@ -122,6 +156,23 @@ bool Client::CanStoreInDragonHoard(EQ::ItemInstance *inst)
+ 	return IsDragonHoardEnabled() && CanDeposit(inst);
+ }
+ 
++// everything StoreInDragonHoard checks before it writes, so callers can ask first
++bool Client::DragonHoardHasRoomFor(EQ::ItemInstance *inst)
++{
++	if (!CanStoreInDragonHoard(inst)) {
++		return false;
++	}
++
++	const auto &rows = m_inv.GetDragonHoardItems();
++	if (HoardHoldsLore(rows, inst->GetItem())) {
++		return false;
++	}
++
++	EQ::ItemInstance *merge_row  = nullptr;
++	int16             hoard_slot = INVALID_INDEX;
++	return FindHoardRow(rows, inst, GetDragonHoardCapacity(), merge_row, hoard_slot);
++}
++
+ bool Client::StoreInDragonHoard(EQ::ItemInstance *inst, bool from_cursor)
+ {
+ 	if (!CanDeposit(inst)) {
+@@ -138,33 +189,11 @@ bool Client::StoreInDragonHoard(EQ::ItemInstance *inst, bool from_cursor)
+ 
+ 	const int deposit_count = inst->IsStackable() ? std::max<int>(inst->GetCharges(), 1) : 1;
+ 
+-	// a stack joins a row of the same item that has room for it
+ 	EQ::ItemInstance *merge_row  = nullptr;
+-	int16             merge_slot = INVALID_INDEX;
+-	if (inst->IsStackable()) {
+-		for (const auto &[slot_id, row] : rows) {
+-			if (row && row->GetID() == item->ID && row->GetCharges() + deposit_count <= item->StackSize) {
+-				merge_row  = row;
+-				merge_slot = slot_id;
+-				break;
+-			}
+-		}
+-	}
+-
+-	int16 hoard_slot = merge_slot;
+-	if (!merge_row) {
+-		const int capacity = GetDragonHoardCapacity();
+-		for (int index = 0; index < capacity; index++) {
+-			if (!rows.contains(EQ::invslot::DragonHoardSlot(index))) {
+-				hoard_slot = EQ::invslot::DragonHoardSlot(index);
+-				break;
+-			}
+-		}
+-
+-		if (hoard_slot == INVALID_INDEX) {
+-			MessageString(Chat::Red, DRAGON_HOARD_FULL);
+-			return false;
+-		}
++	int16             hoard_slot = INVALID_INDEX;
++	if (!FindHoardRow(rows, inst, GetDragonHoardCapacity(), merge_row, hoard_slot)) {
++		MessageString(Chat::Red, DRAGON_HOARD_FULL);
++		return false;
+ 	}
+ 
+ 	// the row after the move
+diff --git a/zone/tradeskill_depot.cpp b/zone/tradeskill_depot.cpp
+index 35a1213416..207da306e2 100644
+--- a/zone/tradeskill_depot.cpp
++++ b/zone/tradeskill_depot.cpp
+@@ -81,6 +81,23 @@ bool Client::CanStoreInTradeskillDepot(EQ::ItemInstance *inst)
+ 	return IsTradeskillDepotEnabled() && CanDeposit(inst);
+ }
+ 
++// the same limits AddTradeskillDepotItem applies, so callers can ask before they commit
++bool Client::TradeskillDepotHasRoomFor(EQ::ItemInstance *inst)
++{
++	if (!CanStoreInTradeskillDepot(inst)) {
++		return false;
++	}
++
++	const uint32 item_id  = inst->GetItem()->ID;
++	const uint32 quantity = static_cast<uint32>(std::max<int16>(inst->GetCharges(), 1));
++	const uint32 stored   = GetTradeskillDepotQuantity(item_id);
++	if (quantity > MAX_DEPOT_QUANTITY - stored) {
++		return false;
++	}
++
++	return stored || m_tradeskill_depot.size() < GetTradeskillDepotCapacity();
++}
++
+ bool Client::StoreInTradeskillDepot(EQ::ItemInstance *inst, bool say_full)
+ {
+ 	if (!CanStoreInTradeskillDepot(inst)) {
+-- 
+2.51.0.windows.2
+

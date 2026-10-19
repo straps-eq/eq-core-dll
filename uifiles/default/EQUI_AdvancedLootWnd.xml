@@ -1,0 +1,802 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<XML ID="EQInterfaceDefinitionLanguage">
+  <Schema xmlns="EverQuestData" xmlns:dt="EverQuestDataTypes" />
+
+  <!-- Personal Loot -->
+  <Label item="ADLW_PLLLbl">
+    <ScreenID>ADLW_PLLLbl</ScreenID>
+    <Location>
+      <X>5</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>105</CX>
+      <CY>24</CY>
+    </Size>
+    <Text>Personal Loot</Text>
+  </Label>
+  <Button item="ADLW_PLL_LootAllBtn">
+    <ScreenID>ADLW_PLL_LootAllBtn</ScreenID>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>0</TopAnchorOffset>
+    <BottomAnchorOffset>24</BottomAnchorOffset>
+    <LeftAnchorOffset>70</LeftAnchorOffset>
+    <RightAnchorOffset>10</RightAnchorOffset>
+    <TopAnchorToTop>true</TopAnchorToTop>
+    <BottomAnchorToTop>true</BottomAnchorToTop>
+    <LeftAnchorToLeft>false</LeftAnchorToLeft>
+    <RightAnchorToLeft>false</RightAnchorToLeft>
+    <TooltipReference>Loot all items in the Personal Loot list.</TooltipReference>
+    <Text>Loot All</Text>
+    <Template>BDT_SmallNormal</Template>
+  </Button>
+  <Listbox item="ADLW_PLLList">
+    <ScreenID>ADLW_PLLList</ScreenID>
+    <DrawTemplate>WDT_Inner</DrawTemplate>
+    <TextColor>
+      <R>0</R>
+      <G>148</G>
+      <B>255</B>
+    </TextColor>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>25</TopAnchorOffset>
+    <BottomAnchorOffset>30</BottomAnchorOffset>
+    <LeftAnchorOffset>10</LeftAnchorOffset>
+    <RightAnchorOffset>10</RightAnchorOffset>
+    <TopAnchorToTop>true</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>false</RightAnchorToLeft>
+    <Style_VScroll>true</Style_VScroll>
+    <Style_Border>true</Style_Border>
+    <Columns>
+      <Width>35</Width>
+      <Heading>Item</Heading>
+      <Sortable>true</Sortable>
+    </Columns>
+    <Columns>
+      <Width>32</Width>
+      <Heading>Loot</Heading>
+      <Sortable>false</Sortable>
+      <Tooltip>Loot item(s) on corpse(s)</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>37</Width>
+      <Heading>Leave</Heading>
+      <Sortable>false</Sortable>
+      <Tooltip>Leave item(s) on corpse(s)</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>25</Width>
+      <Heading>AN</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>Always Need: Always roll need on this item</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>25</Width>
+      <Heading>AG</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>Always Greed: Always roll greed on this item</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>36</Width>
+      <Heading>Never</Heading>
+      <Sortable>false</Sortable>
+      <Tooltip>Never loot this item</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>160</Width>
+      <Heading>NPC Name</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>NPC Name</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>25</Width>
+      <Heading>AS</Heading>
+      <Sortable>false</Sortable>
+      <Tooltip>Auto Sell: sell this item automatically when it drops</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>25</Width>
+      <Heading>ST</Heading>
+      <Sortable>false</Sortable>
+      <Tooltip>Auto Store: store this item (Tradeskill Depot or Dragon's Hoard) automatically when it drops</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>10</Width>
+    </Columns>
+    <TooltipReference>Set loot decisions here for each item.</TooltipReference>
+  </Listbox>
+  <Button item="ADLW_PLLSetBtn">
+    <ScreenID>ADLW_PLLSetBtn</ScreenID>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>24</TopAnchorOffset>
+    <BottomAnchorOffset>0</BottomAnchorOffset>
+    <LeftAnchorOffset>0</LeftAnchorOffset>
+    <RightAnchorOffset>60</RightAnchorOffset>
+    <TopAnchorToTop>false</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>true</RightAnchorToLeft>
+    <TooltipReference>This sets all of the items in the Personal List to the selected option.</TooltipReference>
+    <Text>Set all to:</Text>
+    <Template>BDT_SmallNormal</Template>
+  </Button>
+  <Combobox item="ADLW_PLLSetCmbo">
+    <ScreenID>ADLW_PLLSetCmbo</ScreenID>
+    <DrawTemplate>WDT_Inner</DrawTemplate>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>24</TopAnchorOffset>
+    <BottomAnchorOffset>0</BottomAnchorOffset>
+    <LeftAnchorOffset>65</LeftAnchorOffset>
+    <RightAnchorOffset>170</RightAnchorOffset>
+    <TopAnchorToTop>false</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>true</RightAnchorToLeft>
+    <ListHeight>80</ListHeight>
+    <Button>BDT_Combo</Button>
+    <Style_Border>true</Style_Border>
+    <Choices>Loot All</Choices>
+    <Choices>Leave All</Choices>
+    <Choices>Always Need</Choices>
+    <Choices>Always Greed</Choices>
+    <Choices>Never</Choices>
+  </Combobox>
+  <Button item="ADLW_PLL_LeaveAllBtn">
+    <ScreenID>ADLW_PLL_LeaveAllBtn</ScreenID>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>24</TopAnchorOffset>
+    <BottomAnchorOffset>0</BottomAnchorOffset>
+    <LeftAnchorOffset>175</LeftAnchorOffset>
+    <RightAnchorOffset>235</RightAnchorOffset>
+    <TopAnchorToTop>false</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>true</RightAnchorToLeft>
+    <TooltipReference>Leave all items in the Personal Loot list.</TooltipReference>
+    <Text>Leave All</Text>
+    <Template>BDT_SmallNormal</Template>
+  </Button>
+  <!-- eq-core-dll AdvLootActions: whole-list action buttons (hidden until the server advertises support) -->
+  <Button item="ADLW_PLL_StoreAllBtn">
+    <ScreenID>ADLW_PLL_StoreAllBtn</ScreenID>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>24</TopAnchorOffset>
+    <BottomAnchorOffset>0</BottomAnchorOffset>
+    <LeftAnchorOffset>240</LeftAnchorOffset>
+    <RightAnchorOffset>300</RightAnchorOffset>
+    <TopAnchorToTop>false</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>true</RightAnchorToLeft>
+    <TooltipReference>Store every eligible Personal Loot item in your Tradeskill Depot or Dragon's Hoard.</TooltipReference>
+    <Text>Store All</Text>
+    <Template>BDT_SmallNormal</Template>
+  </Button>
+  <Button item="ADLW_PLL_SellAllBtn">
+    <ScreenID>ADLW_PLL_SellAllBtn</ScreenID>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>24</TopAnchorOffset>
+    <BottomAnchorOffset>0</BottomAnchorOffset>
+    <LeftAnchorOffset>305</LeftAnchorOffset>
+    <RightAnchorOffset>365</RightAnchorOffset>
+    <TopAnchorToTop>false</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>true</RightAnchorToLeft>
+    <TooltipReference>Sell every sellable Personal Loot item at merchant value.</TooltipReference>
+    <Text>Sell All</Text>
+    <Template>BDT_SmallNormal</Template>
+  </Button>
+  <Screen item="ADLW_PLLWnd">
+    <ScreenID>ADLW_PLLWnd</ScreenID>
+    <Location>
+      <X>0</X>
+      <Y>0</Y>
+    </Location>
+    <Size>
+      <CX>300</CX>
+      <CY>50</CY>
+    </Size>
+    <DrawTemplate>WDT_Inner</DrawTemplate>
+    <MinVSize>125</MinVSize>
+    <Style_Border>true</Style_Border>
+    <Style_VScroll>false</Style_VScroll>
+    <Style_Transparent>true</Style_Transparent>
+    <Style_Border>true</Style_Border>
+    <Style_Titlebar>false</Style_Titlebar>
+    <Pieces>ADLW_PLLLbl</Pieces>
+    <Pieces>ADLW_PLLList</Pieces>
+    <Pieces>ADLW_PLLSetBtn</Pieces>
+    <Pieces>ADLW_PLL_LootAllBtn</Pieces>
+    <Pieces>ADLW_PLLSetCmbo</Pieces>
+    <Pieces>ADLW_PLL_LeaveAllBtn</Pieces>
+    <Pieces>ADLW_PLL_StoreAllBtn</Pieces>
+    <Pieces>ADLW_PLL_SellAllBtn</Pieces>
+  </Screen>
+
+  <!-- Construct Loot -->
+  <Label item="ADLW_CLLLbl">
+    <ScreenID>ADLW_CLLLbl</ScreenID>
+    <Location>
+      <X>5</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>105</CX>
+      <CY>50</CY>
+    </Size>
+    <Text>Shared Loot</Text>
+  </Label>
+  <Listbox item="ADLW_CLLList">
+    <ScreenID>ADLW_CLLList</ScreenID>
+    <DrawTemplate>WDT_Inner</DrawTemplate>
+    <TextColor>
+      <R>0</R>
+      <G>148</G>
+      <B>255</B>
+    </TextColor>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>25</TopAnchorOffset>
+    <BottomAnchorOffset>30</BottomAnchorOffset>
+    <LeftAnchorOffset>10</LeftAnchorOffset>
+    <RightAnchorOffset>10</RightAnchorOffset>
+    <TopAnchorToTop>true</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>false</RightAnchorToLeft>
+    <Style_VScroll>true</Style_VScroll>
+    <Style_Border>true</Style_Border>
+    <Columns>
+      <Width>35</Width>
+      <Heading>Item</Heading>
+      <Sortable>true</Sortable>
+    </Columns>
+    <Columns>
+      <Width>40</Width>
+      <Heading>Status</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>The current Status of loot management for this item.  Could be None, Auto Ask and Roll, Ask in progress, or Ask completed.</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>45</Width>
+      <Heading>Action</Heading>
+      <Sortable>false</Sortable>
+      <Tooltip>Currently available action to take concerning this loot item entry.  Can be Ask members for need or greed, Stop asking, or Roll.</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>50</Width>
+      <Heading>Manage</Heading>
+      <Sortable>false</Sortable>
+      <Tooltip>Opens the Manage Loot detail window, giving you further options for this loot item entry.</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>40</Width>
+      <Header>Header_AutoRoll</Header>
+      <Sortable>true</Sortable>
+      <Tooltip>When you are Master Looter, automatically Ask members Need / Greed, and auto Roll after the Ask action.</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>25</Width>
+      <Heading>ND</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>Need: I need the item</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>25</Width>
+      <Heading>GD</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>Greed: I want the item</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>25</Width>
+      <Heading>NO</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>No: I do not want this item</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>25</Width>
+      <Heading>AN</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>Always Need: Always roll need on this item</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>25</Width>
+      <Heading>AG</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>Always Greed: Always roll greed on this item</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>35</Width>
+      <Heading>NV</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>Never loot this item</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>200</Width>
+      <Heading>NPC Name</Heading>
+      <Sortable>true</Sortable>
+      <Tooltip>NPC Name</Tooltip>
+    </Columns>
+    <Columns>
+      <Width>10</Width>
+    </Columns>
+    <TooltipReference>Set loot decisions here for each item.</TooltipReference>
+  </Listbox>
+  <Button item="ADLW_CLLSetBtn">
+    <ScreenID>ADLW_CLLSetBtn</ScreenID>
+    <AutoStretch>true</AutoStretch>
+    <LeftAnchorOffset>0</LeftAnchorOffset>
+    <TopAnchorOffset>24</TopAnchorOffset>
+    <RightAnchorOffset>60</RightAnchorOffset>
+    <BottomAnchorOffset>0</BottomAnchorOffset>
+    <TopAnchorToTop>false</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>true</RightAnchorToLeft>
+    <TooltipReference>This sets all of the items in the Shared List to the selected option.</TooltipReference>
+    <Text>Set all to:</Text>
+    <Template>BDT_SmallNormal</Template>
+  </Button>
+  <Combobox item="ADLW_CLLSetCmbo">
+    <ScreenID>ADLW_CLLSetCmbo</ScreenID>
+    <DrawTemplate>WDT_Inner</DrawTemplate>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>24</TopAnchorOffset>
+    <BottomAnchorOffset>0</BottomAnchorOffset>
+    <LeftAnchorOffset>65</LeftAnchorOffset>
+    <RightAnchorOffset>185</RightAnchorOffset>
+    <TopAnchorToTop>false</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>true</RightAnchorToLeft>
+    <ListHeight>150</ListHeight>
+    <Button>BDT_Combo</Button>
+    <Style_Border>true</Style_Border>
+    <Choices>Need</Choices>
+    <Choices>Greed</Choices>
+    <Choices>No</Choices>
+    <Choices>Always Need</Choices>
+    <Choices>Always Greed</Choices>
+    <Choices>Never</Choices>
+  </Combobox>
+  <Button item="ADLW_CLL_LeaveAllBtn">
+    <ScreenID>ADLW_CLL_LeaveAllBtn</ScreenID>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorOffset>24</TopAnchorOffset>
+    <BottomAnchorOffset>0</BottomAnchorOffset>
+    <LeftAnchorOffset>190</LeftAnchorOffset>
+    <RightAnchorOffset>250</RightAnchorOffset>
+    <TopAnchorToTop>false</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>true</RightAnchorToLeft>
+    <TooltipReference>Leave all items in the Shared Loot list.</TooltipReference>
+    <Text>Leave All</Text>
+    <Template>BDT_SmallNormal</Template>
+  </Button>
+  <Screen item="ADLW_CLLWnd">
+    <ScreenID>ADLW_CLLWnd</ScreenID>
+    <Location>
+      <X>0</X>
+      <Y>0</Y>
+    </Location>
+    <Size>
+      <CX>300</CX>
+      <CY>50</CY>
+    </Size>
+    <DrawTemplate>WDT_Inner</DrawTemplate>
+    <Style_Border>true</Style_Border>
+    <Style_VScroll>false</Style_VScroll>
+    <Style_Transparent>true</Style_Transparent>
+    <Style_Border>true</Style_Border>
+    <Style_Titlebar>false</Style_Titlebar>
+    <Pieces>ADLW_CLLLbl</Pieces>
+    <Pieces>ADLW_CLLList</Pieces>
+    <Pieces>ADLW_CLLSetBtn</Pieces>
+    <Pieces>ADLW_CLLSetCmbo</Pieces>
+    <Pieces>ADLW_CLL_LeaveAllBtn</Pieces>
+  </Screen>
+
+  <!-- General -->
+  <Button item="ADLW_ApplyFiltersCheck">
+    <ScreenID>ADLW_ApplyFiltersCheck</ScreenID>
+    <Location>
+      <X>0</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>110</CX>
+      <CY>16</CY>
+    </Size>
+    <Style_Checkbox>true</Style_Checkbox>
+    <Text>Apply Filters</Text>
+    <TooltipReference>When checked this will automatically opt in or out for each item.  When not checked you will need to manually opt in or out on each item.</TooltipReference>
+    <Template>BDT_CheckboxWithText</Template>
+    <DecalSize>
+      <CX>16</CX>
+      <CY>16</CY>
+    </DecalSize>
+    <TextAlignCenter>false</TextAlignCenter>
+    <TextOffsetX>20</TextOffsetX>
+  </Button>
+  <Button item="ADLW_GroupedByNpcCheckbox">
+    <ScreenID>ADLW_GroupedByNpcCheckbox</ScreenID>
+    <Location>
+      <X>0</X>
+      <Y>25</Y>
+    </Location>
+    <Size>
+      <CX>125</CX>
+      <CY>16</CY>
+    </Size>
+    <Style_Checkbox>true</Style_Checkbox>
+    <Text>Group by NPCs</Text>
+    <TooltipReference>Toggles whether items are sorted by the owning NPC.</TooltipReference>
+    <Template>BDT_CheckboxWithText</Template>
+    <DecalSize>
+      <CX>16</CX>
+      <CY>16</CY>
+    </DecalSize>
+    <TextAlignCenter>false</TextAlignCenter>
+    <TextOffsetX>20</TextOffsetX>
+  </Button>
+  <Button item="ADLW_EditFiltersBtn">
+    <ScreenID>ADLW_EditFiltersBtn</ScreenID>
+    <Location>
+      <X>0</X>
+      <Y>50</Y>
+    </Location>
+    <Size>
+      <CX>100</CX>
+      <CY>24</CY>
+    </Size>
+    <TooltipReference>Click this button to open the Advanced Loot Filters window.</TooltipReference>
+    <Text>Edit Filters</Text>
+    <Template>BDT_SmallNormal</Template>
+  </Button>
+  <Button item="ADLW_LootSettingsBtn">
+    <ScreenID>ADLW_LootSettingsBtn</ScreenID>
+    <Location>
+      <X>110</X>
+      <Y>50</Y>
+    </Location>
+    <Size>
+      <CX>100</CX>
+      <CY>24</CY>
+    </Size>
+    <TooltipReference>Click this button to open the Advanced Loot Settings window.</TooltipReference>
+    <Text>Loot Settings</Text>
+    <Template>BDT_SmallNormal</Template>
+  </Button>
+  <Label item="ADLW_CalculatedMasterLooterLabel">
+    <ScreenID>ADLW_CalculatedMasterLooterLabel</ScreenID>
+    <Location>
+      <X>120</X>
+      <Y>7</Y>
+    </Location>
+    <Size>
+      <CX>80</CX>
+      <CY>15</CY>
+    </Size>
+    <Text>Master Looter:</Text>
+  </Label>
+  <Label item="ADLW_CalculatedMasterLooter">
+    <ScreenID>ADLW_CalculatedMasterLooter</ScreenID>
+    <Location>
+      <X>120</X>
+      <Y>22</Y>
+    </Location>
+    <Size>
+      <CX>105</CX>
+      <CY>17</CY>
+    </Size>
+    <Text>Me</Text>
+  </Label>
+
+  <!-- eq-core-dll AdvLootActions settings (dinput8.ini [AdvLoot]; hidden until the server advertises support) -->
+  <Button item="ADLW_ShiftForAllCheck">
+    <ScreenID>ADLW_ShiftForAllCheck</ScreenID>
+    <Location>
+      <X>235</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>190</CX>
+      <CY>16</CY>
+    </Size>
+    <Style_Checkbox>true</Style_Checkbox>
+    <Text>Shift for Sell/Store All</Text>
+    <TooltipReference>When checked, Sell All / Store All only act while Shift is held.</TooltipReference>
+    <Template>BDT_CheckboxWithText</Template>
+    <DecalSize>
+      <CX>16</CX>
+      <CY>16</CY>
+    </DecalSize>
+    <TextAlignCenter>false</TextAlignCenter>
+    <TextOffsetX>20</TextOffsetX>
+  </Button>
+  <Button item="ADLW_AutoActionsCheck">
+    <ScreenID>ADLW_AutoActionsCheck</ScreenID>
+    <Location>
+      <X>235</X>
+      <Y>25</Y>
+    </Location>
+    <Size>
+      <CX>190</CX>
+      <CY>16</CY>
+    </Size>
+    <Style_Checkbox>true</Style_Checkbox>
+    <Text>Auto Sell/Store</Text>
+    <TooltipReference>Adds Auto-sell / Auto-store this item to the right-click menu; marked items are handled when they drop.</TooltipReference>
+    <Template>BDT_CheckboxWithText</Template>
+    <DecalSize>
+      <CX>16</CX>
+      <CY>16</CY>
+    </DecalSize>
+    <TextAlignCenter>false</TextAlignCenter>
+    <TextOffsetX>20</TextOffsetX>
+  </Button>
+  <Screen item="ADLW_FiltersWnd">
+    <ScreenID>ADLW_FiltersWnd</ScreenID>
+    <DrawTemplate>WDT_Inner</DrawTemplate>
+    <RelativePosition>true</RelativePosition>
+    <AutoStretch>true</AutoStretch>
+    <LeftAnchorOffset>2</LeftAnchorOffset>
+    <TopAnchorOffset>82</TopAnchorOffset>
+    <RightAnchorOffset>2</RightAnchorOffset>
+    <BottomAnchorOffset>2</BottomAnchorOffset>
+    <TopAnchorToTop>false</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>false</RightAnchorToLeft>
+    <DrawTemplate>WDT_Inner</DrawTemplate>
+    <Style_Border>true</Style_Border>
+    <Style_HScroll>false</Style_HScroll>
+    <Style_VScroll>false</Style_VScroll>
+    <Style_Transparent>true</Style_Transparent>
+    <Style_Border>true</Style_Border>
+    <Style_Titlebar>false</Style_Titlebar>
+    <Pieces>ADLW_ApplyFiltersCheck</Pieces>
+    <Pieces>ADLW_GroupedByNpcCheckbox</Pieces>
+    <Pieces>ADLW_EditFiltersBtn</Pieces>
+    <Pieces>ADLW_LootSettingsBtn</Pieces>
+    <Pieces>ADLW_CalculatedMasterLooterLabel</Pieces>
+    <Pieces>ADLW_CalculatedMasterLooter</Pieces>
+    <Pieces>ADLW_ShiftForAllCheck</Pieces>
+    <Pieces>ADLW_AutoActionsCheck</Pieces>
+  </Screen>
+
+  <VerticalLayoutBox item="ADLW_ScreenLayout">
+    <ScreenID>ADLW_ScreenLayout</ScreenID>
+    <DrawTemplate>WDT_Inner</DrawTemplate>
+    <AutoStretch>true</AutoStretch>
+    <LeftAnchorOffset>2</LeftAnchorOffset>
+    <TopAnchorOffset>2</TopAnchorOffset>
+    <RightAnchorOffset>2</RightAnchorOffset>
+    <BottomAnchorOffset>82</BottomAnchorOffset>
+    <TopAnchorToTop>true</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>false</RightAnchorToLeft>
+    <ResizeLast>true</ResizeLast>
+    <Spacing>4</Spacing>
+    <Style_VScroll>false</Style_VScroll>
+    <Style_Transparent>true</Style_Transparent>
+    <Pieces>Screen:ADLW_PLLWnd</Pieces>
+    <Pieces>Screen:ADLW_CLLWnd</Pieces>
+  </VerticalLayoutBox>
+
+  <Button item="ADLW_TextLinkTemplate">
+    <ScreenID>ADLW_TextLinkTemplate</ScreenID>
+    <RelativePosition>true</RelativePosition>
+    <AutoStretch>true</AutoStretch>
+    <TopAnchorToTop>true</TopAnchorToTop>
+    <BottomAnchorToTop>false</BottomAnchorToTop>
+    <LeftAnchorToLeft>true</LeftAnchorToLeft>
+    <RightAnchorToLeft>false</RightAnchorToLeft>
+    <TextAlignCenter>false</TextAlignCenter>
+  </Button>
+
+  <Button item="ADLW_CheckBoxTemplate">
+    <ScreenID>ADLW_CheckBoxTemplate</ScreenID>
+    <RelativePosition>true</RelativePosition>
+    <Location>
+      <X>0</X>
+      <Y>10</Y>
+    </Location>
+    <Size>
+      <CX>16</CX>
+      <CY>16</CY>
+    </Size>
+    <Style_Checkbox>true</Style_Checkbox>
+    <Template>BDT_Checkbox</Template>
+  </Button>
+
+  <Button item="ADLW_ItemBtnTemplate">
+    <ScreenID>ADLW_ItemBtnTemplate</ScreenID>
+    <Size>
+      <CX>35</CX>
+      <CY>35</CY>
+    </Size>
+    <Text></Text>
+    <DecalOffset>
+      <X>0</X>
+      <Y>0</Y>
+    </DecalOffset>
+    <DecalSize>
+      <CX>35</CX>
+      <CY>35</CY>
+    </DecalSize>
+    <Template>BDT_LootWndIcon</Template>
+  </Button>
+
+  <Button item="ADLW_StatusTemplate">
+    <ScreenID>ADLW_StatusTemplate</ScreenID>
+    <RelativePosition>true</RelativePosition>
+    <Location>
+      <X>0</X>
+      <Y>0</Y>
+    </Location>
+    <Size>
+      <CX>35</CX>
+      <CY>35</CY>
+    </Size>
+    <DecalOffset>
+      <X>0</X>
+      <Y>0</Y>
+    </DecalOffset>
+    <DecalSize>
+      <CX>35</CX>
+      <CY>35</CY>
+    </DecalSize>
+    <Tooltip>Status</Tooltip>
+  </Button>
+
+  <Button item="ADLW_FreeGrabBtnTemplate">
+    <ScreenID>ADLW_FreeGrabBtnTemplate</ScreenID>
+    <RelativePosition>true</RelativePosition>
+    <Location>
+      <X>5</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>25</CX>
+      <CY>25</CY>
+    </Size>
+    <ButtonDrawTemplate>
+      <Normal>A_GrabNormal</Normal>
+      <Pressed>A_GrabPressed</Pressed>
+      <Flyby>A_GrabFlyby</Flyby>
+      <PressedFlyby>A_GrabPressed</PressedFlyby>
+    </ButtonDrawTemplate>
+    <Tooltip>Grab 1 item from the corpse, moving it from your shared list to your personal list.</Tooltip>
+  </Button>
+
+  <Button item="ADLW_LootBtnTemplate">
+    <ScreenID>ADLW_LootBtnTemplate</ScreenID>
+    <RelativePosition>true</RelativePosition>
+    <Location>
+      <X>5</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>25</CX>
+      <CY>25</CY>
+    </Size>
+    <ButtonDrawTemplate>
+      <Normal>A_CheckNormal</Normal>
+      <Pressed>A_CheckPressed</Pressed>
+      <Flyby>A_CheckFlyby</Flyby>
+      <PressedFlyby>A_CheckPressed</PressedFlyby>
+    </ButtonDrawTemplate>
+    <Tooltip>Loot item(s) on corpse(s)</Tooltip>
+  </Button>
+
+  <Button item="ADLW_LeaveBtnTemplate">
+    <ScreenID>ADLW_LeaveBtnTemplate</ScreenID>
+    <RelativePosition>true</RelativePosition>
+    <Location>
+      <X>8</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>25</CX>
+      <CY>25</CY>
+    </Size>
+    <ButtonDrawTemplate>
+      <Normal>A_CancelNormal</Normal>
+      <Pressed>A_CancelPressed</Pressed>
+      <Flyby>A_CancelFlyby</Flyby>
+      <PressedFlyby>A_CancelPressed</PressedFlyby>
+    </ButtonDrawTemplate>
+    <Tooltip>Leave item(s) on corpse(s)</Tooltip>
+  </Button>
+
+  <Button item="ADLW_NvrBtnTemplate">
+    <ScreenID>ADLW_NvrBtnTemplate</ScreenID>
+    <RelativePosition>true</RelativePosition>
+    <Location>
+      <X>5</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>25</CX>
+      <CY>25</CY>
+    </Size>
+    <ButtonDrawTemplate>
+      <Normal>A_CancelNormal</Normal>
+      <Pressed>A_CancelPressed</Pressed>
+      <Flyby>A_CancelFlyby</Flyby>
+      <PressedFlyby>A_CancelPressed</PressedFlyby>
+    </ButtonDrawTemplate>
+  </Button>
+
+  <Button item="ADLW_ActionBtnTemplate">
+    <ScreenID>ADLW_ActionBtnTemplate</ScreenID>
+    <Location>
+      <X>5</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>25</CX>
+      <CY>25</CY>
+    </Size>
+    <Template>BDT_Question</Template>
+    <Tooltip>Action</Tooltip>
+  </Button>
+
+  <Button item="ADLW_ManageBtnTemplate">
+    <ScreenID>ADLW_ManageBtnTemplate</ScreenID>
+    <Location>
+      <X>5</X>
+      <Y>5</Y>
+    </Location>
+    <Size>
+      <CX>25</CX>
+      <CY>25</CY>
+    </Size>
+    <ButtonDrawTemplate>
+      <Normal>A_EditNormal</Normal>
+      <Pressed>A_EditPressed</Pressed>
+      <Flyby>A_EditFlyby</Flyby>
+      <PressedFlyby>A_EditPressed</PressedFlyby>
+    </ButtonDrawTemplate>
+    <Tooltip>Manage</Tooltip>
+  </Button>
+
+  <Screen item="AdvancedLootWnd">
+    <RelativePosition>false</RelativePosition>
+    <Location>
+      <X>150</X>
+      <Y>100</Y>
+    </Location>
+    <Size>
+      <CX>525</CX>
+      <CY>450</CY>
+    </Size>
+    <Text>Advanced Loot</Text>
+    <DrawTemplate>WDT_Rounded</DrawTemplate>
+    <Style_Titlebar>true</Style_Titlebar>
+    <Style_Qmarkbox>true</Style_Qmarkbox>
+    <Style_Closebox>true</Style_Closebox>
+    <Style_Minimizebox>true</Style_Minimizebox>
+    <Style_Border>true</Style_Border>
+    <Style_Sizable>true</Style_Sizable>
+    <MinHSize>200</MinHSize>
+    <MinVSize>340</MinVSize>
+    <Pieces>VerticalLayoutBox:ADLW_ScreenLayout</Pieces>
+    <Pieces>Screen:ADLW_FiltersWnd</Pieces>
+    <Pieces>ADLW_ItemBtnTemplate</Pieces>
+    <Pieces>ADLW_StatusTemplate</Pieces>
+    <Pieces>ADLW_ActionBtnTemplate</Pieces>
+    <Pieces>ADLW_ManageBtnTemplate</Pieces>
+    <Pieces>ADLW_NvrBtnTemplate</Pieces>
+    <Pieces>ADLW_LootBtnTemplate</Pieces>
+    <Pieces>ADLW_FreeGrabBtnTemplate</Pieces>
+    <Pieces>ADLW_LeaveBtnTemplate</Pieces>
+    <Pieces>ADLW_CheckBoxTemplate</Pieces>
+    <Pieces>ADLW_TextLinkTemplate</Pieces>
+  </Screen>
+</XML>

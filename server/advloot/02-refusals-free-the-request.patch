@@ -1,0 +1,171 @@
+From 98660e1f3bc77f8d59f129a5be66059e3399d118 Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sun, 18 Oct 2026 10:42:26 -0500
+Subject: [PATCH] TOB: Advanced Loot refusals free the client's request; drop
+ the Merge action
+
+A refused loot, sell or store only sent the clear-pending message, which leaves
+the client's request (keyed by its sequence) waiting, so the row stayed busy and
+Leave All was refused. Refusals now also answer the request with a result the
+client treats as nothing happened. Refusal lines name the item and are logged.
+Merge is gone: no capability bit, and action 4 is refused like any unknown one.
+---
+ common/ruletypes.h      |  2 +-
+ zone/corpse_advloot.cpp | 42 +++++++++++++++++++++--------------------
+ 2 files changed, 23 insertions(+), 21 deletions(-)
+
+diff --git a/common/ruletypes.h b/common/ruletypes.h
+index 345c67b7b1..7b6f8592d6 100644
+--- a/common/ruletypes.h
++++ b/common/ruletypes.h
+@@ -134,7 +134,7 @@ RULE_BOOL(Character, CheckCursorEmptyWhenLooting, true, "If true, a player canno
+ RULE_BOOL(Character, EnableAdvancedLoot, true, "If true, TOB+ clients with Use Advanced Looting on loot NPC kills from the Advanced Loot window (solo, or groups/raids where everyone uses it)")
+ RULE_INT(Character, AdvancedLootUnlockSeconds, 600, "Advanced Loot: how long the window keeps a corpse reserved for its group/killer before it unlocks for everyone (0 = use NPC:CorpseUnlockTimer); the corpse is kept at least 2 minutes longer")
+ RULE_INT(Character, AdvancedLootAskSeconds, 60, "Advanced Loot: how long a master looter's need/greed ask runs before it completes or auto-rolls (Live: 60)")
+-RULE_BOOL(Character, AdvancedLootActions, false, "Advanced Loot (TOB+): Sell, Store (Tradeskill Depot or Dragon's Hoard) and Merge actions from the loot window; needs the client-side buttons")
++RULE_BOOL(Character, AdvancedLootActions, false, "Advanced Loot (TOB+): Sell and Store (Tradeskill Depot or Dragon's Hoard) actions from the loot window; needs the client-side buttons")
+ RULE_INT(Character, AdvancedLootPresenceRange, 500, "Advanced Loot: group/raid members farther than this from the corpse at the kill must right-click it before looting (0 = off)")
+ RULE_INT(Character, ToBNameplateVitalsRange, 0, "TOB+ clients get the HP and mana percent of NPCs within this distance even when they do not target them, for the client-side nameplate bars (0 = off; limited by Range:MobCloseScanDistance)")
+ RULE_BOOL(Character, MaintainIntoxicationAcrossZones, true, "If true, alcohol effects are maintained across zoning and logging out/in")
+diff --git a/zone/corpse_advloot.cpp b/zone/corpse_advloot.cpp
+index 40f55f6944..92dc924ffc 100644
+--- a/zone/corpse_advloot.cpp
++++ b/zone/corpse_advloot.cpp
+@@ -73,7 +73,6 @@ enum AdvLootAction : uint8 {
+ 	AdvLootActionLoot            = 0,
+ 	AdvLootActionLootAll         = 1,
+ 	AdvLootActionSell            = 3,
+-	AdvLootActionMerge           = 4,
+ 	AdvLootActionStore           = 5, // Tradeskill Depot for components, else Dragon's Hoard
+ 	AdvLootActionStoreDepot      = 6,
+ 	AdvLootActionStoreDepotStack = 7, // Tradeskill Depot, only onto a stack that is already there
+@@ -83,13 +82,13 @@ enum AdvLootCapability : uint32 {
+ 	AdvLootCanSell       = 1 << 0,
+ 	AdvLootCanStoreDepot = 1 << 1,
+ 	AdvLootCanStoreHoard = 1 << 2,
+-	AdvLootCanMerge      = 1 << 3,
+ };
+ 
+ enum AdvLootResult : uint16 {
+ 	AdvLootResultLooted = 1,
+ 	AdvLootResultLore   = 3, // client prints 371
+ 	AdvLootResultNoRoom = 5, // client prints 372
++	AdvLootResultRefused = 6, // no client handling: frees the request and the row, prints nothing
+ 	AdvLootResultGone   = 7, // client prints 11318
+ };
+ 
+@@ -156,13 +155,21 @@ void SendAdvLootClearPending(Client *c, uint32 corpse_id, uint32 item_id)
+ 	safe_delete(outapp);
+ }
+ 
++// a refused loot request: sub 0x10 alone leaves the client's request pending (it is keyed by sequence and only a
++// result frees it), so answer with a result the client takes as "nothing happened" as well
++void RefuseAdvLootRequest(Client *c, uint32 corpse_id, uint32 item_id, uint32 sequence)
++{
++	SendAdvLootResult(c, AdvLootResultRefused, sequence);
++	SendAdvLootClearPending(c, corpse_id, item_id);
++}
++
+ void SendAdvLootCapabilities(Client *c)
+ {
+ 	if (!RuleB(Character, AdvancedLootActions)) {
+ 		return;
+ 	}
+ 
+-	uint32 flags = AdvLootCanSell | AdvLootCanMerge;
++	uint32 flags = AdvLootCanSell;
+ 	if (c->IsTradeskillDepotEnabled()) {
+ 		flags |= AdvLootCanStoreDepot;
+ 	}
+@@ -657,13 +664,13 @@ void Corpse::AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence, uint8
+ 
+ 	if (m_is_locked && c->Admin() < AccountStatus::GMAdmin) {
+ 		c->Message(Chat::Red, "Error: Corpse locked by GM.");
+-		SendAdvLootClearPending(c, GetID(), item_id);
++		RefuseAdvLootRequest(c, GetID(), item_id, sequence);
+ 		return;
+ 	}
+ 
+ 	if (!IsAdvancedLootPresent(c)) {
+ 		c->Message(Chat::Red, "You were not near this corpse when it was looted. Go to the corpse and right-click it first.");
+-		SendAdvLootClearPending(c, GetID(), item_id);
++		RefuseAdvLootRequest(c, GetID(), item_id, sequence);
+ 		return;
+ 	}
+ 
+@@ -707,20 +714,13 @@ void Corpse::AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence, uint8
+ 		case AdvLootActionLoot:
+ 		case AdvLootActionLootAll:
+ 			break;
+-		case AdvLootActionMerge:
+-			if (!inst->IsStackable() || c->GetInv().HasItem(item_id, 1, invWherePersonal) == INVALID_INDEX) {
+-				c->Message(Chat::Red, "There are no valid merges for this item."); // no client string for this
+-				SendAdvLootClearPending(c, GetID(), item_id);
+-				return;
+-			}
+-			break;
+ 		case AdvLootActionSell:
+ 		case AdvLootActionStore:
+ 		case AdvLootActionStoreDepot:
+ 		case AdvLootActionStoreDepotStack:
+ 			// the item still leaves the corpse, so quest vetoes apply
+ 			if (LootPreventedByEvents(c, inst.get())) {
+-				SendAdvLootClearPending(c, GetID(), item_id);
++				RefuseAdvLootRequest(c, GetID(), item_id, sequence);
+ 				return;
+ 			}
+ 
+@@ -733,7 +733,7 @@ void Corpse::AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence, uint8
+ 			return;
+ 		default:
+ 			LogLoot("[{}] unknown Advanced Loot action [{}] for item [{}]", c->GetCleanName(), action, item_id);
+-			SendAdvLootClearPending(c, GetID(), item_id);
++			RefuseAdvLootRequest(c, GetID(), item_id, sequence);
+ 			return;
+ 	}
+ 
+@@ -753,7 +753,7 @@ void Corpse::AdvancedLootItem(Client *c, uint32 item_id, uint32 sequence, uint8
+ 	}
+ 
+ 	if (LootPreventedByEvents(c, inst.get())) {
+-		SendAdvLootClearPending(c, GetID(), item_id);
++		RefuseAdvLootRequest(c, GetID(), item_id, sequence);
+ 		return;
+ 	}
+ 
+@@ -792,8 +792,9 @@ void Corpse::AdvancedLootSell(Client *c, EQ::ItemInstance *inst, LootItem *item_
+ 		zone->GetCurrencyID(item->ID) != 0 ||
+ 		item->ID == ADVLOOT_KRONO_ITEM_ID;
+ 	if (unsellable) {
+-		c->Message(Chat::Red, "That item cannot be sold from the loot window."); // no client string for this
+-		SendAdvLootClearPending(c, GetID(), item->ID);
++		c->Message(Chat::Red, fmt::format("{} cannot be sold from the loot window.", item->Name).c_str()); // no client string for this
++		LogLoot("[{}] sell of [{}] from [{}] refused", c->GetCleanName(), item->Name, GetCleanName());
++		RefuseAdvLootRequest(c, GetID(), item->ID, sequence);
+ 		return;
+ 	}
+ 
+@@ -834,8 +835,9 @@ void Corpse::AdvancedLootStore(Client *c, EQ::ItemInstance *inst, LootItem *item
+ 	const bool hoard_ok = action == AdvLootActionStore && c->CanStoreInDragonHoard(inst);
+ 
+ 	if (HasBagContents(bag_item_data) || (!depot_ok && !hoard_ok)) {
+-		c->Message(Chat::Red, "That item cannot be stored from the loot window."); // no client string for this
+-		SendAdvLootClearPending(c, GetID(), item->ID);
++		c->Message(Chat::Red, fmt::format("{} cannot be stored from the loot window.", item->Name).c_str()); // no client string for this
++		LogLoot("[{}] store of [{}] from [{}] refused", c->GetCleanName(), item->Name, GetCleanName());
++		RefuseAdvLootRequest(c, GetID(), item->ID, sequence);
+ 		return;
+ 	}
+ 
+@@ -843,7 +845,7 @@ void Corpse::AdvancedLootStore(Client *c, EQ::ItemInstance *inst, LootItem *item
+ 	const bool stored = (depot_ok && c->StoreInTradeskillDepot(inst, !hoard_ok)) ||
+ 		(hoard_ok && c->StoreInDragonHoard(inst, false));
+ 	if (!stored) {
+-		SendAdvLootClearPending(c, GetID(), item->ID);
++		RefuseAdvLootRequest(c, GetID(), item->ID, sequence);
+ 		return;
+ 	}
+ 
+-- 
+2.51.0.windows.2
+

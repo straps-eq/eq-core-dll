@@ -1,0 +1,58 @@
+From 5a47a10a3fb6ec3a081c028281593b8f2bf2dff3 Mon Sep 17 00:00:00 2001
+From: "straps." <straps.eq@gmail.com>
+Date: Sun, 18 Oct 2026 14:02:53 -0500
+Subject: [PATCH] Nameplate vitals: skip the work in zones with no ToB player
+
+The broadcast only matters to ToB clients, but every NPC HP or mana change still
+walked its close list in zones where none were connected. Check the zone's
+client list every 5 seconds and stop early while no ToB client is there.
+---
+ zone/npc_nameplate_vitals.cpp | 25 ++++++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/zone/npc_nameplate_vitals.cpp b/zone/npc_nameplate_vitals.cpp
+index d185c70b82..0cebc0b3aa 100644
+--- a/zone/npc_nameplate_vitals.cpp
++++ b/zone/npc_nameplate_vitals.cpp
+@@ -21,6 +21,29 @@ namespace {
+ 	{
+ 		return static_cast<uint8>(std::clamp(static_cast<int>(ratio), 0, 100));
+ 	}
++
++	// most zones have no ToB player in them; look a few times a minute instead of walking every NPC's close list
++	constexpr uint32 NAMEPLATE_CLIENT_RECHECK_MS = 5000;
++
++	bool ZoneHasToBClients()
++	{
++		static Timer recheck(NAMEPLATE_CLIENT_RECHECK_MS);
++		static bool  checked = false;
++		static bool  has_tob = false;
++
++		if (!checked || recheck.Check()) {
++			checked = true;
++			has_tob = std::any_of(
++				entity_list.GetClientList().begin(),
++				entity_list.GetClientList().end(),
++				[](const auto &e) {
++					return e.second && e.second->ClientVersion() >= EQ::versions::ClientVersion::TOB;
++				}
++			);
++		}
++
++		return has_tob;
++	}
+ }
+ 
+ void NPC::SendNameplateVitals()
+@@ -28,7 +51,7 @@ void NPC::SendNameplateVitals()
+ 	m_nameplate_vitals_pending = false;
+ 
+ 	const float range = static_cast<float>(RuleI(Character, ToBNameplateVitalsRange));
+-	if (range <= 0.0f || !IsTargetable() || IsZoneController()) {
++	if (range <= 0.0f || !IsTargetable() || IsZoneController() || !ZoneHasToBClients()) {
+ 		return;
+ 	}
+ 
+-- 
+2.51.0.windows.2
+
