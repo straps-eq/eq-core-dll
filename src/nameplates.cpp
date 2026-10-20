@@ -45,6 +45,7 @@
 #include "fct.h"
 #include "hud.h"
 #include "nametags.h"
+#include "keyring.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -337,6 +338,7 @@ uint64_t StartCastingDetour(void* eq, int* pkt) {
 }
 
 uint64_t DispatchDetour(void* self, void* a2, uint32_t op, uint8_t* data, uint32_t size) {
+	if (data) KeyRingOnPacket(op, data, size);
 	if (g_on && data) {
 		if (op == kOpInterruptCast && size >= 8) {
 			const uint32_t id = *reinterpret_cast<const uint32_t*>(data);
@@ -1201,6 +1203,10 @@ uint64_t NameTextDetour(uint8_t* spawn, uint64_t bone, const char* text) {
 
 } // namespace
 
+extern const char kDispatchSig[] = "4C 89 4C 24 20 44 89 44 24 18 48 89 54 24 10 48 89 4C 24 08 56";
+uint64_t (*const g_dispatchDetour)(void*, void*, uint32_t, uint8_t*, uint32_t) = &DispatchDetour;
+uint64_t (**const g_origDispatchSlot)(void*, void*, uint32_t, uint8_t*, uint32_t) = &g_origDispatch;
+
 void NameplatePagePoll();
 
 void NameplatesFrame(uint8_t* mgr, bool inGame) {
@@ -1250,9 +1256,8 @@ const HookSite kNameplatesHooks[5] = {
 	{ "48 8B C4 48 89 58 08 55 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 B0",
 	  7, reinterpret_cast<void*>(&StartCastingDetour), REF(g_origStartCasting) },
 	// Packet dispatcher FUN_1401e4010(this, rdx, opcode, data, size). Stolen (5 bytes, position independent):
-	// mov [rsp+20],r9.
-	{ "4C 89 4C 24 20 44 89 44 24 18 48 89 54 24 10 48 89 4C 24 08 56",
-	  5, reinterpret_cast<void*>(&DispatchDetour), REF(g_origDispatch) },
+	// mov [rsp+20],r9. Shared with EquipmentKeyRing.
+	{ kDispatchSig, 5, reinterpret_cast<void*>(&DispatchDetour), REF(g_origDispatch) },
 	// Shared with NameplateOptionsPage: Show Self Name / Show Corpse Names.
 	{ kNameTextSig, 5, reinterpret_cast<void*>(&NameTextDetour), REF(g_origNameText) },
 };
