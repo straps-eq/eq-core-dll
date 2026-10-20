@@ -15,7 +15,9 @@
 // changes; S2C 0xbb58 {u32 capacity; u8 store_equipment_sets} in reply. The first reply per zone is followed by the
 // ring's items as OP_ItemPacket {39, index}. Capacity 0 = off: the tab stays empty and the box hidden. OP_PersonaSwap
 // (S2C 0x6db0, self flag at +4) carries no ring items and the server resends them, so the ring is cleared first; it
-// is also cleared right before each hello. Sent with the client's connection send FUN_140547ef0(conn, 4, data, length).
+// is not cleared at a hello (a hello the server already had in this zone gets only the state back). The hello goes out
+// again after every zone-in and reconnect (OP_NewZone / OP_PlayerProfile, a new connection or local player, or a gap in
+// in-game frames while a zone loads). Sent with the client's connection send FUN_140547ef0(conn, 4, data, length).
 //
 // Window (hooks on KeyRingWnd::WndNotification FUN_140157100; drawing from the shared DrawWindows hook): the patched
 // EQUI_KeyRingWnd.xml adds KRW_EquipmentPage (tab index 6, which the client only uses for its absent Keys page) with
@@ -41,12 +43,14 @@ namespace {
 
 const uint32_t kOpOption = 0xbb58;       // OP_EquipmentKeyRingOption, both directions
 const uint32_t kOpPersonaSwap = 0x6db0;
+const uint32_t kOpNewZone = 0x5ec0, kOpPlayerProfile = 0x08bf;   // every zone-in
 const uint32_t kRingType = 39;           // Live eItemContainerEquipmentKeyRingItems
 const uint32_t kMaxCapacity = 1000;
 const int16_t kCursorSlot = 0x23;
 const uint64_t kHelloDelayMs = 2000;     // after the game state turns "in game"
 const uint64_t kHelloRetryMs = 8000;
 const int kHelloTries = 3;
+const uint64_t kFrameGapMs = 3000;      // no in-game frame for this long = a zone load
 const uint64_t kPickUpGuardMs = 750;
 
 // item placement packet types that reach the slot switch (0x6a = CharInventory on ToB)
@@ -180,6 +184,9 @@ Hello g_hello = kHelloIdle;
 uint64_t g_inGameAt = 0;
 uint64_t g_helloAt = 0;
 int g_helloTries = 0;
+uint8_t* g_helloConn = nullptr;      // connection and local player the hello went to
+uint8_t* g_helloMe = nullptr;
+uint64_t g_lastFrame = 0;
 uint64_t g_pickedAt = 0;
 
 void Log(const char* fmt, ...) {
@@ -574,25 +581,40 @@ const char kChatSig[] =
 
 } // namespace
 
+namespace {
+
+// The server keeps the hello per zone session: send it again after every zone-in and reconnect.
+void ResetHello() {
+	if (g_hello == kHelloIdle) return;
+	g_hello = kHelloIdle;
+	g_capacity = 0;
+	g_gotState = false;
+}
+
+} // namespace
 void KeyRingFrame(bool inGame) {
 	if (!g_on) return;
 	g_inGame = inGame;
+	const uint64_t now = GetTickCount64();
 	if (!inGame) {
-		if (g_hello != kHelloIdle) {
-			g_hello = kHelloIdle;
-			g_capacity = 0;
-			g_gotState = false;
-		}
+		ResetHello();
 		return;
 	}
-	const uint64_t now = GetTickCount64();
+	// A new zone session: another connection or local player than the hello went to, or no frame for a while (the
+	// UI is not drawn while a zone loads, so the frame hook may never see the client leave the game).
+	uint8_t* conn = *g_pConnection;
+	uint8_t* me = *HudLocalPlayerRef();
+	if (g_hello != kHelloIdle && (conn != g_helloConn || me != g_helloMe || now - g_lastFrame > kFrameGapMs)) ResetHello();
+	g_lastFrame = now;
 	if (g_hello == kHelloIdle) {
+		g_helloConn = conn;
+		g_helloMe = me;
 		g_hello = kHelloWait;
 		g_inGameAt = now;
 	}
 	if (g_hello == kHelloWait && now - g_inGameAt >= kHelloDelayMs) {
 		LoadCharConfig();
-		ClearRing();   // the server sends the ring again after the hello
+		// no clear here: a repeated hello in the same zone session gets only the state back, not the items
 		g_hello = kHelloSent;
 		g_helloAt = now;
 		g_helloTries = SendOption() ? 1 : 0;
@@ -618,6 +640,9 @@ void KeyRingOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 		g_gotState = true;
 		ApplyCapacity(RingContainer());
 		g_ui.shown = ~0ull;
+	}
+	else if (op == kOpNewZone || op == kOpPlayerProfile) {
+		ResetHello();
 	}
 	else if (op == kOpPersonaSwap && size >= 7 && data[4] == 1) {
 		ClearRing();   // the swap leaves the ring out; the server resends it right after
