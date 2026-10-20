@@ -17,7 +17,7 @@
 // ring's items as OP_ItemPacket {39, index}. Capacity 0 = off: the tab stays empty and the box hidden. OP_PersonaSwap
 // (S2C 0x6db0, self flag at +4) carries no ring items and the server resends them, so the ring is cleared first; it
 // is not cleared at a hello (a hello the server already had in this zone gets only the state back). The hello goes out
-// again after every zone-in and reconnect (OP_NewZone / OP_PlayerProfile, a new connection or local player, or a gap in
+// again after every zone-in and reconnect (OP_NewZone / OP_PlayerProfile, a new connection, or a gap in
 // in-game frames while a zone loads). Sent with the client's connection send FUN_140547ef0(conn, 4, data, length).
 //
 // Window (hooks on KeyRingWnd::WndNotification FUN_140157100; drawing from the shared DrawWindows hook): the patched
@@ -213,8 +213,7 @@ Hello g_hello = kHelloIdle;
 uint64_t g_inGameAt = 0;
 uint64_t g_helloAt = 0;
 int g_helloTries = 0;
-uint8_t* g_helloConn = nullptr;      // connection and local player the hello went to
-uint8_t* g_helloMe = nullptr;
+uint8_t* g_helloConn = nullptr;      // connection the hello went to
 uint64_t g_lastFrame = 0;
 uint64_t g_pickedAt = 0;
 
@@ -616,8 +615,7 @@ namespace {
 void ResetHello() {
 	if (g_hello == kHelloIdle) return;
 	g_hello = kHelloIdle;
-	g_capacity = 0;
-	g_gotState = false;
+	g_gotState = false;   // the capacity stays: ring items that arrive before the next state still go in
 }
 
 } // namespace
@@ -629,15 +627,14 @@ void KeyRingFrame(bool inGame) {
 		ResetHello();
 		return;
 	}
-	// A new zone session: another connection or local player than the hello went to, or no frame for a while (the
+	// A new zone session: another connection than the hello went to, or no frame for a while (the
 	// UI is not drawn while a zone loads, so the frame hook may never see the client leave the game).
 	uint8_t* conn = *g_pConnection;
-	uint8_t* me = *HudLocalPlayerRef();
-	if (g_hello != kHelloIdle && (conn != g_helloConn || me != g_helloMe || now - g_lastFrame > kFrameGapMs)) ResetHello();
+	// (Not the local player alone: a persona swap replaces it in the same zone session.)
+	if (g_hello != kHelloIdle && (conn != g_helloConn || now - g_lastFrame > kFrameGapMs)) ResetHello();
 	g_lastFrame = now;
 	if (g_hello == kHelloIdle) {
 		g_helloConn = conn;
-		g_helloMe = me;
 		g_hello = kHelloWait;
 		g_inGameAt = now;
 	}
@@ -655,7 +652,7 @@ void KeyRingFrame(bool inGame) {
 	}
 	// Something in the client's zone-in copies the stock capacity (0) back over this container while its items stay,
 	// which hides them from every lookup; put the server's capacity back each frame.
-	if (g_gotState) ApplyCapacity(RingContainer());
+	if (g_capacity) ApplyCapacity(RingContainer());
 	UpdateWindow();
 }
 
