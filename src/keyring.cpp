@@ -180,7 +180,7 @@ bool g_inGame = false;      // as the DrawWindows hook last saw it
 bool g_storeSets = false;    // the box, saved per character
 // Who each ring slot belongs to, from the optional tail of the state packet: class abbreviations, several joined as
 // "WIZ | ENC" when the server lists the slot more than once; a set name follows in brackets ("MNK (Raid)").
-const int kLabelSize = 48;
+const int kLabelSize = 112;   // all 16 classes as "WAR | CLR | ..." fit
 char g_labels[kMaxCapacity][kLabelSize] = {};
 const char* const kClassNames[] = { "", "WAR", "CLR", "PAL", "RNG", "SHD", "DRU", "MNK", "BRD", "ROG", "SHM", "NEC",
 	"WIZ", "MAG", "ENC", "BST", "BER" };
