@@ -8,6 +8,7 @@
 #include "fct.h"
 #include "nameplates.h"
 #include "advloot.h"
+#include "keyring.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -151,6 +152,11 @@ static const Feature kFeatures[] = {
 	// finalise step (FUN_1404fcdc0), see spellwindow.cpp.
 	{ "SpellWindowExtras", false, "Effects, timers, classes and category in the spell window", nullptr, 0,
 	  kSpellWindowExtrasHooks, COUNT(kSpellWindowExtrasHooks), kSpellWindowExtrasRefs, COUNT(kSpellWindowExtrasRefs), SpellWindowExtrasPrepare },
+	// An Equipment tab in the Key Rings window (Live's Equipment Key Ring, slot type 39): hooks on the item placement
+	// FUN_1401ff230 and KeyRingWnd::WndNotification FUN_140157100, plus the shared DrawWindows and packet dispatcher
+	// hooks. Needs the patched EQUI_KeyRingWnd.xml; the server only fills it after our hello. See keyring.cpp.
+	{ "EquipmentKeyRing", true, "Equipment tab in the Key Rings window",       nullptr,           0,
+	  kKeyRingHooks, COUNT(kKeyRingHooks), kHudRefs, COUNT(kHudRefs), KeyRingPrepare, kKeyRingRefs, COUNT(kKeyRingRefs) },
 };
 
 const Feature* GetFeatures(size_t* count) {

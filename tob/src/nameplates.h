@@ -16,3 +16,9 @@ void NameplatesFrame(uint8_t* mgr, bool inGame);              // DrawWindows, af
 void NameplatesOnDamage(const uint8_t* pkt);                   // OP_Damage, after the client handled it
 void NameplatePageRefresh(uint8_t* opt);                       // COptionsWnd::RefreshDisplayPage
 bool NameplatePageNotify(uint8_t* opt, uint8_t* sender, int msg, void* data);   // true = ours, return 0
+
+// Shared with EquipmentKeyRing: the packet dispatcher hook FUN_1401e4010 (signature, detour, trampoline slot). The
+// detour hands every packet to KeyRingOnPacket first.
+extern const char kDispatchSig[];
+extern uint64_t (*const g_dispatchDetour)(void* self, void* a2, uint32_t op, uint8_t* data, uint32_t size);
+extern uint64_t (**const g_origDispatchSlot)(void* self, void* a2, uint32_t op, uint8_t* data, uint32_t size);
