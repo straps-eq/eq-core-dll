@@ -178,11 +178,12 @@ uint32_t g_capacity = 0;     // from the server's reply; 0 = no ring
 bool g_gotState = false;
 bool g_inGame = false;      // as the DrawWindows hook last saw it
 bool g_storeSets = false;    // the box, saved per character
-// Who each ring slot belongs to, from the optional tail of the state packet: "<class>" or "<class> (<set>)".
+// Who each ring slot belongs to, from the optional tail of the state packet: class abbreviations, several joined as
+// "WIZ | ENC" when the server lists the slot more than once; a set name follows in brackets ("MNK (Raid)").
 const int kLabelSize = 48;
 char g_labels[kMaxCapacity][kLabelSize] = {};
-const char* const kClassNames[] = { "", "Warrior", "Cleric", "Paladin", "Ranger", "Shadow Knight", "Druid", "Monk", "Bard",
-	"Rogue", "Shaman", "Necromancer", "Wizard", "Magician", "Enchanter", "Beastlord", "Berserker" };
+const char* const kClassNames[] = { "", "WAR", "CLR", "PAL", "RNG", "SHD", "DRU", "MNK", "BRD", "ROG", "SHM", "NEC",
+	"WIZ", "MAG", "ENC", "BST", "BER" };
 
 // State tail: u16 count, then count x {u16 index; u8 class (1-16, 0 = none); u8 length; set name (length bytes)}. The
 // server sends the whole table with every state; a state without a tail leaves the labels empty.
@@ -201,8 +202,14 @@ void ReadLabels(const uint8_t* p, uint32_t size) {
 			char set[kLabelSize] = {};
 			memcpy(set, p + at, length < kLabelSize - 1 ? length : kLabelSize - 1);
 			const char* name = cls < sizeof(kClassNames) / sizeof(kClassNames[0]) ? kClassNames[cls] : "";
-			if (set[0] && name[0]) snprintf(g_labels[index], kLabelSize, "%s (%s)", name, set);
-			else snprintf(g_labels[index], kLabelSize, "%s", name[0] ? name : set);
+			char part[kLabelSize];
+			if (set[0] && name[0]) snprintf(part, sizeof(part), "%s (%s)", name, set);
+			else snprintf(part, sizeof(part), "%s", name[0] ? name : set);
+			char* label = g_labels[index];
+			if (part[0] && !strstr(label, part)) {
+				if (label[0]) strncat_s(label, kLabelSize, " | ", _TRUNCATE);
+				strncat_s(label, kLabelSize, part, _TRUNCATE);
+			}
 		}
 		at += length;
 	}
