@@ -317,7 +317,7 @@ void LoadCharConfig() {
 	uint8_t* me = *HudLocalPlayerRef();
 	if (!me || !g_serverName) return;
 	snprintf(g_charIni, sizeof(g_charIni), "%s\\%s_%s.ini", g_gameDir, reinterpret_cast<const char*>(me + kSpawnName), g_serverName);
-	g_storeSets = GetPrivateProfileIntA("Inventory", "StoreEquipmentSetItems", 0, g_charIni) != 0;
+	g_storeSets = GetPrivateProfileIntA("Inventory", "StoreEquipmentSetItems", 1, g_charIni) != 0;   // on until unticked
 	g_filter = GetPrivateProfileIntA("Inventory", "EquipmentKeyRingFilter", 0, g_charIni);
 	if (g_filter < 0 || g_filter > 16) g_filter = 0;
 }
