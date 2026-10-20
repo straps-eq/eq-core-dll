@@ -537,6 +537,7 @@ void PlaceDetour(int packetType, ItemPtr* item, void* stream) {
 	if (!base || !c) return;
 	ApplyCapacity(c);
 	g_storeItem(base, &index, item);
+	g_ui.shown = ~0ull;   // rebuild the list on the next frame
 }
 
 template <typename T>
@@ -601,6 +602,9 @@ void KeyRingFrame(bool inGame) {
 		if (SendOption()) ++g_helloTries;
 		if (g_helloTries == kHelloTries) Log("no answer from the server to the hello: the server has no Equipment Key Ring");
 	}
+	// Something in the client's zone-in copies the stock capacity (0) back over this container while its items stay,
+	// which hides them from every lookup; put the server's capacity back each frame.
+	if (g_gotState) ApplyCapacity(RingContainer());
 	UpdateWindow();
 }
 
@@ -613,6 +617,7 @@ void KeyRingOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 		g_capacity = capacity;
 		g_gotState = true;
 		ApplyCapacity(RingContainer());
+		g_ui.shown = ~0ull;
 	}
 	else if (op == kOpPersonaSwap && size >= 7 && data[4] == 1) {
 		ClearRing();   // the swap leaves the ring out; the server resends it right after
