@@ -873,6 +873,41 @@
 		</PressedColor>
 		<Template>BDT_CheckboxWithText</Template>
 	</Button>
+	<Combobox item="KRW_Equipment_ClassFilter">
+		<ScreenID>KRW_Equipment_ClassFilter</ScreenID>
+		<DrawTemplate>WDT_Inner</DrawTemplate>
+		<RelativePosition>true</RelativePosition>
+		<AutoStretch>true</AutoStretch>
+		<TopAnchorToTop>true</TopAnchorToTop>
+		<BottomAnchorToTop>true</BottomAnchorToTop>
+		<LeftAnchorToLeft>false</LeftAnchorToLeft>
+		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<LeftAnchorOffset>130</LeftAnchorOffset>
+		<RightAnchorOffset>6</RightAnchorOffset>
+		<TopAnchorOffset>34</TopAnchorOffset>
+		<BottomAnchorOffset>58</BottomAnchorOffset>
+		<TooltipReference>Show only the equipment of one class's persona.</TooltipReference>
+		<ListHeight>200</ListHeight>
+		<Button>BDT_Combo</Button>
+		<Style_Border>true</Style_Border>
+		<Choices>All classes</Choices>
+		<Choices>Warrior</Choices>
+		<Choices>Cleric</Choices>
+		<Choices>Paladin</Choices>
+		<Choices>Ranger</Choices>
+		<Choices>Shadow Knight</Choices>
+		<Choices>Druid</Choices>
+		<Choices>Monk</Choices>
+		<Choices>Bard</Choices>
+		<Choices>Rogue</Choices>
+		<Choices>Shaman</Choices>
+		<Choices>Necromancer</Choices>
+		<Choices>Wizard</Choices>
+		<Choices>Magician</Choices>
+		<Choices>Enchanter</Choices>
+		<Choices>Beastlord</Choices>
+		<Choices>Berserker</Choices>
+	</Combobox>
 	<Page item="KRW_EquipmentPage">
 		<ScreenID>KRW_EquipmentPage</ScreenID>
 		<RelativePosition>true</RelativePosition>
@@ -890,6 +925,7 @@
 		<Pieces>KRW_Equipment_List</Pieces>
 		<Pieces>KRW_Equipment_Count</Pieces>
 		<Pieces>KRW_Equipment_StoreSetsCheckbox</Pieces>
+		<Pieces>KRW_Equipment_ClassFilter</Pieces>
 		<Location>
 			<X>0</X>
 			<Y>22</Y>

@@ -5,7 +5,7 @@
 #include "patches.h"
 
 extern const HookSite kKeyRingHooks[4];
-extern const RefSite kKeyRingRefs[17];
+extern const RefSite kKeyRingRefs[18];
 const char* KeyRingPrepare();
 
 // Called from the shared hooks (no-ops while the feature is off).

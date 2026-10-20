@@ -136,6 +136,7 @@ using ListVoidFn = void (*)(uint8_t* list);
 using ListIntFn = void (*)(uint8_t* list, int value);
 using IsCheckedFn = uint8_t (*)(uint8_t* box);
 using SetCheckFn = void (*)(uint8_t* box, uint8_t on, uint8_t unused);
+using ComboSetFn = void (*)(uint8_t* combo, int index);
 
 PlaceItemFn g_origPlace = nullptr;           // FUN_1401ff230
 KrwNotifyFn g_origNotify = nullptr;          // FUN_140157100
@@ -151,6 +152,7 @@ ShowItemFn g_showItem = nullptr;             // FUN_140432200
 ChatMgrFn g_chatMgr = nullptr;               // FUN_1401093c0
 ChatPrintFn g_chatPrint = nullptr;           // FUN_140108b10
 GetChildFn g_getChild = nullptr;             // FUN_14059f8a0
+ComboSetFn g_comboSetChoice = nullptr;       // FUN_1405ae150
 uint8_t** g_pInvMgr = nullptr;               // &DAT_140db51c8
 int32_t* g_pPendingMoves = nullptr;          // &DAT_140ee2b2c (item use waiting for the server)
 uint8_t** g_pConnection = nullptr;           // &DAT_140e65da8
@@ -178,6 +180,7 @@ uint32_t g_capacity = 0;     // from the server's reply; 0 = no ring
 bool g_gotState = false;
 bool g_inGame = false;      // as the DrawWindows hook last saw it
 bool g_storeSets = false;    // the box, saved per character
+int g_filter = 0;            // class filter: 0 all, else a class id (kClassNames), saved per character
 // Who each ring slot belongs to, from the optional tail of the state packet: class abbreviations, several joined as
 // "WIZ | ENC" when the server lists the slot more than once; a set name follows in brackets ("MNK (Raid)").
 const int kLabelSize = 112;   // all 16 classes as "WAR | CLR | ..." fit
@@ -315,10 +318,16 @@ void LoadCharConfig() {
 	if (!me || !g_serverName) return;
 	snprintf(g_charIni, sizeof(g_charIni), "%s\\%s_%s.ini", g_gameDir, reinterpret_cast<const char*>(me + kSpawnName), g_serverName);
 	g_storeSets = GetPrivateProfileIntA("Inventory", "StoreEquipmentSetItems", 0, g_charIni) != 0;
+	g_filter = GetPrivateProfileIntA("Inventory", "EquipmentKeyRingFilter", 0, g_charIni);
+	if (g_filter < 0 || g_filter > 16) g_filter = 0;
 }
 
 void SaveCharConfig() {
-	if (g_charIni[0]) WritePrivateProfileStringA("Inventory", "StoreEquipmentSetItems", g_storeSets ? "1" : "0", g_charIni);
+	if (!g_charIni[0]) return;
+	WritePrivateProfileStringA("Inventory", "StoreEquipmentSetItems", g_storeSets ? "1" : "0", g_charIni);
+	char filter[8];
+	snprintf(filter, sizeof(filter), "%d", g_filter);
+	WritePrivateProfileStringA("Inventory", "EquipmentKeyRingFilter", filter, g_charIni);
 }
 
 bool SendOption() {
@@ -335,6 +344,7 @@ struct Page {
 	uint8_t* list;
 	uint8_t* count;
 	uint8_t* box;
+	uint8_t* filter;      // class filter combobox
 	uint64_t shown;       // content signature the list was last built for
 	bool missingLogged;
 };
@@ -386,6 +396,8 @@ void Resolve(uint8_t* wnd) {
 	p.list = Child(wnd, "KRW_Equipment_List");
 	p.count = Child(wnd, "KRW_Equipment_Count");
 	p.box = Child(wnd, "KRW_Equipment_StoreSetsCheckbox");
+	p.filter = Child(wnd, "KRW_Equipment_ClassFilter");
+	if (p.filter) g_comboSetChoice(p.filter, g_filter);
 	if (p.list) {
 		// The list settings the window's constructor FUN_140153190 gives the six stock ring lists: 30 px rows (the
 		// icons are drawn square in them) and the selection colour.
@@ -412,6 +424,7 @@ uint64_t Signature() {
 	uint8_t* c = RingContainer();
 	mix(g_capacity);
 	mix(g_storeSets);
+	mix(static_cast<uint64_t>(g_filter));
 	mix(reinterpret_cast<uint64_t>(c));
 	const int size = RingSize(c);
 	mix(static_cast<uint64_t>(size));
@@ -464,6 +477,19 @@ void AddRow(uint8_t* list, int index, uint8_t* item, uint32_t colour) {
 	g_setItemData(list, row, index);
 }
 
+// The class filter: a slot shows when its label names the class as a whole abbreviation ("WIZ" in "MNK | WIZ").
+bool Shown(int index) {
+	if (!g_filter) return true;
+	const char* label = g_labels[index];
+	const char* abbr = kClassNames[g_filter];
+	const size_t len = strlen(abbr);
+	for (const char* p = strstr(label, abbr); p; p = strstr(p + 1, abbr)) {
+		const bool start = p == label || p[-1] == ' ' || p[-1] == '|';
+		const char end = p[len];
+		if (start && (end == 0 || end == ' ' || end == '|' || end == '(')) return true;
+	}
+	return false;
+}
 // Rebuilds the list as the client's ring refresh does: keep the selected ring index and the scroll position.
 void Refresh(uint64_t signature) {
 	uint8_t* list = g_ui.list;
@@ -477,7 +503,7 @@ void Refresh(uint64_t signature) {
 	static int order[kMaxCapacity];
 	int count = 0;
 	for (int i = 0, n = RingSize(c); i < n; ++i)
-		if (RingEntry(c, i)) order[count++] = i;
+		if (RingEntry(c, i) && Shown(i)) order[count++] = i;
 	std::sort(order, order + count, [c](int a, int b) {
 		const char* la = g_labels[a];
 		const char* lb = g_labels[b];
@@ -500,7 +526,11 @@ void Refresh(uint64_t signature) {
 	reinterpret_cast<ListIntFn>(Virtual(list, kVtblListSetScroll))(list, scroll);
 	g_listLayout(list);
 	char text[96];
-	snprintf(text, sizeof(text), "equipment items in key ring: %d / %u", count, g_capacity);
+	int stored = 0;
+	for (int i = 0, n = RingSize(c); i < n; ++i)
+		if (RingEntry(c, i)) ++stored;
+	if (g_filter) snprintf(text, sizeof(text), "equipment items in key ring: %d / %u (showing %d)", stored, g_capacity, count);
+	else snprintf(text, sizeof(text), "equipment items in key ring: %d / %u", stored, g_capacity);
 	SetText(g_ui.count, text);
 	Show(g_ui.box, g_capacity > 0);
 	SetBox(g_ui.box, g_storeSets);
@@ -593,6 +623,12 @@ uint64_t NotifyDetour(uint8_t* wnd, uint8_t* sender, int code, void* data) {
 	if (g_on && wnd && sender && wnd == *g_pKeyRingWnd && g_inGame) {
 		Resolve(wnd);
 		if (sender == g_ui.list && ListNotify(code)) return 0;
+		if (sender == g_ui.filter && code == kNotifyClick) {
+			const int pick = static_cast<int>(reinterpret_cast<intptr_t>(data));
+			g_filter = pick >= 0 && pick <= 16 ? pick : 0;
+			SaveCharConfig();
+			return 0;
+		}
 		if (sender == g_ui.box && code == kNotifyClick) {
 			g_storeSets = IsChecked(sender);
 			SaveCharConfig();
@@ -734,7 +770,7 @@ const HookSite kKeyRingHooks[4] = {
 	{ kNotifySig, 5, reinterpret_cast<void*>(&NotifyDetour), REF(g_origNotify) },
 };
 
-const RefSite kKeyRingRefs[17] = {
+const RefSite kKeyRingRefs[18] = {
 	{ kPlaceSig, 0, 0, REF(g_placeFn) },
 	{ kNotifySig, 0, 0, REF(g_notifyFn) },
 	// the client's ring list refresh FUN_1401568e0(wnd, ring): the list functions are read from its calls
@@ -773,6 +809,8 @@ const RefSite kKeyRingRefs[17] = {
 	// window (the chat window getter, then the print with colour, r9b 1 and stack bytes 1, 0, 1)
 	{ kChatSig, 14, 18, REF(g_chatMgr) },
 	{ kChatSig, 49, 53, REF(g_chatPrint) },
+	// CComboWnd::SetChoice FUN_1405ae150(combo, idx): mov rcx,[rcx+260] (list); mov eax,[rcx+268] (count)
+	{ "48 8B 89 60 02 00 00 8B 81 68 02 00 00", 0, 0, REF(g_comboSetChoice) },
 };
 
 const char* KeyRingPrepare() {
