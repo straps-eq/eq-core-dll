@@ -807,12 +807,12 @@
 		<Style_Border>true</Style_Border>
 		<Style_VScroll>true</Style_VScroll>
 		<Columns>
-			<Width>34</Width>
-			<Heading>Icon</Heading>
-		</Columns>
-		<Columns>
 			<Width>100</Width>
 			<Heading>Persona</Heading>
+		</Columns>
+		<Columns>
+			<Width>34</Width>
+			<Heading>Icon</Heading>
 		</Columns>
 		<Columns>
 			<Width>290</Width>
