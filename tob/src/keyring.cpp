@@ -378,6 +378,15 @@ void Resolve(uint8_t* wnd) {
 	p.list = Child(wnd, "KRW_Equipment_List");
 	p.count = Child(wnd, "KRW_Equipment_Count");
 	p.box = Child(wnd, "KRW_Equipment_StoreSetsCheckbox");
+	if (p.list) {
+		// The list settings the window's constructor FUN_140153190 gives the six stock ring lists: 30 px rows (the
+		// icons are drawn square in them), selection colour and flags.
+		*reinterpret_cast<uint8_t*>(p.list + 0x2b5) = 1;
+		*reinterpret_cast<uint32_t*>(p.list + 0x2bc) = 30;
+		*reinterpret_cast<uint32_t*>(p.list + 0x2c8) = 0xff8aa3ffu;
+		*reinterpret_cast<uint32_t*>(p.list + 0x334) |= 0x40000u;
+		*reinterpret_cast<uint32_t*>(p.list + 0x2b0) = 2;
+	}
 	if (p.box && !LooksLikeCheckbox(*reinterpret_cast<uint8_t**>(wnd + kKrwAutoLeaveBox), p.box)) p.box = nullptr;
 	p.shown = ~0ull;
 	if (!p.list && !p.missingLogged) {

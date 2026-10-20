@@ -807,15 +807,15 @@
 		<Style_Border>true</Style_Border>
 		<Style_VScroll>true</Style_VScroll>
 		<Columns>
-			<Width>30</Width>
+			<Width>34</Width>
 			<Heading>Icon</Heading>
 		</Columns>
 		<Columns>
-			<Width>120</Width>
+			<Width>100</Width>
 			<Heading>Persona</Heading>
 		</Columns>
 		<Columns>
-			<Width>300</Width>
+			<Width>290</Width>
 			<Heading>Name</Heading>
 		</Columns>
 		<TooltipReference>Drop a piece of equipment here to add it to the Equipment Key Ring, or left click and hold on a selected item to take it out. Right click an item to inspect it. Persona shows the class (and equipment set) the item was stored for.</TooltipReference>
