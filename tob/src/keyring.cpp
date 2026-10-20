@@ -23,7 +23,7 @@
 // Window (hooks on KeyRingWnd::WndNotification FUN_140157100; drawing from the shared DrawWindows hook): the patched
 // EQUI_KeyRingWnd.xml adds KRW_EquipmentPage (tab index 6, which the client only uses for its absent Keys page) with
 // KRW_Equipment_List, KRW_Equipment_Count and KRW_Equipment_StoreSetsCheckbox. The list is rebuilt the way the
-// client's ring refresh FUN_1401568e0 builds the others (row data = ring index, icon cell, name in column 2) whenever
+// client's ring refresh FUN_1401568e0 builds the others (row data = ring index; columns persona, icon, name; rows by persona then name) whenever
 // the container changes while the window is shown. Left button held on a row (0x17) picks the item up: OP_MoveItem
 // {39, index} -> cursor through the client's own move FUN_14040d090 (as FUN_14040e350 does for the other rings).
 // A click (1) or drop (0x23) with an item on the cursor puts it in: cursor -> {39, -1}, the server picks the slot and
@@ -39,6 +39,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 
 namespace {
 
@@ -384,11 +385,10 @@ void Resolve(uint8_t* wnd) {
 		*reinterpret_cast<uint8_t*>(p.list + 0x2b5) = 1;
 		*reinterpret_cast<uint32_t*>(p.list + 0x2bc) = 30;
 		*reinterpret_cast<uint32_t*>(p.list + 0x2c8) = 0xff8aa3ffu;
-		// +0x334 bit 0x40000 = sorted (by the column at +0x2b0, order flag +0x2b4; vtbl +0x398 sorts), bit 0x400000 = a
-		// header click picks the sort column and flips the order (CListWnd FUN_1405b8430). Persona first, so the sets
-		// stay together.
-		*reinterpret_cast<uint32_t*>(p.list + 0x334) |= 0x40000u | 0x400000u;
-		*reinterpret_cast<uint32_t*>(p.list + 0x2b0) = 1;
+		// +0x334 bit 0x40000 = the list sorts itself (column +0x2b0), bit 0x400000 = by header clicks (CListWnd
+		// FUN_1405b8430). Both off: the rows stay in the order Refresh adds them (persona, then name).
+		*reinterpret_cast<uint32_t*>(p.list + 0x334) &= ~(0x40000u | 0x400000u);
+
 	}
 	if (p.box && !LooksLikeCheckbox(*reinterpret_cast<uint8_t**>(wnd + kKrwAutoLeaveBox), p.box)) p.box = nullptr;
 	p.shown = ~0ull;
@@ -447,10 +447,10 @@ void AddRow(uint8_t* list, int index, uint8_t* item, uint32_t colour) {
 	const int row = g_addRow(list, &s, colour, index, nullptr, nullptr, 1);
 	HudCXStrRelease(&s);
 	if (row < 0) return;
-	g_setCellIcon(list, row, 0, g_iconTexture(*g_pIconCache, g_itemIcon(item)));
 	HudCXStr(&s, index < static_cast<int>(kMaxCapacity) ? g_labels[index] : "");
-	g_setItemText(list, row, 1, &s);
+	g_setItemText(list, row, 0, &s);
 	HudCXStrRelease(&s);
+	g_setCellIcon(list, row, 1, g_iconTexture(*g_pIconCache, g_itemIcon(item)));
 	HudCXStr(&s, ItemName(item));
 	g_setItemText(list, row, 2, &s);
 	HudCXStrRelease(&s);
@@ -466,13 +466,20 @@ void Refresh(uint64_t signature) {
 	const int scroll = *reinterpret_cast<int*>(list + kListScroll);
 	reinterpret_cast<ListVoidFn>(Virtual(list, kVtblListDeleteAll))(list);
 	uint8_t* c = RingContainer();
+	// Persona alphabetically (unlabelled last), then item name.
+	static int order[kMaxCapacity];
 	int count = 0;
-	for (int i = 0, n = RingSize(c); i < n; ++i) {
-		if (ItemPtr* e = RingEntry(c, i)) {
-			AddRow(list, i, e->item, PersonaColour(i));
-			++count;
-		}
-	}
+	for (int i = 0, n = RingSize(c); i < n; ++i)
+		if (RingEntry(c, i)) order[count++] = i;
+	std::sort(order, order + count, [c](int a, int b) {
+		const char* la = g_labels[a];
+		const char* lb = g_labels[b];
+		if (!la[0] != !lb[0]) return la[0] != 0;
+		if (const int byPersona = _stricmp(la, lb)) return byPersona < 0;
+		if (const int byName = _stricmp(ItemName(RingEntry(c, a)->item), ItemName(RingEntry(c, b)->item))) return byName < 0;
+		return a < b;
+	});
+	for (int k = 0; k < count; ++k) AddRow(list, order[k], RingEntry(c, order[k])->item, PersonaColour(order[k]));
 	reinterpret_cast<ListIntFn>(Virtual(list, kVtblListDoneAdding))(list, 0);
 	if (selected != -1) {
 		const int rows = *reinterpret_cast<int*>(list + kListRowCount);
