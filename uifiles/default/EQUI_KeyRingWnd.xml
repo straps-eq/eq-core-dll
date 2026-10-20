@@ -854,7 +854,19 @@
 			<CX>16</CX>
 			<CY>16</CY>
 		</DecalSize>
+		<TextAlignCenter>false</TextAlignCenter>
 		<TextOffsetX>20</TextOffsetX>
+		<TextColor>
+			<R>255</R>
+			<G>255</G>
+			<B>255</B>
+		</TextColor>
+		<UseCustomPressedColor>true</UseCustomPressedColor>
+		<PressedColor>
+			<R>255</R>
+			<G>255</G>
+			<B>255</B>
+		</PressedColor>
 		<Template>BDT_CheckboxWithText</Template>
 	</Button>
 	<Page item="KRW_EquipmentPage">
