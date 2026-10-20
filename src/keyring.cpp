@@ -12,7 +12,8 @@
 //
 // Wire (server commit "TOB: Equipment Key Ring (server side)"): C2S 0xbb58 {u8 store_equipment_sets} once 2 s after
 // every zone-in (the server's "this client has the tab": only then does it send ring items) and whenever the box
-// changes; S2C 0xbb58 {u32 capacity; u8 store_equipment_sets} in reply. The first reply per zone is followed by the
+// changes; S2C 0xbb58 {u32 capacity; u8 store_equipment_sets} in reply, optionally followed by
+// {u16 count; count x {u16 index; u8 class; u8 length; set name}} for the Persona column (whole table each time). The first reply per zone is followed by the
 // ring's items as OP_ItemPacket {39, index}. Capacity 0 = off: the tab stays empty and the box hidden. OP_PersonaSwap
 // (S2C 0x6db0, self flag at +4) carries no ring items and the server resends them, so the ring is cleared first; it
 // is not cleared at a hello (a hello the server already had in this zone gets only the state back). The hello goes out
@@ -176,7 +177,35 @@ uint32_t g_capacity = 0;     // from the server's reply; 0 = no ring
 bool g_gotState = false;
 bool g_inGame = false;      // as the DrawWindows hook last saw it
 bool g_storeSets = false;    // the box, saved per character
-char g_charIni[MAX_PATH] = {};
+// Who each ring slot belongs to, from the optional tail of the state packet: "<class>" or "<class> (<set>)".
+const int kLabelSize = 48;
+char g_labels[kMaxCapacity][kLabelSize] = {};
+const char* const kClassNames[] = { "", "Warrior", "Cleric", "Paladin", "Ranger", "Shadow Knight", "Druid", "Monk", "Bard",
+	"Rogue", "Shaman", "Necromancer", "Wizard", "Magician", "Enchanter", "Beastlord", "Berserker" };
+
+// State tail: u16 count, then count x {u16 index; u8 class (1-16, 0 = none); u8 length; set name (length bytes)}. The
+// server sends the whole table with every state; a state without a tail leaves the labels empty.
+void ReadLabels(const uint8_t* p, uint32_t size) {
+	memset(g_labels, 0, sizeof(g_labels));
+	if (size < 7) return;
+	const uint32_t count = *reinterpret_cast<const uint16_t*>(p + 5);
+	uint32_t at = 7;
+	for (uint32_t i = 0; i < count && at + 4 <= size; ++i) {
+		const uint16_t index = *reinterpret_cast<const uint16_t*>(p + at);
+		const uint8_t cls = p[at + 2];
+		const uint8_t length = p[at + 3];
+		at += 4;
+		if (at + length > size) break;
+		if (index < kMaxCapacity) {
+			char set[kLabelSize] = {};
+			memcpy(set, p + at, length < kLabelSize - 1 ? length : kLabelSize - 1);
+			const char* name = cls < sizeof(kClassNames) / sizeof(kClassNames[0]) ? kClassNames[cls] : "";
+			if (set[0] && name[0]) snprintf(g_labels[index], kLabelSize, "%s (%s)", name, set);
+			else snprintf(g_labels[index], kLabelSize, "%s", name[0] ? name : set);
+		}
+		at += length;
+	}
+}char g_charIni[MAX_PATH] = {};
 char g_gameDir[MAX_PATH] = {};
 
 enum Hello { kHelloIdle, kHelloWait, kHelloSent };
@@ -387,7 +416,7 @@ void AddRow(uint8_t* list, int index, uint8_t* item) {
 	HudCXStrRelease(&s);
 	if (row < 0) return;
 	g_setCellIcon(list, row, 0, g_iconTexture(*g_pIconCache, g_itemIcon(item)));
-	HudCXStr(&s, "");
+	HudCXStr(&s, index < static_cast<int>(kMaxCapacity) ? g_labels[index] : "");
 	g_setItemText(list, row, 1, &s);
 	HudCXStrRelease(&s);
 	HudCXStr(&s, ItemName(item));
@@ -639,6 +668,7 @@ void KeyRingOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 		g_capacity = capacity;
 		g_gotState = true;
 		ApplyCapacity(RingContainer());
+		ReadLabels(data, size);
 		g_ui.shown = ~0ull;
 	}
 	else if (op == kOpNewZone || op == kOpPlayerProfile) {

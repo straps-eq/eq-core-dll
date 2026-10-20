@@ -811,14 +811,14 @@
 			<Heading>Icon</Heading>
 		</Columns>
 		<Columns>
-			<Width>20</Width>
-			<Heading></Heading>
+			<Width>120</Width>
+			<Heading>Persona</Heading>
 		</Columns>
 		<Columns>
 			<Width>300</Width>
 			<Heading>Name</Heading>
 		</Columns>
-		<TooltipReference>Drop a piece of equipment here to add it to the Equipment Key Ring, or left click and hold on a selected item to take it out. Right click an item to inspect it.</TooltipReference>
+		<TooltipReference>Drop a piece of equipment here to add it to the Equipment Key Ring, or left click and hold on a selected item to take it out. Right click an item to inspect it. Persona shows the class (and equipment set) the item was stored for.</TooltipReference>
 	</Listbox>
 	<Label item ="KRW_Equipment_Count">
 		<ScreenID>KRW_Equipment_Count</ScreenID>
