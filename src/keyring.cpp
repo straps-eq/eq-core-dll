@@ -23,7 +23,7 @@
 // Window (hooks on KeyRingWnd::WndNotification FUN_140157100; drawing from the shared DrawWindows hook): the patched
 // EQUI_KeyRingWnd.xml adds KRW_EquipmentPage (tab index 6, which the client only uses for its absent Keys page) with
 // KRW_Equipment_List, KRW_Equipment_Count and KRW_Equipment_StoreSetsCheckbox. The list is rebuilt the way the
-// client's ring refresh FUN_1401568e0 builds the others (row data = ring index; columns persona, icon, name; rows by persona then name) whenever
+// client's ring refresh FUN_1401568e0 builds the others (row data = ring index; columns persona, icon, gap, name; rows by persona then name) whenever
 // the container changes while the window is shown. Left button held on a row (0x17) picks the item up: OP_MoveItem
 // {39, index} -> cursor through the client's own move FUN_14040d090 (as FUN_14040e350 does for the other rings).
 // A click (1) or drop (0x23) with an item on the cursor puts it in: cursor -> {39, -1}, the server picks the slot and
@@ -452,7 +452,7 @@ void AddRow(uint8_t* list, int index, uint8_t* item, uint32_t colour) {
 	HudCXStrRelease(&s);
 	g_setCellIcon(list, row, 1, g_iconTexture(*g_pIconCache, g_itemIcon(item)));
 	HudCXStr(&s, ItemName(item));
-	g_setItemText(list, row, 2, &s);
+	g_setItemText(list, row, 3, &s);   // column 2 is an 8 px gap after the icon
 	HudCXStrRelease(&s);
 	g_setItemData(list, row, index);
 }
