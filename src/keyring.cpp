@@ -380,12 +380,15 @@ void Resolve(uint8_t* wnd) {
 	p.box = Child(wnd, "KRW_Equipment_StoreSetsCheckbox");
 	if (p.list) {
 		// The list settings the window's constructor FUN_140153190 gives the six stock ring lists: 30 px rows (the
-		// icons are drawn square in them), selection colour and flags.
+		// icons are drawn square in them) and the selection colour.
 		*reinterpret_cast<uint8_t*>(p.list + 0x2b5) = 1;
 		*reinterpret_cast<uint32_t*>(p.list + 0x2bc) = 30;
 		*reinterpret_cast<uint32_t*>(p.list + 0x2c8) = 0xff8aa3ffu;
-		*reinterpret_cast<uint32_t*>(p.list + 0x334) |= 0x40000u;
-		*reinterpret_cast<uint32_t*>(p.list + 0x2b0) = 2;
+		// +0x334 bit 0x40000 = sorted (by the column at +0x2b0, order flag +0x2b4; vtbl +0x398 sorts), bit 0x400000 = a
+		// header click picks the sort column and flips the order (CListWnd FUN_1405b8430). Persona first, so the sets
+		// stay together.
+		*reinterpret_cast<uint32_t*>(p.list + 0x334) |= 0x40000u | 0x400000u;
+		*reinterpret_cast<uint32_t*>(p.list + 0x2b0) = 1;
 	}
 	if (p.box && !LooksLikeCheckbox(*reinterpret_cast<uint8_t**>(wnd + kKrwAutoLeaveBox), p.box)) p.box = nullptr;
 	p.shown = ~0ull;
@@ -417,10 +420,31 @@ const char* ItemName(uint8_t* item) {
 	return def ? reinterpret_cast<const char*>(def) : "";
 }
 
-void AddRow(uint8_t* list, int index, uint8_t* item) {
+// Text colour per persona so each set reads as one block: the distinct labels in alphabetical order take the palette
+// in turn (the same persona keeps its colour from one refresh to the next).
+uint32_t PersonaColour(int index) {
+	static const uint32_t kPalette[] = { 0xFFFFFFFF, 0xFFFFD866, 0xFF8CC8FF, 0xFF9CEB8C, 0xFFFFA8C8, 0xFFC8A8FF, 0xFFFFB870, 0xFF80E8DC };
+	const int paletteSize = static_cast<int>(sizeof(kPalette) / sizeof(kPalette[0]));
+	if (index < 0 || index >= static_cast<int>(kMaxCapacity) || !g_labels[index][0]) return kPalette[0];
+	int rank = 0;
+	const char* seen[kMaxCapacity];
+	int seenCount = 0;
+	for (int i = 0; i < static_cast<int>(kMaxCapacity); ++i) {
+		const char* label = g_labels[i];
+		if (!label[0] || strcmp(label, g_labels[index]) >= 0) continue;
+		bool dup = false;
+		for (int j = 0; j < seenCount && !dup; ++j) dup = strcmp(seen[j], label) == 0;
+		if (!dup) {
+			seen[seenCount++] = label;
+			++rank;
+		}
+	}
+	return kPalette[rank % paletteSize];
+}
+void AddRow(uint8_t* list, int index, uint8_t* item, uint32_t colour) {
 	void* s = nullptr;
 	HudCXStr(&s, "");
-	const int row = g_addRow(list, &s, 0xffffffffu, index, nullptr, nullptr, 1);
+	const int row = g_addRow(list, &s, colour, index, nullptr, nullptr, 1);
 	HudCXStrRelease(&s);
 	if (row < 0) return;
 	g_setCellIcon(list, row, 0, g_iconTexture(*g_pIconCache, g_itemIcon(item)));
@@ -445,7 +469,7 @@ void Refresh(uint64_t signature) {
 	int count = 0;
 	for (int i = 0, n = RingSize(c); i < n; ++i) {
 		if (ItemPtr* e = RingEntry(c, i)) {
-			AddRow(list, i, e->item);
+			AddRow(list, i, e->item, PersonaColour(i));
 			++count;
 		}
 	}
