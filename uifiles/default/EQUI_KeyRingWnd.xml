@@ -841,10 +841,10 @@
 		<TopAnchorToTop>true</TopAnchorToTop>
 		<BottomAnchorToTop>true</BottomAnchorToTop>
 		<LeftAnchorToLeft>true</LeftAnchorToLeft>
-		<RightAnchorToLeft>false</RightAnchorToLeft>
+		<RightAnchorToLeft>true</RightAnchorToLeft>
 		<LeftAnchorOffset>4</LeftAnchorOffset>
 		<TopAnchorOffset>36</TopAnchorOffset>
-		<RightAnchorOffset>4</RightAnchorOffset>
+		<RightAnchorOffset>200</RightAnchorOffset>
 		<BottomAnchorOffset>56</BottomAnchorOffset>
 		<Style_Transparent>false</Style_Transparent>
 		<Style_Checkbox>true</Style_Checkbox>
