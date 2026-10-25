@@ -9,6 +9,7 @@
 #include "nameplates.h"
 #include "advloot.h"
 #include "keyring.h"
+#include "magictag.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -157,6 +158,9 @@ static const Feature kFeatures[] = {
 	// hooks. Needs the patched EQUI_KeyRingWnd.xml; the server only fills it after our hello. See keyring.cpp.
 	{ "EquipmentKeyRing", true, "Equipment tab in the Key Rings window",       nullptr,           0,
 	  kKeyRingHooks, COUNT(kKeyRingHooks), kHudRefs, COUNT(kHudRefs), KeyRingPrepare, kKeyRingRefs, COUNT(kKeyRingRefs) },
+	// "Magic" back at the front of the item display's flags line: hook on its builder FUN_14041b100. See magictag.cpp.
+	{ "ItemMagicTag",     true, "Magic in the item display's flags line",        nullptr,           0,
+	  kItemMagicTagHooks, COUNT(kItemMagicTagHooks), kHudRefs, COUNT(kHudRefs), ItemMagicTagPrepare, kItemMagicTagRefs, COUNT(kItemMagicTagRefs) },
 };
 
 const Feature* GetFeatures(size_t* count) {
