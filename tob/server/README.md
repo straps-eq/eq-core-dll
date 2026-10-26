@@ -104,3 +104,7 @@ The DLL's window changes need the patched UI files in `../uifiles/default/`. Cop
 - `EQUI_OptionsWindow.xml`: the Combat Text and Nameplates tabs.
 - `EQUI_AdvancedLootWnd.xml`: Store All / Sell All, the two checkboxes, and the AS / ST columns.
 - `EQUI_LootFiltersWnd.xml`: the AS / ST columns in Edit Loot Filters.
+
+## Item stats ToB cannot show (DLL feature ItemHiddenStats)
+
+Opcode 0x7e51, unused by the ToB client. C2S `{u32 item_id}`: the DLL asks once per item id per session when an item window shows the item. S2C `{u32 item_id; u8 count; count x {u8 flags; i32 value; u8 length; char label[length]}}`: one entry per non-zero stat, `flags` bit 0 = show a % sign, `label` without a trailing NUL (e.g. `Shielding`, `Faction (Coldain)`). Answer every request, with `count` 0 when there is nothing to add; the DLL does not ask again for that id. Values are the base item's (no augments).

@@ -161,6 +161,11 @@ static const Feature kFeatures[] = {
 	// "Magic" back at the front of the item display's flags line: hook on its builder FUN_14041b100. See magictag.cpp.
 	{ "ItemMagicTag",     true, "Magic in the item display's flags line",        nullptr,           0,
 	  kItemMagicTagHooks, COUNT(kItemMagicTagHooks), kHudRefs, COUNT(kHudRefs), ItemMagicTagPrepare, kItemMagicTagRefs, COUNT(kItemMagicTagRefs) },
+	// Stats ToB's item format cannot carry (Shielding, Avoidance, heroic resists, faction mods...), asked from the server
+	// per item id and listed in the item window: the item display finalise hook (shared with ItemDisplayExtras) and the
+	// shared packet dispatcher. See itemdisplay.cpp.
+	{ "ItemHiddenStats",  true, "Stats ToB's item window cannot show, from the server", nullptr,       0,
+	  kItemHiddenStatsHooks, COUNT(kItemHiddenStatsHooks), kItemDisplayExtrasRefs, COUNT(kItemDisplayExtrasRefs), ItemHiddenStatsPrepare },
 };
 
 const Feature* GetFeatures(size_t* count) {

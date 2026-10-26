@@ -46,6 +46,7 @@
 #include "hud.h"
 #include "nametags.h"
 #include "keyring.h"
+#include "itemdisplay.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -338,7 +339,10 @@ uint64_t StartCastingDetour(void* eq, int* pkt) {
 }
 
 uint64_t DispatchDetour(void* self, void* a2, uint32_t op, uint8_t* data, uint32_t size) {
-	if (data) KeyRingOnPacket(op, data, size);
+	if (data) {
+		KeyRingOnPacket(op, data, size);
+		ItemStatsOnPacket(op, data, size);
+	}
 	if (g_on && data) {
 		if (op == kOpInterruptCast && size >= 8) {
 			const uint32_t id = *reinterpret_cast<const uint32_t*>(data);
