@@ -25,16 +25,17 @@
 //
 // ItemHiddenStats (same hook, its own switch): stats the ToB item format has no field for (Shielding, Spell Shield,
 // DoT Shielding, Damage Shield, DS Mitigation, Stun Resist, Strikethrough, Avoidance, Accuracy, Combat Effects,
-// heroic resists, faction mods) come from the server on request, one packet per item id, and are listed right after
-// the client's own text. Wire, opcode 0x7e51 (no client handler or sender uses it):
+// heroic resists, faction mods) come from the server on request, one packet per item id, and are added as rows to
+// the stat grid's third column (see AddStatRows), or to the text when that column is empty. Wire, opcode 0x7e51 (no client handler or sender uses it):
 //   C2S {u32 item_id}: sent once per item id per session, when an item window shows that item.
 //   S2C {u32 item_id; u8 count; count x {u8 flags (bit0 = percent); i32 value; u8 length; char label[length]}};
 //       count 0 = nothing to add. The labels come from the server ("Shielding", "Faction (Coldain)").
-// On a reply for the item an item window is showing, that window's text is rebuilt.
+// On a reply for the item an item window is showing, that window is rebuilt (UpdateStrings).
 #include "itemdisplay.h"
 #include "nameplates.h"
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include "spellinfo.h"
 #include "stml.h"
 #include <windows.h>
@@ -352,9 +353,13 @@ void AddSpellInfo(TextBuf& t, const uint8_t* def) {
 // ---- hidden stats (ItemHiddenStats) ----
 
 const uint32_t kOpItemStats = 0x7e51;
+struct StatRow {
+	std::string label;       // "Shielding:"
+	std::string value;       // "1%"
+};
 struct Stats {
 	bool answered = false;
-	std::string text;        // ready STML lines joined with "<BR>"
+	std::vector<StatRow> rows;
 };
 std::unordered_map<uint32_t, Stats> g_stats;   // by item id, for the session
 uint8_t* g_statsWnd = nullptr;                  // the window that asked last, rebuilt when the answer arrives
@@ -369,7 +374,7 @@ void RequestStats(uint32_t id) {
 	g_sendMessage(conn, 4, packet, sizeof(packet));
 }
 
-// The item's lines, or nullptr while the server has not answered (the request goes out then).
+// The item's rows, or nullptr while the server has not answered (the request goes out then).
 const Stats* HiddenStats(uint8_t* wnd, uint32_t id) {
 	auto it = g_stats.find(id);
 	if (it != g_stats.end() && it->second.answered) return &it->second;
@@ -377,6 +382,83 @@ const Stats* HiddenStats(uint8_t* wnd, uint32_t id) {
 	g_statsWndItem = id;
 	RequestStats(id);
 	return nullptr;
+}
+
+// The rows go into the stat grid's third column (Heal Amount, Spell Dmg, Clairvoyance, ...) from inside the window's
+// UpdateStrings FUN_14041c1e0, so its own layout pass at the end sizes the grid for them. The place: the first call to
+// the extra-damage skill getter FUN_14064fec0 for the shown item, which UpdateStrings makes right after the column's
+// last stat rows and before it stores the column's row count (wnd+0x4a0 = row counter wnd+0x448). Cells, as the
+// client writes them: label FUN_140429f30(wnd, row, 3, CXStr*), value FUN_14042a270(wnd, row, 3, text, 0, 0). The
+// grid has 25 usable rows per column (label cells at wnd+((row+0x35)*3+col)*8, value cells from row+0x4f).
+// Compare mode (wnd+0xa70) is left alone. When the column has no rows of its own the client lays out fewer columns,
+// so the stats go to the end of the description text instead.
+const size_t kWndRowCounter = 0x448;    // int, next row of the column being written
+const size_t kWndCompare = 0xa70;       // u8
+const int kGridColumn = 3;
+const int kGridRows = 25;
+
+using UpdateFn = void (*)(uint8_t* wnd, void* item);
+using SkillTypeFn = uint32_t (*)(uint8_t* item);
+using GridLabelFn = void (*)(uint8_t* wnd, int row, int column, void** text, uint8_t flag);
+using GridTextFn = void (*)(uint8_t* wnd, int row, int column, const char* text, int sign, int widen);
+UpdateFn g_origUpdate = nullptr;        // FUN_14041c1e0
+SkillTypeFn g_origSkillType = nullptr;  // FUN_14064fec0
+GridLabelFn g_gridLabel = nullptr;      // FUN_140429f30
+GridTextFn g_gridText = nullptr;        // FUN_14042a270
+uint8_t* g_updWnd = nullptr;            // the window UpdateStrings is building, else null
+uint8_t* g_updItem = nullptr;
+bool g_rowsDone = false;
+bool g_textFallback = false;            // the column was empty: put the stats in the text
+
+void AddStatRows(uint8_t* wnd, uint8_t* item) {
+	uint8_t* def = VCall<uint8_t*>(item, kItemVtblGetDef);
+	if (!def) return;
+	const Stats* s = HiddenStats(wnd, U32(def, kDefId));
+	if (!s || s->rows.empty()) return;
+	int& row = *reinterpret_cast<int*>(wnd + kWndRowCounter);
+	if (row <= 1) {
+		g_textFallback = true;
+		return;
+	}
+	for (const StatRow& r : s->rows) {
+		if (row >= kGridRows) break;
+		void* label = nullptr;
+		g_cxstrFromCStr(&label, r.label.c_str());
+		g_gridLabel(wnd, row, kGridColumn, &label, 0);
+		g_gridText(wnd, row, kGridColumn, r.value.c_str(), 0, 0);
+		++row;
+	}
+}
+
+uint32_t SkillTypeDetour(uint8_t* item) {
+	if (g_statsOn && g_updWnd && !g_rowsDone && item && item == g_updItem) {
+		g_rowsDone = true;
+		if (!g_updWnd[kWndCompare]) AddStatRows(g_updWnd, item);
+	}
+	return g_origSkillType(item);
+}
+
+void UpdateDetour(uint8_t* wnd, void* item) {
+	if (!g_statsOn || g_updWnd || !wnd || !item || !SpellInfoInGame()) {
+		g_origUpdate(wnd, item);
+		return;
+	}
+	g_updWnd = wnd;
+	g_updItem = *reinterpret_cast<uint8_t**>(item);
+	g_rowsDone = false;
+	g_textFallback = false;
+	g_origUpdate(wnd, item);
+	g_updWnd = nullptr;
+}
+
+// Fallback for items whose third column is empty: the rows at the end of the description text.
+void AddStatText(TextBuf& t, uint8_t* wnd, const uint8_t* def) {
+	if (!g_textFallback) return;
+	g_textFallback = false;
+	const Stats* s = HiddenStats(wnd, U32(def, kDefId));
+	if (!s || s->rows.empty()) return;
+	t.Add("<BR>");
+	for (const StatRow& r : s->rows) t.Add("<BR>%s %s", r.label.c_str(), r.value.c_str());
 }
 
 // ---- hook ----
@@ -396,11 +478,7 @@ void AppendExtras(uint8_t* wnd) {
 	static char text[kTextMax];
 	size_t native = StmlTrimBreaks(text, StmlCurrentText(stml, text, sizeof(text)));
 	TextBuf t(text + native, sizeof(text) - native);
-	if (g_statsOn) {
-		if (const Stats* s = HiddenStats(wnd, U32(def, kDefId))) {
-			if (!s->text.empty()) t.Add("<BR><BR>%s", s->text.c_str());
-		}
-	}
+	if (g_statsOn) AddStatText(t, wnd, def);
 	if (!g_extrasOn) {
 		if (t.len) StmlSetText(stml, text, g_cxstrFromCStr, g_setStmlText);
 		return;
@@ -470,7 +548,7 @@ const HookSite kItemDisplayExtrasHooks[1] = {
 	{ kFinaliseSig, 5, reinterpret_cast<void*>(&FinaliseDetour), REF(g_origFinalise) },
 };
 
-const RefSite kItemDisplayExtrasRefs[23] = {
+const RefSite kItemDisplayExtrasRefs[25] = {
 	// ItemBase::GetCost FUN_14064f280(item, includeAugments): def = vtbl+0x28; mov r15d,[rax+c0]
 	{ "40 53 41 56 41 57 48 83 EC 50 48 8B 01 0F B6 DA 4C 8B F1 FF 50 28 4D 8B 06 49 8B CE 44 8B B8 C0 00 00 00",
 	  0, 0, REF(g_getCost) },
@@ -485,6 +563,10 @@ const RefSite kItemDisplayExtrasRefs[23] = {
 	{ "48 89 5C 24 08 48 89 6C 24 10 56 57 41 56 48 83 EC 40 49 63 E9", 0, 0, REF(g_sendMessage) },
 	// FUN_140344570: mov rdi,[pConnection]; mov [rsp+30],rdi
 	{ "48 8B 3D ?? ?? ?? ?? 48 89 7C 24 30", 3, 7, REF(g_pConnection) },
+	// stat grid label cell FUN_140429f30(wnd, row, column, CXStr* text, flag): sets the cell, releases the text
+	{ "48 89 5C 24 08 4C 89 4C 24 20 57 48 83 EC 20 49 8B D9 48 63 C2", 0, 0, REF(g_gridLabel) },
+	// stat grid value cell from a string FUN_14042a270(wnd, row, column, const char* text, sign, widen)
+	{ "40 53 57 48 83 EC 58 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 40 49 8B D9", 0, 0, REF(g_gridText) },
 	SPELLINFO_REF_SITES,
 };
 
@@ -495,8 +577,14 @@ const char* ItemDisplayExtrasPrepare() {
 	return nullptr;
 }
 
-const HookSite kItemHiddenStatsHooks[2] = {
+const HookSite kItemHiddenStatsHooks[4] = {
+	// Shared with ItemDisplayExtras: the finalise step, for the text fallback.
 	{ kFinaliseSig, 5, reinterpret_cast<void*>(&FinaliseDetour), REF(g_origFinalise) },
+	// CItemDisplayWnd::UpdateStrings FUN_14041c1e0(wnd, ItemPtr*). Stolen (5): mov [rsp+18],rbx.
+	{ "48 89 5C 24 18 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 C0 F0 FF FF", 5,
+	  reinterpret_cast<void*>(&UpdateDetour), REF(g_origUpdate) },
+	// ItemBase extra-damage skill getter FUN_14064fec0(item): mov eax,[def+52c]. Stolen (7): sub rsp,28; mov rax,[rcx].
+	{ "48 83 EC 28 48 8B 01 FF 50 28 8B 80 2C 05 00 00", 7, reinterpret_cast<void*>(&SkillTypeDetour), REF(g_origSkillType) },
 	// Shared with Nameplates / EquipmentKeyRing: the packet dispatcher FUN_1401e4010, for the answers.
 	{ kDispatchSig, 5, reinterpret_cast<void*>(g_dispatchDetour), reinterpret_cast<void**>(g_origDispatchSlot) },
 };
@@ -515,7 +603,7 @@ void ItemStatsOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 	memcpy(&id, data, 4);
 	Stats& s = g_stats[id];
 	s.answered = true;
-	s.text.clear();
+	s.rows.clear();
 	const uint8_t count = data[4];
 	uint32_t at = 5;
 	for (uint8_t i = 0; i < count && at + 6 <= size; ++i) {
@@ -525,16 +613,19 @@ void ItemStatsOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 		const uint8_t length = data[at + 5];
 		at += 6;
 		if (at + length > size) break;
-		char line[160];
-		snprintf(line, sizeof(line), "%s%.*s: %d%s", s.text.empty() ? "" : "<BR>", static_cast<int>(length),
-		         reinterpret_cast<const char*>(data + at), value, (flags & 1) ? "%" : "");
-		s.text += line;
+		StatRow row;
+		row.label.assign(reinterpret_cast<const char*>(data + at), length);
+		row.label += ':';
+		char text[24];
+		snprintf(text, sizeof(text), "%d%s", value, (flags & 1) ? "%" : "");
+		row.value = text;
+		s.rows.push_back(row);
 		at += length;
 	}
-	// Rebuild the window that asked, if it still shows that item.
+	// Rebuild the window that asked, if it still shows that item: its whole text, grid included.
 	uint8_t* wnd = g_statsWnd;
-	if (!wnd || g_statsWndItem != id || !wnd[kWndHasItem] || s.text.empty()) return;
+	if (!wnd || g_statsWndItem != id || !wnd[kWndHasItem] || s.rows.empty() || g_updWnd) return;
 	uint8_t* item = *reinterpret_cast<uint8_t**>(wnd + kWndItem);
 	uint8_t* def = item ? VCall<uint8_t*>(item, kItemVtblGetDef) : nullptr;
-	if (def && U32(def, kDefId) == id) FinaliseDetour(wnd);
+	if (def && U32(def, kDefId) == id) UpdateDetour(wnd, reinterpret_cast<void*>(wnd + kWndItem));
 }
