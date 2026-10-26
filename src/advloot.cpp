@@ -50,6 +50,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <unordered_map>
+#include <vector>
 
 namespace {
 
@@ -176,9 +178,8 @@ struct Filter {
 	uint32_t icon;      // item icon id, for the Edit Loot Filters row
 	char name[64];
 };
-const int kMaxFilters = 512;
-Filter g_filters[kMaxFilters];
-int g_filterCount = 0;
+std::vector<Filter> g_filters;   // no fixed cap (players keep hundreds of auto actions)
+int g_filterCount = 0;           // g_filters.size()
 char g_filterFile[MAX_PATH] = {};
 char g_filterChar[0x40] = {};
 bool g_lfDirty = false;      // the Edit Loot Filters window has to be brought in line with the table
@@ -189,33 +190,44 @@ const char* CharacterName() {
 }
 
 // Reads a [Filters] section into the table: item_id=action, then item_id_name / item_id_icon for those items.
-int ReadFilterFile(const char* file, Filter* out, int max) {
-	int count = 0;
-	static char keys[32768];
-	DWORD n = GetPrivateProfileSectionA("Filters", keys, sizeof(keys), file);
-	for (const char* p = keys; n && *p && count < max; p += strlen(p) + 1) {
+int ReadFilterFile(const char* file, std::vector<Filter>* out) {
+	out->clear();
+	// GetPrivateProfileSectionA returns size - 2 when the section does not fit: grow the buffer until it does (each
+	// item takes three keys, so a fixed 32 KB buffer cut the section off at about 500 items).
+	std::vector<char> keys(64 * 1024);
+	DWORD n = 0;
+	for (;;) {
+		n = GetPrivateProfileSectionA("Filters", keys.data(), static_cast<DWORD>(keys.size()), file);
+		if (n < keys.size() - 2 || keys.size() >= (64u << 20)) break;
+		keys.resize(keys.size() * 2);
+	}
+	std::unordered_map<uint64_t, size_t> index;
+	for (const char* p = keys.data(); n && *p; p += strlen(p) + 1) {
 		const char* eq = strchr(p, '=');
 		char* end = nullptr;
 		uint64_t item = _strtoui64(p, &end, 10);
 		int action = eq ? atoi(eq + 1) : 0;
 		if (!eq || end != eq || !item || (action != kActionSell && action != kActionStore && action != kActionDepot))
 			continue;
-		out[count] = {};
-		out[count].item = item;
-		out[count++].action = static_cast<uint8_t>(action);
+		if (index.count(item)) continue;
+		Filter f = {};
+		f.item = item;
+		f.action = static_cast<uint8_t>(action);
+		index[item] = out->size();
+		out->push_back(f);
 	}
-	for (const char* p = keys; n && *p; p += strlen(p) + 1) {
+	for (const char* p = keys.data(); n && *p; p += strlen(p) + 1) {
 		const char* eq = strchr(p, '=');
 		char* end = nullptr;
 		uint64_t item = _strtoui64(p, &end, 10);
 		if (!eq || !item || end == eq || *end != '_') continue;
-		int i = 0;
-		while (i < count && out[i].item != item) ++i;
-		if (i == count) continue;
-		if (strncmp(end, "_name=", 6) == 0) strncpy_s(out[i].name, eq + 1, _TRUNCATE);
-		else if (strncmp(end, "_icon=", 6) == 0) out[i].icon = static_cast<uint32_t>(strtoul(eq + 1, nullptr, 10));
+		const auto it = index.find(item);
+		if (it == index.end()) continue;
+		Filter& f = (*out)[it->second];
+		if (strncmp(end, "_name=", 6) == 0) strncpy_s(f.name, eq + 1, _TRUNCATE);
+		else if (strncmp(end, "_icon=", 6) == 0) f.icon = static_cast<uint32_t>(strtoul(eq + 1, nullptr, 10));
 	}
-	return count;
+	return static_cast<int>(out->size());
 }
 
 // Loads the character's filter file the first time that character is seen.
@@ -224,7 +236,7 @@ void LoadFilters() {
 	if (!name || !name[0] || strncmp(name, g_filterChar, sizeof(g_filterChar)) == 0) return;
 	strncpy_s(g_filterChar, name, _TRUNCATE);
 	snprintf(g_filterFile, sizeof(g_filterFile), "%s\\userdata\\eqcore_advloot_%s.ini", g_gameDir, g_filterChar);
-	g_filterCount = ReadFilterFile(g_filterFile, g_filters, kMaxFilters);
+	g_filterCount = ReadFilterFile(g_filterFile, &g_filters);
 	g_lfDirty = true;
 }
 
@@ -245,19 +257,24 @@ void SetFilter(uint64_t item, const char* name, uint32_t icon, uint8_t action) {
 	g_lfDirty = true;
 	const int i = FindFilter(item);
 	if (!action) {
-		if (i >= 0) g_filters[i] = g_filters[--g_filterCount];
+		if (i >= 0) {
+			g_filters[i] = g_filters[--g_filterCount];
+			g_filters.pop_back();
+		}
 		WriteFilterKey(g_filterFile, item, "", nullptr);
 		WriteFilterKey(g_filterFile, item, "_name", nullptr);
 		WriteFilterKey(g_filterFile, item, "_icon", nullptr);
 		return;
 	}
-	Filter* f = i >= 0 ? &g_filters[i] : g_filterCount < kMaxFilters ? &g_filters[g_filterCount++] : nullptr;
-	if (f) {
-		f->item = item;
-		f->action = action;
-		f->icon = icon;
-		strncpy_s(f->name, name ? name : "", _TRUNCATE);
+	if (i < 0) {
+		g_filters.push_back({});
+		++g_filterCount;
 	}
+	Filter* f = &g_filters[i >= 0 ? i : g_filterCount - 1];
+	f->item = item;
+	f->action = action;
+	f->icon = icon;
+	strncpy_s(f->name, name ? name : "", _TRUNCATE);
 	char dir[MAX_PATH], value[16];
 	snprintf(dir, sizeof(dir), "%s\\userdata", g_gameDir);
 	CreateDirectoryA(dir, nullptr);
@@ -1071,7 +1088,7 @@ void LfFrameDetour(uint8_t* wnd) {
 // H5: Merge / Replace Filters confirmed for another character: do the same for the DLL file. The entry reads
 // "<server>_<character>"; the part that names an existing DLL file is taken as the character.
 void MergeDllFile(const char* entry, bool replace) {
-	static Filter other[kMaxFilters];
+	std::vector<Filter> other;
 	const char* first = strchr(entry, '_');
 	const char* last = strrchr(entry, '_');
 	const char* parts[2] = { last ? last + 1 : entry, entry };
@@ -1081,7 +1098,7 @@ void MergeDllFile(const char* entry, bool replace) {
 		const size_t len = i == 0 ? strlen(parts[0]) : first ? static_cast<size_t>(first - entry) : strlen(entry);
 		if (!len || len >= 64) continue;
 		snprintf(file, sizeof(file), "%s\\userdata\\eqcore_advloot_%.*s.ini", g_gameDir, static_cast<int>(len), parts[i]);
-		if (GetFileAttributesA(file) != INVALID_FILE_ATTRIBUTES) n = ReadFilterFile(file, other, kMaxFilters);
+		if (GetFileAttributesA(file) != INVALID_FILE_ATTRIBUTES) n = ReadFilterFile(file, &other);
 	}
 	if (n < 0 || _stricmp(file, g_filterFile) == 0) return;
 	if (replace)
