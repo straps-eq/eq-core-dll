@@ -22,7 +22,19 @@
 // (FUN_14064f280, def+0xC0 in copper); recast ready times at ItemClient+0x14 and PcProfile+0x4CC4+type*4
 // (both unix seconds, written by the OP_ItemRecastDelay handler FUN_1402ed830 / FUN_14066ece0); the
 // player's level from pLocalPlayer+0x494 for the "too high" colouring.
+//
+// ItemHiddenStats (same hook, its own switch): stats the ToB item format has no field for (Shielding, Spell Shield,
+// DoT Shielding, Damage Shield, DS Mitigation, Stun Resist, Strikethrough, Avoidance, Accuracy, Combat Effects,
+// heroic resists, faction mods) come from the server on request, one packet per item id, and are listed right after
+// the client's own text. Wire, opcode 0x7e51 (no client handler or sender uses it):
+//   C2S {u32 item_id}: sent once per item id per session, when an item window shows that item.
+//   S2C {u32 item_id; u8 count; count x {u8 flags (bit0 = percent); i32 value; u8 length; char label[length]}};
+//       count 0 = nothing to add. The labels come from the server ("Shielding", "Faction (Coldain)").
+// On a reply for the item an item window is showing, that window's text is rebuilt.
 #include "itemdisplay.h"
+#include "nameplates.h"
+#include <string>
+#include <unordered_map>
 #include "spellinfo.h"
 #include "stml.h"
 #include <windows.h>
@@ -89,6 +101,11 @@ StmlSetTextFn g_setStmlText = nullptr;       // FUN_1405ca040
 GetPcProfileFn g_getPcProfile = nullptr;     // FUN_14067c550 (call target inside FUN_14066ece0)
 uint8_t** g_pLocalPC = nullptr;              // &DAT_140e65d90
 uint8_t** g_pLocalPlayer = nullptr;          // &DAT_140e66228
+using SendMessageFn = uint8_t (*)(uint8_t* connection, int channel, const uint8_t* data, int length);
+SendMessageFn g_sendMessage = nullptr;       // FUN_140547ef0
+uint8_t** g_pConnection = nullptr;           // &DAT_140e65da8
+bool g_extrasOn = false;                     // ItemDisplayExtras
+bool g_statsOn = false;                      // ItemHiddenStats
 
 template <typename R, typename... A>
 R VCall(void* obj, size_t slot, A... args) {
@@ -332,6 +349,36 @@ void AddSpellInfo(TextBuf& t, const uint8_t* def) {
 	}
 }
 
+// ---- hidden stats (ItemHiddenStats) ----
+
+const uint32_t kOpItemStats = 0x7e51;
+struct Stats {
+	bool answered = false;
+	std::string text;        // ready STML lines joined with "<BR>"
+};
+std::unordered_map<uint32_t, Stats> g_stats;   // by item id, for the session
+uint8_t* g_statsWnd = nullptr;                  // the window that asked last, rebuilt when the answer arrives
+uint32_t g_statsWndItem = 0;
+
+void RequestStats(uint32_t id) {
+	uint8_t* conn = *g_pConnection;
+	if (!conn || !id || g_stats.count(id)) return;
+	g_stats[id];   // asked: never again this session
+	uint8_t packet[6] = { static_cast<uint8_t>(kOpItemStats & 0xff), static_cast<uint8_t>(kOpItemStats >> 8) };
+	memcpy(packet + 2, &id, 4);
+	g_sendMessage(conn, 4, packet, sizeof(packet));
+}
+
+// The item's lines, or nullptr while the server has not answered (the request goes out then).
+const Stats* HiddenStats(uint8_t* wnd, uint32_t id) {
+	auto it = g_stats.find(id);
+	if (it != g_stats.end() && it->second.answered) return &it->second;
+	g_statsWnd = wnd;
+	g_statsWndItem = id;
+	RequestStats(id);
+	return nullptr;
+}
+
 // ---- hook ----
 
 const size_t kTextMax = 65536;   // the client's text (lore, item information) plus ours
@@ -349,6 +396,15 @@ void AppendExtras(uint8_t* wnd) {
 	static char text[kTextMax];
 	size_t native = StmlTrimBreaks(text, StmlCurrentText(stml, text, sizeof(text)));
 	TextBuf t(text + native, sizeof(text) - native);
+	if (g_statsOn) {
+		if (const Stats* s = HiddenStats(wnd, U32(def, kDefId))) {
+			if (!s->text.empty()) t.Add("<BR><BR>%s", s->text.c_str());
+		}
+	}
+	if (!g_extrasOn) {
+		if (t.len) StmlSetText(stml, text, g_cxstrFromCStr, g_setStmlText);
+		return;
+	}
 	if (g_cfg.effects) AddSpellHeaders(t, def, text);
 	size_t blockStart = t.len;
 	t.Add("<BR>");
@@ -414,7 +470,7 @@ const HookSite kItemDisplayExtrasHooks[1] = {
 	{ kFinaliseSig, 5, reinterpret_cast<void*>(&FinaliseDetour), REF(g_origFinalise) },
 };
 
-const RefSite kItemDisplayExtrasRefs[21] = {
+const RefSite kItemDisplayExtrasRefs[23] = {
 	// ItemBase::GetCost FUN_14064f280(item, includeAugments): def = vtbl+0x28; mov r15d,[rax+c0]
 	{ "40 53 41 56 41 57 48 83 EC 50 48 8B 01 0F B6 DA 4C 8B F1 FF 50 28 4D 8B 06 49 8B CE 44 8B B8 C0 00 00 00",
 	  0, 0, REF(g_getCost) },
@@ -425,11 +481,60 @@ const RefSite kItemDisplayExtrasRefs[21] = {
 	{ kTargetWndConSig, 20, 24, REF(g_pLocalPC) },
 	{ kSpawnMgrSig, 36, 40, REF(g_pLocalPlayer) },
 	{ kRecastTypeSetterSig, 31, 35, REF(g_getPcProfile) },
+	// FUN_140547ef0(connection, channel, data, length)
+	{ "48 89 5C 24 08 48 89 6C 24 10 56 57 41 56 48 83 EC 40 49 63 E9", 0, 0, REF(g_sendMessage) },
+	// FUN_140344570: mov rdi,[pConnection]; mov [rsp+30],rdi
+	{ "48 8B 3D ?? ?? ?? ?? 48 89 7C 24 30", 3, 7, REF(g_pConnection) },
 	SPELLINFO_REF_SITES,
 };
 
 const char* ItemDisplayExtrasPrepare() {
 	if (const char* e = SpellInfoPrepare()) return e;
 	LoadConfig();
+	g_extrasOn = true;
 	return nullptr;
+}
+
+const HookSite kItemHiddenStatsHooks[2] = {
+	{ kFinaliseSig, 5, reinterpret_cast<void*>(&FinaliseDetour), REF(g_origFinalise) },
+	// Shared with Nameplates / EquipmentKeyRing: the packet dispatcher FUN_1401e4010, for the answers.
+	{ kDispatchSig, 5, reinterpret_cast<void*>(g_dispatchDetour), reinterpret_cast<void**>(g_origDispatchSlot) },
+};
+
+const char* ItemHiddenStatsPrepare() {
+	if (const char* e = SpellInfoPrepare()) return e;
+	LoadConfig();
+	g_statsOn = true;
+	return nullptr;
+}
+
+// S2C 0x7e51 {u32 item_id; u8 count; count x {u8 flags; i32 value; u8 length; char label[length]}}
+void ItemStatsOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
+	if (!g_statsOn || op != kOpItemStats || !data || size < 5) return;
+	uint32_t id;
+	memcpy(&id, data, 4);
+	Stats& s = g_stats[id];
+	s.answered = true;
+	s.text.clear();
+	const uint8_t count = data[4];
+	uint32_t at = 5;
+	for (uint8_t i = 0; i < count && at + 6 <= size; ++i) {
+		const uint8_t flags = data[at];
+		int32_t value;
+		memcpy(&value, data + at + 1, 4);
+		const uint8_t length = data[at + 5];
+		at += 6;
+		if (at + length > size) break;
+		char line[160];
+		snprintf(line, sizeof(line), "%s%.*s: %d%s", s.text.empty() ? "" : "<BR>", static_cast<int>(length),
+		         reinterpret_cast<const char*>(data + at), value, (flags & 1) ? "%" : "");
+		s.text += line;
+		at += length;
+	}
+	// Rebuild the window that asked, if it still shows that item.
+	uint8_t* wnd = g_statsWnd;
+	if (!wnd || g_statsWndItem != id || !wnd[kWndHasItem] || s.text.empty()) return;
+	uint8_t* item = *reinterpret_cast<uint8_t**>(wnd + kWndItem);
+	uint8_t* def = item ? VCall<uint8_t*>(item, kItemVtblGetDef) : nullptr;
+	if (def && U32(def, kDefId) == id) FinaliseDetour(wnd);
 }
