@@ -3,6 +3,9 @@
 // when loaded into eqgame.exe. Features are chosen in dinput8.ini next to eqgame.exe.
 #include <windows.h>
 #include <unknwn.h>
+#include <intrin.h>
+#define DIRECTINPUT_VERSION 0x0800
+#include <dinput.h>
 #include <cstdio>
 #include <cstdarg>
 #include <string>
@@ -91,6 +94,48 @@ LONG CALLBACK CrashLogHandler(PEXCEPTION_POINTERS info) {
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
+// The joystick data format (DIJOYSTATE), built from its documented layout so GetdfDIJoystick never
+// has to load or enter the system DLL. Callers other than eqgame.exe (e.g. GameInput) ask for it on
+// their own threads. Field for field the same as the system DLL's c_dfDIJoystick.
+constexpr DWORD kOptional = 0x80000000;   // DIDFT_OPTIONAL: documented for DIOBJECTDATAFORMAT, absent from the SDK header
+constexpr DWORD kAxis = kOptional | DIDFT_AXIS | DIDFT_ANYINSTANCE;
+constexpr DWORD kPov = kOptional | DIDFT_POV | DIDFT_ANYINSTANCE;
+constexpr DWORD kButton = kOptional | DIDFT_BUTTON | DIDFT_ANYINSTANCE;
+
+#define JOY_BUTTON(n) { nullptr, DIJOFS_BUTTON(n), kButton, 0 }
+DIOBJECTDATAFORMAT g_joystickObjects[] = {
+	{ &GUID_XAxis, DIJOFS_X, kAxis, DIDOI_ASPECTPOSITION },
+	{ &GUID_YAxis, DIJOFS_Y, kAxis, DIDOI_ASPECTPOSITION },
+	{ &GUID_ZAxis, DIJOFS_Z, kAxis, DIDOI_ASPECTPOSITION },
+	{ &GUID_RxAxis, DIJOFS_RX, kAxis, DIDOI_ASPECTPOSITION },
+	{ &GUID_RyAxis, DIJOFS_RY, kAxis, DIDOI_ASPECTPOSITION },
+	{ &GUID_RzAxis, DIJOFS_RZ, kAxis, DIDOI_ASPECTPOSITION },
+	{ &GUID_Slider, DIJOFS_SLIDER(0), kAxis, DIDOI_ASPECTPOSITION },
+	{ &GUID_Slider, DIJOFS_SLIDER(1), kAxis, DIDOI_ASPECTPOSITION },
+	{ &GUID_POV, DIJOFS_POV(0), kPov, 0 },
+	{ &GUID_POV, DIJOFS_POV(1), kPov, 0 },
+	{ &GUID_POV, DIJOFS_POV(2), kPov, 0 },
+	{ &GUID_POV, DIJOFS_POV(3), kPov, 0 },
+	JOY_BUTTON(0), JOY_BUTTON(1), JOY_BUTTON(2), JOY_BUTTON(3), JOY_BUTTON(4), JOY_BUTTON(5), JOY_BUTTON(6), JOY_BUTTON(7),
+	JOY_BUTTON(8), JOY_BUTTON(9), JOY_BUTTON(10), JOY_BUTTON(11), JOY_BUTTON(12), JOY_BUTTON(13), JOY_BUTTON(14), JOY_BUTTON(15),
+	JOY_BUTTON(16), JOY_BUTTON(17), JOY_BUTTON(18), JOY_BUTTON(19), JOY_BUTTON(20), JOY_BUTTON(21), JOY_BUTTON(22), JOY_BUTTON(23),
+	JOY_BUTTON(24), JOY_BUTTON(25), JOY_BUTTON(26), JOY_BUTTON(27), JOY_BUTTON(28), JOY_BUTTON(29), JOY_BUTTON(30), JOY_BUTTON(31),
+};
+#undef JOY_BUTTON
+
+const DIDATAFORMAT g_joystickFormat = {
+	sizeof(DIDATAFORMAT), sizeof(DIOBJECTDATAFORMAT), DIDF_ABSAXIS, sizeof(DIJOYSTATE),
+	ARRAYSIZE(g_joystickObjects), g_joystickObjects,
+};
+
+// Logs who called an export (module+offset of the return address and the thread), once per export.
+void LogCaller(const char* exportName, void* returnAddress, volatile LONG* logged) {
+	if (InterlockedExchange(logged, 1)) return;
+	char where[MAX_PATH + 32];
+	DescribeAddress(reinterpret_cast<DWORD64>(returnAddress), where, sizeof(where));
+	Log("%s first called from %s on thread %lu", exportName, where, GetCurrentThreadId());
+}
+
 bool IsEqGame() {
 	char exe[MAX_PATH];
 	GetModuleFileNameA(nullptr, exe, MAX_PATH);
@@ -143,9 +188,17 @@ void ApplyPatches() {
 extern "C" {
 
 HRESULT WINAPI Proxy_DirectInput8Create(HINSTANCE hinst, DWORD ver, REFIID riid, LPVOID* out, LPUNKNOWN outer) {
+	static volatile LONG logged = 0;
+	static thread_local int depth = 0;
+	LogCaller("DirectInput8Create", _ReturnAddress(), &logged);
+	if (depth > 0) Log("DirectInput8Create re-entered on thread %lu (depth %d)", GetCurrentThreadId(), depth);
 	using Fn = HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN);
 	auto fn = reinterpret_cast<Fn>(RealProc("DirectInput8Create"));
-	return fn ? fn(hinst, ver, riid, out, outer) : E_FAIL;
+	if (!fn) return E_FAIL;
+	++depth;
+	HRESULT hr = fn(hinst, ver, riid, out, outer);
+	--depth;
+	return hr;
 }
 
 HRESULT WINAPI Proxy_DllCanUnloadNow() {
@@ -173,9 +226,9 @@ HRESULT WINAPI Proxy_DllUnregisterServer() {
 }
 
 const void* WINAPI Proxy_GetdfDIJoystick() {
-	using Fn = const void*(WINAPI*)();
-	auto fn = reinterpret_cast<Fn>(RealProc("GetdfDIJoystick"));
-	return fn ? fn() : nullptr;
+	static volatile LONG logged = 0;
+	LogCaller("GetdfDIJoystick", _ReturnAddress(), &logged);
+	return &g_joystickFormat;
 }
 
 } // extern "C"

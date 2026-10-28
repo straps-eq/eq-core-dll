@@ -12,6 +12,7 @@ endif()
 add_library(dinput8 SHARED src/dllmain.cpp src/patcher.cpp src/patches.cpp src/nametags.cpp src/map.cpp src/buffs.cpp src/hud.cpp src/itemdisplay.cpp src/spellinfo.cpp src/spellwindow.cpp src/stml.cpp src/fct.cpp src/nameplates.cpp src/advloot.cpp src/keyring.cpp src/magictag.cpp src/dinput8.def)
 target_compile_definitions(dinput8 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS)
 target_compile_options(dinput8 PRIVATE /W4)
+target_link_libraries(dinput8 PRIVATE dxguid)
 
 add_executable(eqcore_check tools/eqcore_check.cpp src/patcher.cpp src/patches.cpp src/nametags.cpp src/map.cpp src/buffs.cpp src/hud.cpp src/itemdisplay.cpp src/spellinfo.cpp src/spellwindow.cpp src/stml.cpp src/fct.cpp src/nameplates.cpp src/advloot.cpp src/keyring.cpp src/magictag.cpp)
 target_compile_definitions(eqcore_check PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS)
