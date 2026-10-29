@@ -36,6 +36,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <algorithm>
 #include "spellinfo.h"
 #include "stml.h"
 #include <windows.h>
@@ -357,7 +358,33 @@ struct StatRow {
 	std::string label;       // "Shielding:"
 	std::string value;       // "1%"
 	bool faction = false;    // "Faction (...)": too long for a grid label, listed in the text instead
+	int order = 0;           // RoF2's row order
 };
+
+// RoF2's labels and order for the stats ToB lacks (the server's names on the left); RoF2 shows no % sign.
+const bool kRoF2NoPercent = true;
+struct RoF2Label {
+	const char* server;
+	const char* shown;
+};
+const RoF2Label kRoF2Labels[] = {
+	{ "Spell Shielding", "Spell Shield" }, { "Shielding", "Shielding" }, { "DoT Shielding", "DoT Shield" },
+	{ "Damage Shield", "Damage Shield" }, { "DS Mitigation", "DS Mitigation" }, { "Avoidance", "Avoidance" },
+	{ "Accuracy", "Accuracy" }, { "Stun Resist", "Stun Resist" }, { "Strikethrough", "Strike Thr" },
+	{ "Combat Effects", "Combat Effects" },
+};
+
+// Renames a server label to RoF2's and returns its place in RoF2's order (unknown labels after these, as sent).
+int RoF2Order(std::string* label) {
+	const int n = static_cast<int>(sizeof(kRoF2Labels) / sizeof(kRoF2Labels[0]));
+	for (int i = 0; i < n; ++i) {
+		if (*label == kRoF2Labels[i].server) {
+			*label = kRoF2Labels[i].shown;
+			return i;
+		}
+	}
+	return n;
+}
 struct Stats {
 	bool answered = false;
 	std::vector<StatRow> rows;
@@ -388,14 +415,13 @@ const Stats* HiddenStats(uint8_t* wnd, uint32_t id) {
 	return nullptr;
 }
 
-// The rows go into the stat grid's third column (Heal Amount, Spell Dmg, Clairvoyance, ...) from inside the window's
-// UpdateStrings FUN_14041c1e0, so its own layout pass at the end sizes the grid for them. The place: the first call to
-// the extra-damage skill getter FUN_14064fec0 for the shown item, which UpdateStrings makes right after the column's
-// last stat rows and before it stores the column's row count (wnd+0x4a0 = row counter wnd+0x448). Cells, as the
-// client writes them: label FUN_140429f30(wnd, row, 3, CXStr*), value FUN_14042a270(wnd, row, 3, text, 0, 0). The
-// grid has 25 usable rows per column (label cells at wnd+((row+0x35)*3+col)*8, value cells from row+0x4f).
-// Compare mode (wnd+0xa70) is left alone. When the column has no rows of its own the client lays out fewer columns,
-// so the stats go to the end of the description text instead.
+// The rows go at the top of the stat block's third column, above Heal Amount and Spell Dmg, as RoF2 lists them, from
+// inside the window's UpdateStrings FUN_14041c1e0 so its own layout pass at the end sizes the grid for them. The
+// place: the first call to the Luck getter FUN_14064f0c0 for the shown item, which is where UpdateStrings starts that
+// column (the row counter wnd+0x448 has just been set back to the block's first row). Cells, as the client writes
+// them: label FUN_140429f30(wnd, row, 3, CXStr*), value FUN_14042a270(wnd, row, 3, text, 0, 0). The grid has 25 usable
+// rows per column (label cells at wnd+((row+0x35)*3+col)*8, value cells from row+0x4f). Labels and order follow RoF2
+// (Spell Shield, Shielding, ... Strike Thr). Compare mode (wnd+0xa70) is left alone; faction rows go to the text.
 const size_t kWndRowCounter = 0x448;    // int, next row of the column being written
 const size_t kWndCompare = 0xa70;       // u8
 const int kGridColumn = 3;
@@ -403,11 +429,11 @@ const int kGridRows = 25;
 
 using UpdateFn = void (*)(uint8_t* wnd, void* item, int flag);   // SetItem passes its own third argument on
 using ClearFn = void (*)(uint8_t* wnd);
-using SkillTypeFn = uint32_t (*)(uint8_t* item);
+using LuckFn = int (*)(uint8_t* item, uint8_t a2, int* a3, uint8_t a4);
 using GridLabelFn = void (*)(uint8_t* wnd, int row, int column, void** text, uint8_t flag);
 using GridTextFn = void (*)(uint8_t* wnd, int row, int column, const char* text, int sign, int widen);
 UpdateFn g_origUpdate = nullptr;        // FUN_14041c1e0
-SkillTypeFn g_origSkillType = nullptr;  // FUN_14064fec0
+LuckFn g_origLuck = nullptr;            // FUN_14064f0c0
 GridLabelFn g_gridLabel = nullptr;      // FUN_140429f30
 GridTextFn g_gridText = nullptr;        // FUN_14042a270
 ClearFn g_clearDisplay = nullptr;       // FUN_140413e70: hides every grid cell and empties the text (SetItem, before UpdateStrings)
@@ -423,7 +449,7 @@ void AddStatRows(uint8_t* wnd, uint8_t* item) {
 	const Stats* s = HiddenStats(wnd, U32(def, kDefId));
 	if (!s || s->rows.empty()) return;
 	int& row = *reinterpret_cast<int*>(wnd + kWndRowCounter);
-	if (row <= 1) {
+	if (row < 1) {
 		g_textRows = kTextAll;
 		return;
 	}
@@ -441,12 +467,12 @@ void AddStatRows(uint8_t* wnd, uint8_t* item) {
 	}
 }
 
-uint32_t SkillTypeDetour(uint8_t* item) {
+int LuckDetour(uint8_t* item, uint8_t a2, int* a3, uint8_t a4) {
 	if (g_statsOn && g_updWnd && !g_rowsDone && item && item == g_updItem) {
 		g_rowsDone = true;
 		if (!g_updWnd[kWndCompare]) AddStatRows(g_updWnd, item);
 	}
-	return g_origSkillType(item);
+	return g_origLuck(item, a2, a3, a4);
 }
 
 void UpdateDetour(uint8_t* wnd, void* item, int flag) {
@@ -599,8 +625,8 @@ const HookSite kItemHiddenStatsHooks[4] = {
 	// CItemDisplayWnd::UpdateStrings FUN_14041c1e0(wnd, ItemPtr*). Stolen (5): mov [rsp+18],rbx.
 	{ "48 89 5C 24 18 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 C0 F0 FF FF", 5,
 	  reinterpret_cast<void*>(&UpdateDetour), REF(g_origUpdate) },
-	// ItemBase extra-damage skill getter FUN_14064fec0(item): mov eax,[def+52c]. Stolen (7): sub rsp,28; mov rax,[rcx].
-	{ "48 83 EC 28 48 8B 01 FF 50 28 8B 80 2C 05 00 00", 7, reinterpret_cast<void*>(&SkillTypeDetour), REF(g_origSkillType) },
+	// ItemBase Luck getter FUN_14064f0c0(item, ...), the first stat of the third column. Stolen (5): mov [rsp+18],r8.
+	{ "4C 89 44 24 18 53 55 56 57 41 57", 5, reinterpret_cast<void*>(&LuckDetour), REF(g_origLuck) },
 	// Shared with Nameplates / EquipmentKeyRing: the packet dispatcher FUN_1401e4010, for the answers.
 	{ kDispatchSig, 5, reinterpret_cast<void*>(g_dispatchDetour), reinterpret_cast<void**>(g_origDispatchSlot) },
 };
@@ -632,13 +658,15 @@ void ItemStatsOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 		StatRow row;
 		row.label.assign(reinterpret_cast<const char*>(data + at), length);
 		row.faction = row.label.compare(0, 7, "Faction") == 0;
+		row.order = RoF2Order(&row.label);
 		row.label += ':';
 		char text[24];
-		snprintf(text, sizeof(text), "%d%s", value, (flags & 1) ? "%" : "");
+		snprintf(text, sizeof(text), "%d%s", value, (flags & 1) && !kRoF2NoPercent ? "%" : "");
 		row.value = text;
 		s.rows.push_back(row);
 		at += length;
 	}
+	std::stable_sort(s.rows.begin(), s.rows.end(), [](const StatRow& a, const StatRow& b) { return a.order < b.order; });
 	// Rebuild the window that asked, if it still shows that item: its whole text, grid included.
 	uint8_t* wnd = g_statsWnd;
 	if (!wnd || g_statsWndItem != id || !wnd[kWndHasItem] || s.rows.empty() || g_updWnd) return;
