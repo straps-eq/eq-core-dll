@@ -28,5 +28,6 @@ uint8_t** HudLocalPlayerRef();                      // &pLocalPlayer as kHudRefs
 uint8_t* HudTarget();                               // the current target, or nullptr
 void HudCXStr(void** str, const char* text);        // CXStr::CXStr(const char*)
 void HudCXStrRelease(void** str);
+bool HudInGameState();                              // game state 5, local player and PC present
 void* HudLocalPC();                                 // *pLocalPC
 uint32_t HudConColour(uint8_t* spawn);              // the con colour the Target window uses, opaque ARGB

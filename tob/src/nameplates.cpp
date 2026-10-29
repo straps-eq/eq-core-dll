@@ -1237,8 +1237,9 @@ using NameTextFn = uint64_t (*)(uint8_t* spawn, uint64_t bone, const char* text)
 NameTextFn g_origNameText = nullptr;
 
 uint64_t NameTextDetour(uint8_t* spawn, uint64_t bone, const char* text) {
-	if (g_nameHookOn && spawn && text && text[0] && static_cast<uint32_t>(bone) == 0 && FctInGame()) {
-		if (spawn == FctLocalPlayer() ? !g_cfg.selfName : (spawn[kSpawnType] >= 2 && !g_cfg.corpseNames)) text = nullptr;
+	// Hud refs only: NameplateOptionsPage installs this hook without the FCT refs FctInGame() needs.
+	if (g_nameHookOn && spawn && text && text[0] && static_cast<uint32_t>(bone) == 0 && HudInGameState()) {
+		if (spawn == *HudLocalPlayerRef() ? !g_cfg.selfName : (spawn[kSpawnType] >= 2 && !g_cfg.corpseNames)) text = nullptr;
 	}
 	return g_origNameText(spawn, bone, text);
 }
@@ -1529,11 +1530,11 @@ bool NameplatePageNotify(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 			}
 			g_cfg.*kBoxes[i].field = on;
 			SaveKey(kBoxes[i].key, on ? "1" : "0");
-			if (FctInGame() && kBoxes[i].field == &Config::selfName) {
-				uint8_t* me = FctLocalPlayer();
+			if (HudInGameState() && kBoxes[i].field == &Config::selfName) {
+				uint8_t* me = *HudLocalPlayerRef();
 				if (me) g_setNameSpriteState(me, static_cast<char>(g_nameGlobals[0]));   // rebuild my name
 			}
-			else if (FctInGame() && kBoxes[i].field == &Config::corpseNames) {
+			else if (HudInGameState() && kBoxes[i].field == &Config::corpseNames) {
 				uint8_t* display = *g_pDisplayPage;
 				if (display) g_setNpcNames(display, display[kDisplayNpcNames]);   // rebuilds every non-PC name
 			}
