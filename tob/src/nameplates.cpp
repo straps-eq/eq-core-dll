@@ -71,7 +71,10 @@ const size_t kSpawnMasterId = 0x2d8;     // u32 pet owner
 const size_t kSpawnHpCur = 0x5e8;        // int64 (percent for others)
 const size_t kSpawnHpMax = 0x5f8;        // int64 (100 for others)
 const size_t kSpawnActor = 0x1170;       // CActorInterface*
-const size_t kActorNameSprite = 0x2f0;   // EQGraphics string sprite, may be null
+const size_t kActorNameSprite = 0x2f0;   // EQGraphics string sprite, may be null; only in actors with a name (NameSprite)
+const size_t kActorVtblSetNameSprite = 0x320;   // creates the sprite at +0x2f0; a bare ret in actor classes without one
+const size_t kSetNameSpriteRva = 0x612c0;
+const size_t kNameSpriteVtblRva = 0x2c5498;     // CStringSprite (the class the depth bars use)
 const size_t kSpriteText = 0x10;         // text pointer, null when the name is empty
 const size_t kSpriteFont = 0x18;         // int, 10 when text is set
 const size_t kSpriteScale = 0x90;        // float, actor scale written on each draw
@@ -429,11 +432,50 @@ ActorVisibleFn ActorVisibleCall(uint8_t* actor) {
 	return reinterpret_cast<ActorVisibleFn>(fn);
 }
 
+// Actor vtables sorted by whether the class has a name sprite at +0x2f0. Of the five EQGraphics actor classes
+// that share the visibility test, only two (vtables +0x2b9d90, +0x2ba648) create one; in the other three the
+// setter slot is a stub and +0x2f0 holds unrelated data, so reading a "sprite" there faults.
+void* g_namedActorVtbl[8] = {};
+int g_namedActorVtbls = 0;
+void* g_namelessActorVtbl[8] = {};
+int g_namelessActorVtbls = 0;
+uint8_t* g_nameGfx = nullptr;          // EQGraphics.dll the vtables were checked against
+
+bool ActorHasNameSprite(void** vt) {
+	for (int i = 0; i < g_namedActorVtbls; ++i)
+		if (g_namedActorVtbl[i] == vt) return true;
+	for (int i = 0; i < g_namelessActorVtbls; ++i)
+		if (g_namelessActorVtbl[i] == vt) return false;
+	uint8_t* gfx = reinterpret_cast<uint8_t*>(GetModuleHandleA("EQGraphics.dll"));
+	if (!gfx) return false;
+	if (gfx != g_nameGfx) {
+		g_nameGfx = gfx;
+		g_namedActorVtbls = g_namelessActorVtbls = 0;
+	}
+	void* fn = vt[kActorVtblSetNameSprite / sizeof(void*)];
+	const bool named = fn == gfx + kSetNameSpriteRva &&
+		StartsWith(fn, "48 89 5C 24 10 48 89 6C 24 18 56 57 41 56 48 83 EC 20 49 8B E9 4D 8B F0 8B F2 48 8B D9 48 8B 81 F0 02 00 00");
+	if (named && g_namedActorVtbls < 8) g_namedActorVtbl[g_namedActorVtbls++] = vt;
+	if (!named && g_namelessActorVtbls < 8) g_namelessActorVtbl[g_namelessActorVtbls++] = vt;
+	return named;
+}
+
+// The engine name sprite of this spawn's actor, or nullptr when the actor's class has none or it is not built.
+uint8_t* NameSprite(uint8_t* spawn) {
+	uint8_t* actor = *reinterpret_cast<uint8_t**>(spawn + kSpawnActor);
+	if (!actor) return nullptr;
+	void** vt = *reinterpret_cast<void***>(actor);
+	if (!vt || !ActorHasNameSprite(vt)) return nullptr;
+	uint8_t* sprite = *reinterpret_cast<uint8_t**>(actor + kActorNameSprite);
+	if (!sprite || *reinterpret_cast<uint8_t**>(sprite) != g_nameGfx + kNameSpriteVtblRva) return nullptr;
+	return sprite;
+}
+
 // True when the client drew this spawn's name last frame (or may have: its actor rendered, the name has text and
 // a bone, and it is inside the name's own distance cutoff).
 bool NameDrawnLastFrame(uint8_t* spawn, float camX, float camY) {
 	uint8_t* actor = *reinterpret_cast<uint8_t**>(spawn + kSpawnActor);
-	uint8_t* sprite = actor ? *reinterpret_cast<uint8_t**>(actor + kActorNameSprite) : nullptr;
+	uint8_t* sprite = NameSprite(spawn);
 	if (!actor || !sprite) return false;
 	ActorVisibleFn visible = ActorVisibleCall(actor);
 	if (!visible || !visible(actor)) return false;
@@ -515,8 +557,7 @@ bool NameBox(uint8_t* spawn, uint8_t* mgr, float* box) {
 	float sx = 0.0f, sy = 0.0f;
 	if (!FctProject(head, &sx, &sy)) return false;
 	const int32_t* vp = FctViewport();
-	uint8_t* actor = *reinterpret_cast<uint8_t**>(spawn + kSpawnActor);
-	uint8_t* sprite = actor ? *reinterpret_cast<uint8_t**>(actor + kActorNameSprite) : nullptr;
+	uint8_t* sprite = NameSprite(spawn);
 	if (sprite && *reinterpret_cast<int*>(sprite + kSpriteFont) == kSpriteFontName && *reinterpret_cast<void**>(sprite + kSpriteText)) {
 		const int* r = reinterpret_cast<const int*>(sprite + kSpriteRect);
 		const int w = r[2] - r[0], h = r[3] - r[1];
@@ -1145,8 +1186,7 @@ void PostVisibleBody() {
 		Plan p;
 		if (!PlanSpawn(spawn, me, target, camX, camY, now, &p)) continue;
 		if (p.isMe && (g_cfg.selfIgnoresOcclusion || !g_cfg.selfName)) continue;   // 2D path (no name to anchor to)
-		uint8_t* actor = *reinterpret_cast<uint8_t**>(spawn + kSpawnActor);
-		uint8_t* name = actor ? *reinterpret_cast<uint8_t**>(actor + kActorNameSprite) : nullptr;
+		uint8_t* name = NameSprite(spawn);
 		if (!name || !*reinterpret_cast<void**>(name + kItemQueued)) continue;   // the name is not drawn this frame
 		if (*reinterpret_cast<int*>(name + kSpriteFont) != kSpriteFontName) continue;
 		const int* r = reinterpret_cast<const int*>(name + kSpriteRect);
