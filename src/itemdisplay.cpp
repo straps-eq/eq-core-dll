@@ -356,6 +356,7 @@ const uint32_t kOpItemStats = 0x7e51;
 struct StatRow {
 	std::string label;       // "Shielding:"
 	std::string value;       // "1%"
+	bool faction = false;    // "Faction (...)": too long for a grid label, listed in the text instead
 };
 struct Stats {
 	bool answered = false;
@@ -364,6 +365,8 @@ struct Stats {
 std::unordered_map<uint32_t, Stats> g_stats;   // by item id, for the session
 uint8_t* g_statsWnd = nullptr;                  // the window that asked last, rebuilt when the answer arrives
 uint32_t g_statsWndItem = 0;
+int g_statsWndFlag = 0;                         // that window's UpdateStrings third argument, for the rebuild
+int g_updFlag = 0;
 
 void RequestStats(uint32_t id) {
 	uint8_t* conn = *g_pConnection;
@@ -380,6 +383,7 @@ const Stats* HiddenStats(uint8_t* wnd, uint32_t id) {
 	if (it != g_stats.end() && it->second.answered) return &it->second;
 	g_statsWnd = wnd;
 	g_statsWndItem = id;
+	g_statsWndFlag = g_updFlag;
 	RequestStats(id);
 	return nullptr;
 }
@@ -397,7 +401,8 @@ const size_t kWndCompare = 0xa70;       // u8
 const int kGridColumn = 3;
 const int kGridRows = 25;
 
-using UpdateFn = void (*)(uint8_t* wnd, void* item);
+using UpdateFn = void (*)(uint8_t* wnd, void* item, int flag);   // SetItem passes its own third argument on
+using ClearFn = void (*)(uint8_t* wnd);
 using SkillTypeFn = uint32_t (*)(uint8_t* item);
 using GridLabelFn = void (*)(uint8_t* wnd, int row, int column, void** text, uint8_t flag);
 using GridTextFn = void (*)(uint8_t* wnd, int row, int column, const char* text, int sign, int widen);
@@ -405,10 +410,12 @@ UpdateFn g_origUpdate = nullptr;        // FUN_14041c1e0
 SkillTypeFn g_origSkillType = nullptr;  // FUN_14064fec0
 GridLabelFn g_gridLabel = nullptr;      // FUN_140429f30
 GridTextFn g_gridText = nullptr;        // FUN_14042a270
+ClearFn g_clearDisplay = nullptr;       // FUN_140413e70: hides every grid cell and empties the text (SetItem, before UpdateStrings)
 uint8_t* g_updWnd = nullptr;            // the window UpdateStrings is building, else null
 uint8_t* g_updItem = nullptr;
 bool g_rowsDone = false;
-bool g_textFallback = false;            // the column was empty: put the stats in the text
+enum TextRows { kTextNone, kTextFactions, kTextAll };
+TextRows g_textRows = kTextNone;        // what AddStatText lists: factions only, or everything when the column was empty
 
 void AddStatRows(uint8_t* wnd, uint8_t* item) {
 	uint8_t* def = VCall<uint8_t*>(item, kItemVtblGetDef);
@@ -417,10 +424,14 @@ void AddStatRows(uint8_t* wnd, uint8_t* item) {
 	if (!s || s->rows.empty()) return;
 	int& row = *reinterpret_cast<int*>(wnd + kWndRowCounter);
 	if (row <= 1) {
-		g_textFallback = true;
+		g_textRows = kTextAll;
 		return;
 	}
 	for (const StatRow& r : s->rows) {
+		if (r.faction) {
+			g_textRows = kTextFactions;
+			continue;
+		}
 		if (row >= kGridRows) break;
 		void* label = nullptr;
 		g_cxstrFromCStr(&label, r.label.c_str());
@@ -438,27 +449,30 @@ uint32_t SkillTypeDetour(uint8_t* item) {
 	return g_origSkillType(item);
 }
 
-void UpdateDetour(uint8_t* wnd, void* item) {
+void UpdateDetour(uint8_t* wnd, void* item, int flag) {
 	if (!g_statsOn || g_updWnd || !wnd || !item || !SpellInfoInGame()) {
-		g_origUpdate(wnd, item);
+		g_origUpdate(wnd, item, flag);
 		return;
 	}
 	g_updWnd = wnd;
 	g_updItem = *reinterpret_cast<uint8_t**>(item);
+	g_updFlag = flag;
 	g_rowsDone = false;
-	g_textFallback = false;
-	g_origUpdate(wnd, item);
+	g_textRows = kTextNone;
+	g_origUpdate(wnd, item, flag);
 	g_updWnd = nullptr;
 }
 
 // Fallback for items whose third column is empty: the rows at the end of the description text.
 void AddStatText(TextBuf& t, uint8_t* wnd, const uint8_t* def) {
-	if (!g_textFallback) return;
-	g_textFallback = false;
+	const TextRows what = g_textRows;
+	g_textRows = kTextNone;
+	if (what == kTextNone) return;
 	const Stats* s = HiddenStats(wnd, U32(def, kDefId));
 	if (!s || s->rows.empty()) return;
 	t.Add("<BR>");
-	for (const StatRow& r : s->rows) t.Add("<BR>%s %s", r.label.c_str(), r.value.c_str());
+	for (const StatRow& r : s->rows)
+		if (what == kTextAll || r.faction) t.Add("<BR>%s %s", r.label.c_str(), r.value.c_str());
 }
 
 // ---- hook ----
@@ -548,7 +562,7 @@ const HookSite kItemDisplayExtrasHooks[1] = {
 	{ kFinaliseSig, 5, reinterpret_cast<void*>(&FinaliseDetour), REF(g_origFinalise) },
 };
 
-const RefSite kItemDisplayExtrasRefs[25] = {
+const RefSite kItemDisplayExtrasRefs[26] = {
 	// ItemBase::GetCost FUN_14064f280(item, includeAugments): def = vtbl+0x28; mov r15d,[rax+c0]
 	{ "40 53 41 56 41 57 48 83 EC 50 48 8B 01 0F B6 DA 4C 8B F1 FF 50 28 4D 8B 06 49 8B CE 44 8B B8 C0 00 00 00",
 	  0, 0, REF(g_getCost) },
@@ -567,6 +581,8 @@ const RefSite kItemDisplayExtrasRefs[25] = {
 	{ "48 89 5C 24 08 4C 89 4C 24 20 57 48 83 EC 20 49 8B D9 48 63 C2", 0, 0, REF(g_gridLabel) },
 	// stat grid value cell from a string FUN_14042a270(wnd, row, column, const char* text, sign, widen)
 	{ "40 53 57 48 83 EC 58 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 40 49 8B D9", 0, 0, REF(g_gridText) },
+	// CItemDisplayWnd reset FUN_140413e70(wnd): hides the 13 + 26x3x2 + 13 cells, empties the description
+	{ "48 89 5C 24 10 48 89 6C 24 18 56 57 41 56 48 83 EC 20 BE 0D 00 00 00", 0, 0, REF(g_clearDisplay) },
 	SPELLINFO_REF_SITES,
 };
 
@@ -615,6 +631,7 @@ void ItemStatsOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 		if (at + length > size) break;
 		StatRow row;
 		row.label.assign(reinterpret_cast<const char*>(data + at), length);
+		row.faction = row.label.compare(0, 7, "Faction") == 0;
 		row.label += ':';
 		char text[24];
 		snprintf(text, sizeof(text), "%d%s", value, (flags & 1) ? "%" : "");
@@ -627,5 +644,11 @@ void ItemStatsOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 	if (!wnd || g_statsWndItem != id || !wnd[kWndHasItem] || s.rows.empty() || g_updWnd) return;
 	uint8_t* item = *reinterpret_cast<uint8_t**>(wnd + kWndItem);
 	uint8_t* def = item ? VCall<uint8_t*>(item, kItemVtblGetDef) : nullptr;
-	if (def && U32(def, kDefId) == id) UpdateDetour(wnd, reinterpret_cast<void*>(wnd + kWndItem));
+	// The tail of SetItem FUN_1404314e0 for the same item: hide the cells, UpdateStrings with the flag it was built
+	// with, then the finalise step (the text and its extras).
+	if (def && U32(def, kDefId) == id) {
+		g_clearDisplay(wnd);
+		UpdateDetour(wnd, reinterpret_cast<void*>(wnd + kWndItem), g_statsWndFlag);
+		FinaliseDetour(wnd);
+	}
 }
