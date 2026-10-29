@@ -425,11 +425,11 @@ const Stats* HiddenStats(uint8_t* wnd, uint32_t id) {
 const size_t kWndRowCounter = 0x448;    // int, next row of the column being written
 const size_t kWndCompare = 0xa70;       // u8
 const int kGridColumn = 3;
-const int kGridRows = 25;
+const int kGridRows = 25; int kNativeRowsAfter = 18;        // the most rows UpdateStrings can still add to the column after the Luck call
 
 using UpdateFn = void (*)(uint8_t* wnd, void* item, int flag);   // SetItem passes its own third argument on
 using ClearFn = void (*)(uint8_t* wnd);
-using LuckFn = int (*)(uint8_t* item, uint8_t a2, int* a3, uint8_t a4);
+using LuckFn = int (*)(uint8_t* item, uint8_t a2, int* a3, uint8_t a4, uint8_t a5, uint8_t a6);   // six arguments (nt_getters.c)
 using GridLabelFn = void (*)(uint8_t* wnd, int row, int column, void** text, uint8_t flag);
 using GridTextFn = void (*)(uint8_t* wnd, int row, int column, const char* text, int sign, int widen);
 UpdateFn g_origUpdate = nullptr;        // FUN_14041c1e0
@@ -440,39 +440,50 @@ ClearFn g_clearDisplay = nullptr;       // FUN_140413e70: hides every grid cell 
 uint8_t* g_updWnd = nullptr;            // the window UpdateStrings is building, else null
 uint8_t* g_updItem = nullptr;
 bool g_rowsDone = false;
-enum TextRows { kTextNone, kTextFactions, kTextAll };
-TextRows g_textRows = kTextNone;        // what AddStatText lists: factions only, or everything when the column was empty
+std::vector<char> g_inGrid;             // per row of the shown item's stats: placed in the grid this build
+bool g_textPending = false;             // some rows did not go into the grid: AddStatText lists them
+int g_insertStart = -1;                 // the column's first row this build, and how many rows we put there
+int g_inserted = 0;
+// Rows UpdateStrings itself wrote into the column after ours, per item id, measured on each build (wnd+0x4a0 = the
+// column's end). The cell writers have no range check (26 rows, then other members of the window), so ours never take
+// more than what is left after them; an item never measured yet assumes the most the column can hold (18).
+std::unordered_map<uint32_t, int> g_nativeAfter;
+const size_t kWndColumn3End = 0x4a0;    // int, the column's next free row once UpdateStrings is done
 
 void AddStatRows(uint8_t* wnd, uint8_t* item) {
 	uint8_t* def = VCall<uint8_t*>(item, kItemVtblGetDef);
 	if (!def) return;
-	const Stats* s = HiddenStats(wnd, U32(def, kDefId));
-	if (!s || s->rows.empty()) return;
+	const uint32_t id = U32(def, kDefId);
 	int& row = *reinterpret_cast<int*>(wnd + kWndRowCounter);
-	if (row < 1) {
-		g_textRows = kTextAll;
-		return;
-	}
-	for (const StatRow& r : s->rows) {
-		if (r.faction) {
-			g_textRows = kTextFactions;
+	g_insertStart = row;
+	g_inserted = 0;
+	const Stats* s = HiddenStats(wnd, id);
+	if (!s || s->rows.empty()) return;
+	g_inGrid.assign(s->rows.size(), 0);
+	auto it = g_nativeAfter.find(id);
+	const int limit = kGridRows - (it != g_nativeAfter.end() ? it->second : kNativeRowsAfter);
+	for (size_t i = 0; i < s->rows.size(); ++i) {
+		const StatRow& r = s->rows[i];
+		if (r.faction || row < 1 || row >= limit) {
+			g_textPending = true;
 			continue;
 		}
-		if (row >= kGridRows) break;
 		void* label = nullptr;
 		g_cxstrFromCStr(&label, r.label.c_str());
 		g_gridLabel(wnd, row, kGridColumn, &label, 0);
 		g_gridText(wnd, row, kGridColumn, r.value.c_str(), 0, 0);
+		g_inGrid[i] = 1;
 		++row;
+		++g_inserted;
 	}
 }
 
-int LuckDetour(uint8_t* item, uint8_t a2, int* a3, uint8_t a4) {
+int LuckDetour(uint8_t* item, uint8_t a2, int* a3, uint8_t a4, uint8_t a5, uint8_t a6) {
 	if (g_statsOn && g_updWnd && !g_rowsDone && item && item == g_updItem) {
 		g_rowsDone = true;
 		if (!g_updWnd[kWndCompare]) AddStatRows(g_updWnd, item);
 	}
-	return g_origLuck(item, a2, a3, a4);
+	return g_origLuck(item, a2, a3, a4, a5, a6);
 }
 
 void UpdateDetour(uint8_t* wnd, void* item, int flag) {
@@ -484,21 +495,29 @@ void UpdateDetour(uint8_t* wnd, void* item, int flag) {
 	g_updItem = *reinterpret_cast<uint8_t**>(item);
 	g_updFlag = flag;
 	g_rowsDone = false;
-	g_textRows = kTextNone;
+	g_textPending = false;
+	g_inGrid.clear();
+	g_insertStart = -1;
 	g_origUpdate(wnd, item, flag);
 	g_updWnd = nullptr;
+	// How many rows the client added after ours, for the next build of this item.
+	uint8_t* obj = *reinterpret_cast<uint8_t**>(item);
+	uint8_t* def = obj ? VCall<uint8_t*>(obj, kItemVtblGetDef) : nullptr;
+	if (def && g_insertStart >= 0 && !wnd[kWndCompare]) {
+		const int native = *reinterpret_cast<int*>(wnd + kWndColumn3End) - g_insertStart - g_inserted;
+		if (native >= 0 && native <= kNativeRowsAfter) g_nativeAfter[U32(def, kDefId)] = native;
+	}
 }
 
 // Fallback for items whose third column is empty: the rows at the end of the description text.
 void AddStatText(TextBuf& t, uint8_t* wnd, const uint8_t* def) {
-	const TextRows what = g_textRows;
-	g_textRows = kTextNone;
-	if (what == kTextNone) return;
+	if (!g_textPending) return;
+	g_textPending = false;
 	const Stats* s = HiddenStats(wnd, U32(def, kDefId));
 	if (!s || s->rows.empty()) return;
 	t.Add("<BR>");
-	for (const StatRow& r : s->rows)
-		if (what == kTextAll || r.faction) t.Add("<BR>%s %s", r.label.c_str(), r.value.c_str());
+	for (size_t i = 0; i < s->rows.size(); ++i)
+		if (i >= g_inGrid.size() || !g_inGrid[i]) t.Add("<BR>%s %s", s->rows[i].label.c_str(), s->rows[i].value.c_str());
 }
 
 // ---- hook ----

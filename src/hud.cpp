@@ -604,6 +604,13 @@ void HudCXStrRelease(void** str) {
 	if (*str) g_cxstrRelease(str, *str);
 }
 
+// Game state 5 with a local player and PC, from the Hud's own refs (valid whenever kHudRefs resolved).
+bool HudInGameState() {
+	if (!g_pEverQuest || !g_pLocalPlayer || !g_pLocalPC) return false;
+	uint8_t* eq = *g_pEverQuest;
+	return eq && *reinterpret_cast<int*>(eq + kEverQuestGameState) == kGameStateInGame && *g_pLocalPlayer && *g_pLocalPC;
+}
+
 void* HudLocalPC() {
 	return *g_pLocalPC;
 }
