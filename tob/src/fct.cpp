@@ -683,8 +683,16 @@ void OnDamage(const uint8_t* pkt) {
 	AddText(target, word, colour, cat, false, 2000, kWord);
 }
 
+// The client's damage message reads the source spawn without a null check when the source id is 0 (damage the
+// server sends from no spawn): FUN_140287d20 skips the lookup for id 0, then FUN_140267b50 (message 0x10A, "YOU"
+// as the target) and FUN_140287d20 +0x3c9c read spawn +0x135 through the null pointer. The client is handed the
+// target as the source for that packet; FCT and Nameplates still see it as sent.
 void DamageDetour(uint8_t* pkt) {
+	uint16_t* source = pkt ? reinterpret_cast<uint16_t*>(pkt + kDmgSource) : nullptr;
+	const uint16_t sentSource = source ? *source : 0;
+	if (source && sentSource == 0) *source = *reinterpret_cast<const uint16_t*>(pkt + kDmgTarget);
 	g_origDamage(pkt);
+	if (source) *source = sentSource;
 	if (g_on && pkt) OnDamage(pkt);
 	if (pkt) NameplatesOnDamage(pkt);
 }
