@@ -434,6 +434,7 @@ struct Controls {
 	uint8_t* shiftBox;
 	uint8_t* autoBox;
 	uint32_t shownCaps;     // the flags the visibility was last set for (+1 so 0 is "never")
+	uint8_t* fingerprint;   // the window's own +0x330 control when resolved
 };
 Controls g_ctl = {};
 
@@ -473,9 +474,13 @@ bool IsChecked(uint8_t* box) {
 
 // Looks the controls up once per window (a UI reload builds a new one); missing controls stay null.
 void Resolve(uint8_t* wnd) {
-	if (g_ctl.wnd == wnd) return;
+	// A UI reload can build the new window at the old address: its own Apply Filters checkbox (+0x330) tells the two
+	// apart, so the cached controls are never used after the old window is gone.
+	uint8_t* fingerprint = *reinterpret_cast<uint8_t**>(wnd + kWndApplyFiltersCheck);
+	if (g_ctl.wnd == wnd && g_ctl.fingerprint == fingerprint) return;
 	Controls c = {};
 	c.wnd = wnd;
+	c.fingerprint = fingerprint;
 	c.merge = Child(wnd, "ADLW_PLL_MergeAllBtn");
 	c.store = Child(wnd, "ADLW_PLL_StoreAllBtn");
 	c.sell = Child(wnd, "ADLW_PLL_SellAllBtn");
