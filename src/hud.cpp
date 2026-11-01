@@ -32,6 +32,7 @@
 #include "nameplates.h"
 #include "advloot.h"
 #include "keyring.h"
+#include "itemdisplay.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -477,6 +478,7 @@ int DrawWindowsDetour(uint8_t* mgr) {
 	NameplatesFrame(mgr, inGame);
 	AdvLootFrame(inGame);
 	KeyRingFrame(inGame);
+	ItemDisplayFrame(inGame);
 	FctFrame(mgr, inGame);
 	if (g_hudOn && inGame) DrawHud(mgr, *g_pLocalPlayer);
 	g_inDraw = false;

@@ -1395,8 +1395,13 @@ const int kSliderTicks[kSliderCount] = { 100, 200, 59 };
 const uint32_t kThreatColours[] = { 0, 0xFF0000, 0xFF8000, 0xFFFF00, 0xFFFFFF, 0xC000FF };
 const int kThreatColourCount = static_cast<int>(sizeof(kThreatColours) / sizeof(kThreatColours[0]));
 
+// The options window's own Display-page checkbox pointer (a COptionsWnd member): a window rebuilt at the same address
+// by a UI reload has a new one.
+const size_t kOptFingerprint = 0x500;
+
 struct Page {
 	uint8_t* owner;
+	uint8_t* fingerprint;
 	uint8_t* page;
 	uint8_t* box[kBoxCount];
 	uint8_t* conColour;
@@ -1475,13 +1480,17 @@ bool Resolve() {
 		g_page = {};
 		return false;
 	}
-	if (g_page.owner == opt) return g_page.page != nullptr;
+	// UI reload at the same address: see fct.cpp (the options window's +0x500 member tells the two apart).
+	uint8_t* fingerprint = *reinterpret_cast<uint8_t**>(opt + kOptFingerprint);
+	if (g_page.owner == opt && g_page.fingerprint == fingerprint) return g_page.page != nullptr;
 	g_page = {};
 	g_page.owner = opt;
+	g_page.fingerprint = fingerprint;
 	uint8_t* page = OptChild(opt, "OptionsNamePlatesPage");
 	if (!page) return false;
 	Page p = {};
 	p.owner = opt;
+	p.fingerprint = fingerprint;
 	p.page = page;
 	for (int i = 0; i < kBoxCount; ++i) {
 		p.box[i] = OptChild(page, kBoxes[i].id);

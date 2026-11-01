@@ -1243,8 +1243,13 @@ const int kColourPresetCount = static_cast<int>(sizeof(kColourPresets) / sizeof(
 const char* const kKeyPresets[] = { "none", "Ctrl+Shift+F", "Ctrl+Shift+C", "Ctrl+Shift+T", "Ctrl+Alt+F", "Shift+F12" };
 const int kKeyPresetCount = static_cast<int>(sizeof(kKeyPresets) / sizeof(kKeyPresets[0]));
 
+// The options window's own Display-page checkbox pointer (a COptionsWnd member): a window rebuilt at the same address
+// by a UI reload has a new one.
+const size_t kOptFingerprint = 0x500;
+
 struct Page {
 	uint8_t* owner;                      // the COptionsWnd these were looked up on
+	uint8_t* fingerprint;                // its +0x500 member then
 	uint8_t* page;
 	uint8_t* toggle;
 	uint8_t* sell;
@@ -1428,13 +1433,18 @@ bool Resolve() {
 		g_page = {};
 		return false;
 	}
-	if (g_page.owner == opt) return g_page.page != nullptr;
+	// A UI reload can build the new window at the old address: the window's own Display-page checkbox (+0x500) tells
+	// the two apart, so the cached children are never used after the old window is gone.
+	uint8_t* fingerprint = *reinterpret_cast<uint8_t**>(opt + kOptFingerprint);
+	if (g_page.owner == opt && g_page.fingerprint == fingerprint) return g_page.page != nullptr;
 	g_page = {};
 	g_page.owner = opt;
+	g_page.fingerprint = fingerprint;
 	uint8_t* page = Child(opt, "OptionsCombatTextPage");
 	if (!page) return false;
 	Page p = {};
 	p.owner = opt;
+	p.fingerprint = fingerprint;
 	p.page = page;
 	p.toggle = Child(page, "FCT_Toggle");
 	p.sell = Child(page, "FCT_SellToggle");
@@ -1557,7 +1567,7 @@ uint64_t NotifyDetour(uint8_t* opt, uint8_t* sender, int msg, void* data) {
 
 // Keeps the page in step after the toggle key changed Enabled (no-op when the page is not resolved).
 void SyncOptionsPage() {
-	if (g_pageOn && g_page.page && g_page.owner == *g_pOptionsWnd) SetBox(g_page.toggle, g_cfg.enabled);
+	if (g_pageOn && g_page.page && g_page.owner == *g_pOptionsWnd && Resolve()) SetBox(g_page.toggle, g_cfg.enabled);
 }
 
 const char* kOptionsWndSig = "48 83 3D ?? ?? ?? ?? 00 75 ?? B9 D0 28 00 00";

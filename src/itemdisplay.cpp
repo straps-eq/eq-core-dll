@@ -33,6 +33,7 @@
 // On a reply for the item an item window is showing, that window is rebuilt (UpdateStrings).
 #include "itemdisplay.h"
 #include "nameplates.h"
+#include "hud.h"
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -393,6 +394,8 @@ std::unordered_map<uint32_t, Stats> g_stats;   // by item id, for the session
 uint8_t* g_statsWnd = nullptr;                  // the window that asked last, rebuilt when the answer arrives
 uint32_t g_statsWndItem = 0;
 int g_statsWndFlag = 0;                         // that window's UpdateStrings third argument, for the rebuild
+void* g_statsWndVtbl = nullptr;                 // its vtable then (the window must still be a CItemDisplayWnd)
+uint32_t g_redrawId = 0;                        // answered while that window showed it: rebuild on the next frame
 int g_updFlag = 0;
 
 void RequestStats(uint32_t id) {
@@ -411,6 +414,7 @@ const Stats* HiddenStats(uint8_t* wnd, uint32_t id) {
 	g_statsWnd = wnd;
 	g_statsWndItem = id;
 	g_statsWndFlag = g_updFlag;
+	g_statsWndVtbl = *reinterpret_cast<void**>(wnd);
 	RequestStats(id);
 	return nullptr;
 }
@@ -638,7 +642,9 @@ const char* ItemDisplayExtrasPrepare() {
 	return nullptr;
 }
 
-const HookSite kItemHiddenStatsHooks[4] = {
+const HookSite kItemHiddenStatsHooks[5] = {
+	// Shared with the Hud and others: DrawWindows, for the rebuild after the server's answer (ItemDisplayFrame).
+	{ kDrawWindowsSig, 5, reinterpret_cast<void*>(&DrawWindowsDetour), reinterpret_cast<void**>(&g_origDrawWindows) },
 	// Shared with ItemDisplayExtras: the finalise step, for the text fallback.
 	{ kFinaliseSig, 5, reinterpret_cast<void*>(&FinaliseDetour), REF(g_origFinalise) },
 	// CItemDisplayWnd::UpdateStrings FUN_14041c1e0(wnd, ItemPtr*). Stolen (5): mov [rsp+18],rbx.
@@ -651,6 +657,7 @@ const HookSite kItemHiddenStatsHooks[4] = {
 };
 
 const char* ItemHiddenStatsPrepare() {
+	if (const char* e = HudTextPrepare()) return e;
 	if (const char* e = SpellInfoPrepare()) return e;
 	LoadConfig();
 	g_statsOn = true;
@@ -686,16 +693,25 @@ void ItemStatsOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 		at += length;
 	}
 	std::stable_sort(s.rows.begin(), s.rows.end(), [](const StatRow& a, const StatRow& b) { return a.order < b.order; });
-	// Rebuild the window that asked, if it still shows that item: its whole text, grid included.
+	// The window that asked is rebuilt on the next frame (ItemDisplayFrame), not here inside the packet dispatcher.
+	if (g_statsWnd && g_statsWndItem == id && !s.rows.empty()) g_redrawId = id;
+}
+
+// From the shared DrawWindows hook: rebuild the window that asked, if it is still a CItemDisplayWnd showing that item.
+void ItemDisplayFrame(bool inGame) {
+	if (!g_statsOn || !g_redrawId) return;
+	const uint32_t id = g_redrawId;
+	g_redrawId = 0;
 	uint8_t* wnd = g_statsWnd;
-	if (!wnd || g_statsWndItem != id || !wnd[kWndHasItem] || s.rows.empty() || g_updWnd) return;
+	if (!inGame || !wnd || g_updWnd || g_statsWndItem != id || *reinterpret_cast<void**>(wnd) != g_statsWndVtbl ||
+	    !wnd[kWndHasItem])
+		return;
 	uint8_t* item = *reinterpret_cast<uint8_t**>(wnd + kWndItem);
 	uint8_t* def = item ? VCall<uint8_t*>(item, kItemVtblGetDef) : nullptr;
+	if (!def || U32(def, kDefId) != id) return;
 	// The tail of SetItem FUN_1404314e0 for the same item: hide the cells, UpdateStrings with the flag it was built
 	// with, then the finalise step (the text and its extras).
-	if (def && U32(def, kDefId) == id) {
-		g_clearDisplay(wnd);
-		UpdateDetour(wnd, reinterpret_cast<void*>(wnd + kWndItem), g_statsWndFlag);
-		FinaliseDetour(wnd);
-	}
+	g_clearDisplay(wnd);
+	UpdateDetour(wnd, reinterpret_cast<void*>(wnd + kWndItem), g_statsWndFlag);
+	FinaliseDetour(wnd);
 }

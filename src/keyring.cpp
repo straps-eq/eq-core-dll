@@ -345,6 +345,7 @@ struct Page {
 	uint8_t* count;
 	uint8_t* box;
 	uint8_t* filter;      // class filter combobox
+	uint8_t* fingerprint; // the window's own +0x3f8 control when resolved
 	uint64_t shown;       // content signature the list was last built for
 	bool missingLogged;
 };
@@ -389,9 +390,13 @@ bool IsChecked(uint8_t* box) {
 
 // Looks the page's controls up once per window (a UI reload makes a new one).
 void Resolve(uint8_t* wnd) {
-	if (g_ui.wnd == wnd) return;
+	// A UI reload can build the new window at the old address: its own Auto Leave checkbox (+0x3f8) tells the two
+	// apart, so the cached controls are never used after the old window is gone.
+	uint8_t* fingerprint = *reinterpret_cast<uint8_t**>(wnd + kKrwAutoLeaveBox);
+	if (g_ui.wnd == wnd && g_ui.fingerprint == fingerprint) return;
 	Page p = {};
 	p.wnd = wnd;
+	p.fingerprint = fingerprint;
 	p.missingLogged = g_ui.missingLogged;
 	p.list = Child(wnd, "KRW_Equipment_List");
 	p.count = Child(wnd, "KRW_Equipment_Count");

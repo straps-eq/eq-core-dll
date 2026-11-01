@@ -165,7 +165,8 @@ static const Feature kFeatures[] = {
 	// per item id and listed in the item window: the item display finalise hook (shared with ItemDisplayExtras) and the
 	// shared packet dispatcher. See itemdisplay.cpp.
 	{ "ItemHiddenStats",  true, "Stats ToB's item window cannot show, from the server", nullptr,       0,
-	  kItemHiddenStatsHooks, COUNT(kItemHiddenStatsHooks), kItemDisplayExtrasRefs, COUNT(kItemDisplayExtrasRefs), ItemHiddenStatsPrepare },
+	  kItemHiddenStatsHooks, COUNT(kItemHiddenStatsHooks), kItemDisplayExtrasRefs, COUNT(kItemDisplayExtrasRefs), ItemHiddenStatsPrepare,
+	  kHudRefs, COUNT(kHudRefs) },
 };
 
 const Feature* GetFeatures(size_t* count) {
