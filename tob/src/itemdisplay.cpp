@@ -92,6 +92,9 @@ const size_t kProfileRecastTimers = 0x4cc4;
 const int kRecastTypes = 100;
 // PlayerClient
 const size_t kSpawnLevel = 0x494;       // u8
+// ItemClient +0x18: u64, the item header's MerchantSlot field, which the server fills with the item's serial number
+// outside merchant lists (instance deserialiser FUN_1402b5e00; +0x14 is LastCastTime, read above as kItemReadyTime).
+const size_t kItemSerial = 0x18;
 
 using FinaliseFn = void (*)(uint8_t* wnd);
 using GetCostFn = int (*)(void* item, int includeAugments);
@@ -109,6 +112,7 @@ SendMessageFn g_sendMessage = nullptr;       // FUN_140547ef0
 uint8_t** g_pConnection = nullptr;           // &DAT_140e65da8
 bool g_extrasOn = false;                     // ItemDisplayExtras
 bool g_statsOn = false;                      // ItemHiddenStats
+bool g_upgradeOn = false;                    // PowerSourceProgress
 
 template <typename R, typename... A>
 R VCall(void* obj, size_t slot, A... args) {
@@ -490,7 +494,10 @@ int LuckDetour(uint8_t* item, uint8_t a2, int* a3, uint8_t a4, uint8_t a5, uint8
 	return g_origLuck(item, a2, a3, a4, a5, a6);
 }
 
+void RememberUpdateFlag(uint8_t* wnd, int flag);   // PowerSourceProgress, below
+
 void UpdateDetour(uint8_t* wnd, void* item, int flag) {
+	if (g_upgradeOn && wnd) RememberUpdateFlag(wnd, flag);
 	if (!g_statsOn || g_updWnd || !wnd || !item || !SpellInfoInGame()) {
 		g_origUpdate(wnd, item, flag);
 		return;
@@ -524,6 +531,53 @@ void AddStatText(TextBuf& t, uint8_t* wnd, const uint8_t* def) {
 		if (i >= g_inGrid.size() || !g_inGrid[i]) t.Add("<BR>%s %s", s->rows[i].label.c_str(), s->rows[i].value.c_str());
 }
 
+// ---- Power Source progress (PowerSourceProgress) ----
+// S2C kOpClientExtras 0x7e52 kind 2 {u8 kind=2; u32 count; count x {u32 serial; u16 permille; u32 next_item_id}}: each
+// packet replaces the list, count 0 clears it. An item window showing a listed serial gets "Upgrade: 42.0%" ("Upgrade:
+// top tier" for next_item_id 0). Windows that showed a serial whose entry changed are rebuilt on the next frame, the
+// same way as for hidden stats.
+struct Upgrade {
+	uint16_t permille;
+	uint32_t next;
+};
+std::unordered_map<uint32_t, Upgrade> g_upgrades;   // by serial
+struct ShownItem {
+	uint8_t* wnd;
+	void* vtbl;          // the window's vtable when it showed the serial
+	uint32_t serial;
+	int flag;            // its UpdateStrings third argument, for the rebuild (-1 unknown)
+	bool redraw;
+};
+const int kShownSlots = 8;
+ShownItem g_shown[kShownSlots] = {};
+int g_shownNext = 0;
+
+ShownItem* Shown(uint8_t* wnd) {
+	for (ShownItem& s : g_shown)
+		if (s.wnd == wnd) return &s;
+	ShownItem& s = g_shown[g_shownNext];
+	g_shownNext = (g_shownNext + 1) % kShownSlots;
+	s = { wnd, nullptr, 0, -1, false };
+	return &s;
+}
+
+void RememberUpdateFlag(uint8_t* wnd, int flag) {
+	Shown(wnd)->flag = flag;
+}
+
+void AddUpgrade(TextBuf& t, uint8_t* wnd, const uint8_t* item) {
+	const uint64_t serial = *reinterpret_cast<const uint64_t*>(item + kItemSerial);
+	if (!serial || serial > 0xffffffffull) return;
+	ShownItem* s = Shown(wnd);
+	s->vtbl = *reinterpret_cast<void**>(wnd);
+	s->serial = static_cast<uint32_t>(serial);
+	auto it = g_upgrades.find(s->serial);
+	if (it == g_upgrades.end()) return;
+	t.Add("<BR>");
+	if (!it->second.next) t.Add("<BR>Upgrade: top tier");
+	else t.Add("<BR>Upgrade: %u.%u%%", it->second.permille / 10u, it->second.permille % 10u);
+}
+
 // ---- hook ----
 
 const size_t kTextMax = 65536;   // the client's text (lore, item information) plus ours
@@ -542,6 +596,7 @@ void AppendExtras(uint8_t* wnd) {
 	size_t native = StmlTrimBreaks(text, StmlCurrentText(stml, text, sizeof(text)));
 	TextBuf t(text + native, sizeof(text) - native);
 	if (g_statsOn) AddStatText(t, wnd, def);
+	if (g_upgradeOn) AddUpgrade(t, wnd, item);
 	if (!g_extrasOn) {
 		if (t.len) StmlSetText(stml, text, g_cxstrFromCStr, g_setStmlText);
 		return;
@@ -664,6 +719,24 @@ const char* ItemHiddenStatsPrepare() {
 	return nullptr;
 }
 
+const HookSite kPowerSourceHooks[4] = {
+	// The same four hooks as ItemHiddenStats without the Luck getter: DrawWindows (rebuild after a packet), the finalise
+	// step (the line), UpdateStrings (the flag a rebuild needs) and the packet dispatcher (the list).
+	{ kDrawWindowsSig, 5, reinterpret_cast<void*>(&DrawWindowsDetour), reinterpret_cast<void**>(&g_origDrawWindows) },
+	{ kFinaliseSig, 5, reinterpret_cast<void*>(&FinaliseDetour), REF(g_origFinalise) },
+	{ "48 89 5C 24 18 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 C0 F0 FF FF", 5,
+	  reinterpret_cast<void*>(&UpdateDetour), REF(g_origUpdate) },
+	{ kDispatchSig, 5, reinterpret_cast<void*>(g_dispatchDetour), reinterpret_cast<void**>(g_origDispatchSlot) },
+};
+
+const char* PowerSourceProgressPrepare() {
+	if (const char* e = HudTextPrepare()) return e;
+	if (const char* e = SpellInfoPrepare()) return e;
+	LoadConfig();
+	g_upgradeOn = true;
+	return nullptr;
+}
+
 // S2C 0x7e51 {u32 item_id; u8 count; count x {u8 flags; i32 value; u8 length; char label[length]}}
 void ItemStatsOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 	if (!g_statsOn || op != kOpItemStats || !data || size < 5) return;
@@ -697,8 +770,60 @@ void ItemStatsOnPacket(uint32_t op, const uint8_t* data, uint32_t size) {
 	if (g_statsWnd && g_statsWndItem == id && !s.rows.empty()) g_redrawId = id;
 }
 
+// kOpClientExtras kind 2 {u8 kind=2; u32 count; count x {u32 serial; u16 permille; u32 next_item_id}}: the whole list.
+void ItemUpgradeOnPacket(const uint8_t* data, uint32_t size) {
+	if (!g_upgradeOn || size < 5) return;
+	uint32_t count;
+	memcpy(&count, data + 1, 4);
+	std::unordered_map<uint32_t, Upgrade> list;
+	for (uint32_t i = 0, at = 5; i < count && at + 10 <= size; ++i, at += 10) {
+		uint32_t serial;
+		Upgrade u;
+		memcpy(&serial, data + at, 4);
+		memcpy(&u.permille, data + at + 4, 2);
+		memcpy(&u.next, data + at + 6, 4);
+		if (u.permille > 999) u.permille = 999;
+		list[serial] = u;
+	}
+	// Rebuilt on the next frame (ItemDisplayFrame), not here inside the packet dispatcher: windows that show a serial
+	// whose entry appeared, changed or went away.
+	for (ShownItem& s : g_shown) {
+		if (!s.wnd || !s.serial) continue;
+		auto was = g_upgrades.find(s.serial), now = list.find(s.serial);
+		const bool hadIt = was != g_upgrades.end(), hasIt = now != list.end();
+		if (hadIt != hasIt || (hasIt && (was->second.permille != now->second.permille || was->second.next != now->second.next)))
+			s.redraw = true;
+	}
+	g_upgrades.swap(list);
+}
+
+namespace {
+
+// The tail of SetItem FUN_1404314e0 for the item a window already shows: hide the cells, UpdateStrings with the flag
+// it was built with, then the finalise step (the text and its extras).
+void Rebuild(uint8_t* wnd, int flag) {
+	g_clearDisplay(wnd);
+	UpdateDetour(wnd, reinterpret_cast<void*>(wnd + kWndItem), flag);
+	FinaliseDetour(wnd);
+}
+
+void RebuildUpgradeWindows(bool inGame) {
+	for (ShownItem& s : g_shown) {
+		if (!s.redraw) continue;
+		s.redraw = false;
+		uint8_t* wnd = s.wnd;
+		if (!inGame || g_updWnd || s.flag < 0 || *reinterpret_cast<void**>(wnd) != s.vtbl || !wnd[kWndHasItem]) continue;
+		uint8_t* item = *reinterpret_cast<uint8_t**>(wnd + kWndItem);
+		if (!item || *reinterpret_cast<const uint64_t*>(item + kItemSerial) != s.serial) continue;
+		Rebuild(wnd, s.flag);
+	}
+}
+
+} // namespace
+
 // From the shared DrawWindows hook: rebuild the window that asked, if it is still a CItemDisplayWnd showing that item.
 void ItemDisplayFrame(bool inGame) {
+	if (g_upgradeOn) RebuildUpgradeWindows(inGame);
 	if (!g_statsOn || !g_redrawId) return;
 	const uint32_t id = g_redrawId;
 	g_redrawId = 0;
@@ -709,9 +834,5 @@ void ItemDisplayFrame(bool inGame) {
 	uint8_t* item = *reinterpret_cast<uint8_t**>(wnd + kWndItem);
 	uint8_t* def = item ? VCall<uint8_t*>(item, kItemVtblGetDef) : nullptr;
 	if (!def || U32(def, kDefId) != id) return;
-	// The tail of SetItem FUN_1404314e0 for the same item: hide the cells, UpdateStrings with the flag it was built
-	// with, then the finalise step (the text and its extras).
-	g_clearDisplay(wnd);
-	UpdateDetour(wnd, reinterpret_cast<void*>(wnd + kWndItem), g_statsWndFlag);
-	FinaliseDetour(wnd);
+	Rebuild(wnd, g_statsWndFlag);
 }

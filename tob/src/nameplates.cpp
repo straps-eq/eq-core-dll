@@ -47,6 +47,7 @@
 #include "nametags.h"
 #include "keyring.h"
 #include "itemdisplay.h"
+#include "heromods.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -345,6 +346,7 @@ uint64_t DispatchDetour(void* self, void* a2, uint32_t op, uint8_t* data, uint32
 	if (data) {
 		KeyRingOnPacket(op, data, size);
 		ItemStatsOnPacket(op, data, size);
+		ClientExtrasOnPacket(op, data, size);
 	}
 	if (g_on && data) {
 		if (op == kOpInterruptCast && size >= 8) {
