@@ -10,6 +10,7 @@
 #include "advloot.h"
 #include "keyring.h"
 #include "magictag.h"
+#include "heromods.h"
 #include "aa600_sites.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
@@ -168,6 +169,15 @@ static const Feature kFeatures[] = {
 	// shared packet dispatcher. See itemdisplay.cpp.
 	{ "ItemHiddenStats",  true, "Stats ToB's item window cannot show, from the server", nullptr,       0,
 	  kItemHiddenStatsHooks, COUNT(kItemHiddenStatsHooks), kItemDisplayExtrasRefs, COUNT(kItemDisplayExtrasRefs), ItemHiddenStatsPrepare,
+	  kHudRefs, COUNT(kHudRefs) },
+	// The Stats tab's Heroic Mods rows with the server's value and cap (S2C 0x7e52 kind 1): hook on the label text
+	// function FUN_1404ffba0 (EQTypes 215-224 / 277-286) and the shared packet dispatcher. See heromods.cpp.
+	{ "HeroicModsFromServer", true, "Stats tab Heroic Mods from the server",      nullptr,           0,
+	  kHeroicModsHooks, COUNT(kHeroicModsHooks), kHeroicModsRefs, COUNT(kHeroicModsRefs), HeroicModsPrepare },
+	// "Upgrade: 42.0%" in the item window for Power Source items (S2C 0x7e52 kind 2, by item serial): the item window
+	// hooks of ItemHiddenStats without the Luck getter. See itemdisplay.cpp.
+	{ "PowerSourceProgress", true, "Power Source upgrade progress in the item window", nullptr,     0,
+	  kPowerSourceHooks, COUNT(kPowerSourceHooks), kItemDisplayExtrasRefs, COUNT(kItemDisplayExtrasRefs), PowerSourceProgressPrepare,
 	  kHudRefs, COUNT(kHudRefs) },
 };
 
