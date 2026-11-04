@@ -12,6 +12,7 @@
 #include "magictag.h"
 #include "heromods.h"
 #include "aa600_sites.h"
+#include "aa600.h"
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -103,7 +104,9 @@ static const Feature kFeatures[] = {
 	{ "NoFoodDrinkSpam",  false, "No hunger/thirst client processing or messages",  kFoodDrinkSpam,    COUNT(kFoodDrinkSpam) },
 	{ "NoPatchme",        false, "Start without the patchme argument",              kPatchme,          COUNT(kPatchme) },
 	{ "PersonaUnspentAA", false, "Persona class swap with unspent AA points",       kPersonaUnspentAA, COUNT(kPersonaUnspentAA) },
-	{ "AA600",            false, "Hold 600 owned AAs instead of 300",               kAA600,            COUNT(kAA600) },
+	// The 65 rewrites, plus the shared DrawWindows hook that mirrors the first 300 into the old slot (aa600.cpp).
+	{ "AA600",            false, "Hold 600 owned AAs instead of 300",               kAA600,            COUNT(kAA600),
+	  kAA600Hooks, COUNT(kAA600Hooks), kHudRefs, COUNT(kHudRefs), AA600Prepare, kAA600Refs, COUNT(kAA600Refs) },
 	{ "ConNameTags",      false, "Colour NPC name tags by con colour",              nullptr,           0,
 	  kConNameTagsHooks, COUNT(kConNameTagsHooks), kConNameTagsRefs, COUNT(kConNameTagsRefs), ConNameTagsPrepare },
 	// Spawn dots/labels and target line on the map: hook on MapViewMap::PostDraw (FUN_140455a60), see map.cpp.
